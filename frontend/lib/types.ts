@@ -22,6 +22,8 @@ export interface EventDetail {
   description?: string;
   location?: string;
   bannerUrl?: string;
+  bannerFocusX?: number;
+  bannerFocusY?: number;
   category?: string;
   startDate?: string;
   startTime?: string;

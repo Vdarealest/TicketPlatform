@@ -21,6 +21,8 @@ interface ReservationDetail {
       id: number;
       title: string;
       bannerUrl?: string;
+      bannerFocusX?: number;
+      bannerFocusY?: number;
       location?: string;
       startTime?: string;
     };
@@ -135,9 +137,10 @@ export default function CheckoutPage() {
 
           <div className="tsp-header__main">
             <img
-              src={event.bannerUrl ? `/img/${event.bannerUrl}` : '/img/placeholder.jpg'}
+              src={event.bannerUrl ? (event.bannerUrl.startsWith('http') ? event.bannerUrl : `/img/${event.bannerUrl}`) : '/img/placeholder.jpg'}
               alt={event.title}
               className="tsp-header__img"
+              style={{ objectPosition: `${event.bannerFocusX ?? 50}% ${event.bannerFocusY ?? 50}%` }}
             />
             <div className="tsp-header__info">
               <h2 className="tsp-card__title" style={{ display: 'block' }}>{event.title}</h2>

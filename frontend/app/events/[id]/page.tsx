@@ -53,9 +53,10 @@ export default function EventDetailPage() {
       {/* Hero */}
       <div className="edp-hero">
         <img
-          src={event.bannerUrl ? `/img/${event.bannerUrl}` : '/img/placeholder.jpg'}
+          src={event.bannerUrl ? (event.bannerUrl.startsWith('http') ? event.bannerUrl : `/img/${event.bannerUrl}`) : '/img/placeholder.jpg'}
           alt={event.title}
           className="edp-hero__img"
+          style={{ objectPosition: `${event.bannerFocusX ?? 50}% ${event.bannerFocusY ?? 50}%` }}
         />
         <div className="edp-hero__scrim" />
         <div className="edp-hero__title-wrap">

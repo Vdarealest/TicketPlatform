@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import api from '../../lib/api';
 
 const NAV_LINKS = [
   { label: 'Events', href: '/events' },
@@ -37,6 +38,7 @@ export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
   const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [userRole, setUserRole] = useState<string | null>(null);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -45,8 +47,10 @@ export default function Navbar() {
     if (token) {
       const email = decodeJwtEmail(token);
       setUserEmail(email);
+      api.get('/auth/me').then((res) => setUserRole(res.data?.role || null)).catch(() => setUserRole(null));
     } else {
       setUserEmail(null);
+      setUserRole(null);
     }
   }, []);
 
@@ -179,6 +183,18 @@ export default function Navbar() {
                     </svg>
                     Vé của tôi
                   </Link>
+
+                  {userRole === 'ADMIN' && (
+                    <Link href="/admin" className="nav-dropdown__item" onClick={() => setDropdownOpen(false)}>
+                      <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
+                        <rect x="2" y="2" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.4" />
+                        <rect x="9" y="2" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.4" />
+                        <rect x="2" y="9" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.4" />
+                        <rect x="9" y="9" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.4" />
+                      </svg>
+                      Quản trị Admin
+                    </Link>
+                  )}
 
                   <div className="nav-dropdown__divider" />
 

@@ -34,11 +34,12 @@ export default function EventCard({ event }: EventCardProps) {
           <img
             src={
               event.bannerUrl
-                ? `/img/${event.bannerUrl}` // Trỏ vào folder assets/img/ cho banner
+                ? (event.bannerUrl.startsWith('http') ? event.bannerUrl : `/img/${event.bannerUrl}`)
                 : '/img/placeholder.jpg'
             }
             alt={event.title}
             className="ec2-img"
+            style={{ objectPosition: `${event.bannerFocusX ?? 50}% ${event.bannerFocusY ?? 50}%` }}
           />
           {formattedPrice && (
             <span className="ec2-price">Từ {formattedPrice}</span>

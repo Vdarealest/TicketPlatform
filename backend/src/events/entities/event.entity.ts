@@ -2,6 +2,7 @@ import {
   Entity,
   PrimaryGeneratedColumn,
   Column,
+  CreateDateColumn,
   OneToMany,
 } from 'typeorm';
 
@@ -24,11 +25,20 @@ export class Event {
   @Column()
   bannerUrl: string;
 
+  @Column({ type: 'int', default: 50 })
+  bannerFocusX: number;
+
+  @Column({ type: 'int', default: 50 })
+  bannerFocusY: number;
+
   @Column()
   startTime: Date;
 
   @Column()
   endTime: Date;
+
+  @CreateDateColumn()
+  createdAt: Date;
 
   @OneToMany(
     () => Ticket,

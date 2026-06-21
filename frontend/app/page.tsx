@@ -40,9 +40,10 @@ export default function Home() {
         <section className="home-hero">
           <div className="home-hero__slide">
             <img
-              src={heroEvent.bannerUrl ? `/img/${heroEvent.bannerUrl}` : '/img/placeholder.jpg'}
+              src={heroEvent.bannerUrl ? (heroEvent.bannerUrl.startsWith('http') ? heroEvent.bannerUrl : `/img/${heroEvent.bannerUrl}`) : '/img/placeholder.jpg'}
               alt={heroEvent.title}
               className="home-hero__img"
+              style={{ objectPosition: `${heroEvent.bannerFocusX ?? 50}% ${heroEvent.bannerFocusY ?? 50}%` }}
             />
             <div className="home-hero__scrim" />
             <div className="home-hero__content">
