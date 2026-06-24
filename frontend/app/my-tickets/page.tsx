@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { QRCodeSVG } from 'qrcode.react';
 import api from '@/lib/api';
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
@@ -51,6 +52,8 @@ interface Reservation {
   status: string;
   createdAt: string;
   expiresAt: string;
+  confirmationCode: string | null;
+  seat?: { id: number; label: string } | null;
   ticket: {
     id: number;
     type: string;
@@ -95,25 +98,37 @@ function applyFilter(list: Reservation[], f: FilterKey) {
   });
 }
 
-// ─── QR placeholder icon ─────────────────────────────────────────────────────
+// ─── QR code component ──────────────────────────────────────────────────────
 
-function QrIcon() {
+function TicketQr({ code }: { code: string | null }) {
+  if (!code) {
+    return (
+      <svg className="tk-qr-svg" viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <rect x="2"  y="2"  width="16" height="16" rx="2" stroke="currentColor" strokeWidth="1.5"/>
+        <rect x="6"  y="6"  width="8"  height="8"  fill="currentColor"/>
+        <rect x="26" y="2"  width="16" height="16" rx="2" stroke="currentColor" strokeWidth="1.5"/>
+        <rect x="30" y="6"  width="8"  height="8"  fill="currentColor"/>
+        <rect x="2"  y="26" width="16" height="16" rx="2" stroke="currentColor" strokeWidth="1.5"/>
+        <rect x="6"  y="30" width="8"  height="8"  fill="currentColor"/>
+        <rect x="26" y="26" width="4"  height="4"  fill="currentColor"/>
+        <rect x="32" y="26" width="4"  height="4"  fill="currentColor"/>
+        <rect x="38" y="26" width="4"  height="4"  fill="currentColor"/>
+        <rect x="26" y="32" width="4"  height="4"  fill="currentColor"/>
+        <rect x="38" y="32" width="4"  height="4"  fill="currentColor"/>
+        <rect x="26" y="38" width="4"  height="4"  fill="currentColor"/>
+        <rect x="32" y="38" width="4"  height="4"  fill="currentColor"/>
+      </svg>
+    );
+  }
   return (
-    <svg className="tk-qr-svg" viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      <rect x="2"  y="2"  width="16" height="16" rx="2" stroke="currentColor" strokeWidth="1.5"/>
-      <rect x="6"  y="6"  width="8"  height="8"  fill="currentColor"/>
-      <rect x="26" y="2"  width="16" height="16" rx="2" stroke="currentColor" strokeWidth="1.5"/>
-      <rect x="30" y="6"  width="8"  height="8"  fill="currentColor"/>
-      <rect x="2"  y="26" width="16" height="16" rx="2" stroke="currentColor" strokeWidth="1.5"/>
-      <rect x="6"  y="30" width="8"  height="8"  fill="currentColor"/>
-      <rect x="26" y="26" width="4"  height="4"  fill="currentColor"/>
-      <rect x="32" y="26" width="4"  height="4"  fill="currentColor"/>
-      <rect x="38" y="26" width="4"  height="4"  fill="currentColor"/>
-      <rect x="26" y="32" width="4"  height="4"  fill="currentColor"/>
-      <rect x="38" y="32" width="4"  height="4"  fill="currentColor"/>
-      <rect x="26" y="38" width="4"  height="4"  fill="currentColor"/>
-      <rect x="32" y="38" width="4"  height="4"  fill="currentColor"/>
-    </svg>
+    <QRCodeSVG
+      value={code}
+      size={72}
+      level="M"
+      bgColor="transparent"
+      fgColor="#1a1a2e"
+      className="tk-qr-svg"
+    />
   );
 }
 
@@ -127,6 +142,7 @@ function TicketCard({ r }: { r: Reservation }) {
   const startTime  = r.ticket?.event?.startTime ?? r.createdAt;
   const price      = r.ticket?.price ?? 0;
   const type       = r.ticket?.type ?? '—';
+  const seatLabel  = r.seat?.label;
 
   return (
     <article className={`tk-card${isExpired ? ' tk-card--expired' : ''}`}>
@@ -156,6 +172,7 @@ function TicketCard({ r }: { r: Reservation }) {
         <div className="tk-bottom-row">
           <span className="tk-ref">{fmtRef(r.id)}</span>
           <span className="tk-type-pill">{type}</span>
+          {seatLabel && <span className="tk-type-pill" style={{ background: '#EEF2FF', color: '#0F35FF' }}>Ghế {seatLabel}</span>}
         </div>
       </div>
 
@@ -170,9 +187,14 @@ function TicketCard({ r }: { r: Reservation }) {
         <span className="tk-stub-logo">Vietix</span>
         <div className="tk-price">{fmtPrice(price)}</div>
         <span className={`tk-badge ${s.cls}`}>{s.label}</span>
-        <div className="tk-qr-wrap" aria-hidden="true">
-          <QrIcon />
+        <div className="tk-qr-wrap">
+          <TicketQr code={r.confirmationCode} />
         </div>
+        {r.confirmationCode && (
+          <p style={{ margin: '4px 0 0', fontSize: 9, color: '#9ca3af', fontFamily: 'monospace', textAlign: 'center', wordBreak: 'break-all' }}>
+            {r.confirmationCode}
+          </p>
+        )}
       </div>
     </article>
   );

@@ -37,6 +37,7 @@ export default function Navbar() {
   const router = useRouter();
   const [scrolled, setScrolled] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
+  const [searchValue, setSearchValue] = useState('');
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<string | null>(null);
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -94,6 +95,12 @@ export default function Navbar() {
     };
   }, [dropdownOpen]);
 
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    const q = searchValue.trim();
+    router.push(q ? `/events?search=${encodeURIComponent(q)}` : '/events');
+  };
+
   const handleLogout = () => {
     localStorage.removeItem('access_token');
     window.dispatchEvent(new Event('auth-changed'));
@@ -119,18 +126,22 @@ export default function Navbar() {
 
         {/* CENTER */}
         <div className="onezone-nav__search-wrap">
-          <div className={`onezone-nav__search ${searchFocused ? 'onezone-nav__search--focused' : ''}`}>
-            <svg width="15" height="15" viewBox="0 0 16 16" fill="none" className="onezone-nav__search-icon">
-              <circle cx="6.5" cy="6.5" r="5" stroke="currentColor" strokeWidth="1.6" />
-              <path d="M10.5 10.5L14 14" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-            </svg>
+          <form onSubmit={handleSearch} className={`onezone-nav__search ${searchFocused ? 'onezone-nav__search--focused' : ''}`}>
+            <button type="submit" className="onezone-nav__search-icon" aria-label="Tìm kiếm" style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'inline-flex' }}>
+              <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
+                <circle cx="6.5" cy="6.5" r="5" stroke="currentColor" strokeWidth="1.6" />
+                <path d="M10.5 10.5L14 14" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+              </svg>
+            </button>
             <input
-              placeholder="Search events..."
+              placeholder="Tìm sự kiện..."
               className="onezone-nav__search-input"
+              value={searchValue}
+              onChange={(e) => setSearchValue(e.target.value)}
               onFocus={() => setSearchFocused(true)}
               onBlur={() => setSearchFocused(false)}
             />
-          </div>
+          </form>
         </div>
 
         {/* RIGHT */}

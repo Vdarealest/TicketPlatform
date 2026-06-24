@@ -15,6 +15,7 @@ import { HealthController } from './health/health.controller';
 import { PaymentsModule } from './payments/payments.module';
 import { AdminModule } from './admin/admin.module';
 import { UploadModule } from './upload/upload.module';
+import { MailModule } from './mail/mail.module';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { join } from 'path';
 
@@ -47,6 +48,7 @@ import { join } from 'path';
     PaymentsModule,
     AdminModule,
     UploadModule,
+    MailModule,
     ServeStaticModule.forRoot({
       rootPath: join(process.cwd(), 'uploads'),
       serveRoot: '/uploads',

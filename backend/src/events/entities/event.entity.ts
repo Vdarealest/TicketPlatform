@@ -22,6 +22,9 @@ export class Event {
   @Column()
   location: string;
 
+  @Column({ default: 'Khác' })
+  category: string;
+
   @Column()
   bannerUrl: string;
 

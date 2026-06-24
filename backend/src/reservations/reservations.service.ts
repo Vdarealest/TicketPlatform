@@ -190,6 +190,113 @@ export class ReservationsService {
     }
   }
 
+  async reserveMultipleSeats(
+    ticketId: number,
+    userId: number,
+    seatIds: number[],
+  ) {
+    if (!seatIds.length || seatIds.length > 10) {
+      throw new BadRequestException('Chọn từ 1 đến 10 ghế.');
+    }
+
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      const ticket = await queryRunner.manager
+        .createQueryBuilder(Ticket, 'ticket')
+        .innerJoinAndSelect('ticket.event', 'event')
+        .setLock('pessimistic_write')
+        .where('ticket.id = :id', { id: ticketId })
+        .getOne();
+
+      if (!ticket) throw new BadRequestException('Ticket not found');
+      if (ticket.quantity < seatIds.length) {
+        throw new BadRequestException(`Chỉ còn ${ticket.quantity} vé, không đủ cho ${seatIds.length} ghế.`);
+      }
+
+      const reservations: Reservation[] = [];
+
+      for (const seatId of seatIds) {
+        const seat = await queryRunner.manager
+          .createQueryBuilder(Seat, 'seat')
+          .setLock('pessimistic_write')
+          .where('seat.id = :id AND seat.ticketId = :ticketId', { id: seatId, ticketId })
+          .getOne();
+
+        if (!seat) throw new BadRequestException(`Ghế #${seatId} không tồn tại.`);
+        if (seat.status !== 'AVAILABLE') throw new BadRequestException(`Ghế ${seat.label} không còn trống.`);
+
+        seat.status = 'HELD';
+        await queryRunner.manager.save(seat);
+
+        this.ticketGateway.emitSeatUpdate(
+          String(ticket.event?.id ?? ''),
+          ticket.id, seat.id, seat.status,
+        );
+
+        const reservation = this.reservationRepository.create({
+          user: { id: userId } as any,
+          ticket: { id: ticketId } as any,
+          seat: { id: seat.id } as any,
+          expiresAt: new Date(Date.now() + 5 * 60 * 1000),
+          status: 'HOLD',
+        });
+        await queryRunner.manager.save(reservation);
+        reservations.push(reservation);
+
+        await this.reservationQueue.add(
+          'expire-reservation',
+          { reservationId: reservation.id },
+          { delay: 5 * 60 * 1000 },
+        );
+      }
+
+      ticket.quantity -= seatIds.length;
+      await queryRunner.manager.save(ticket);
+
+      this.ticketGateway.emitTicketUpdate(
+        String(ticket.event?.id ?? ''),
+        ticket.id, ticket.quantity,
+      );
+
+      await queryRunner.commitTransaction();
+
+      return {
+        message: `Đã giữ ${seatIds.length} ghế.`,
+        reservationIds: reservations.map((r) => r.id),
+        expiresAt: reservations[0]?.expiresAt,
+      };
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
+    }
+  }
+
+  async getMultipleReservations(ids: number[], userId: number) {
+    const reservations = await this.reservationRepository.find({
+      where: ids.map((id) => ({ id })),
+      relations: ['ticket', 'ticket.event', 'seat', 'user'],
+    });
+
+    for (const r of reservations) {
+      if (r.user.id !== userId) throw new ForbiddenException('Not your reservation');
+    }
+
+    return reservations.map(({ user, ...rest }) => rest);
+  }
+
+  async cancelMultipleReservations(ids: number[], userId: number) {
+    const results: any[] = [];
+    for (const id of ids) {
+      results.push(await this.cancelReservation(id, userId));
+    }
+    return results;
+  }
+
   async getMyReservations(
     userId: number,
   ) {
@@ -204,6 +311,7 @@ export class ReservationsService {
         relations: [
           'ticket',
           'ticket.event',
+          'seat',
         ],
 
         order: {

@@ -4,9 +4,10 @@ import { Seat, Ticket } from '@/lib/types';
 
 interface SeatMapProps {
   tickets: Ticket[];
-  selectedSeat: Seat | null;
+  selectedSeats: Seat[];
   onSelectSeat: (ticket: Ticket, seat: Seat) => void;
   busy?: boolean;
+  maxSeats?: number;
 }
 
 export const ZONE_COLORS: Record<string, { color: string; colorBg: string }> = {
@@ -25,136 +26,144 @@ export function getZoneColor(type: string, index = 0) {
   return ZONE_COLORS[type.toLowerCase()] ?? FALLBACK_COLORS[index % FALLBACK_COLORS.length];
 }
 
-export default function SeatMap({ tickets, selectedSeat, onSelectSeat, busy }: SeatMapProps) {
+interface RenderRow {
+  ticket: Ticket;
+  color: string;
+  seats: Seat[]; // sorted by col
+}
+
+export default function SeatMap({ tickets, selectedSeats, onSelectSeat, busy, maxSeats = 10 }: SeatMapProps) {
+  const selectedIds = new Set(selectedSeats.map((s) => s.id));
+  const atMax = selectedSeats.length >= maxSeats;
+
   const zones = tickets
-    .filter((ticket) => (ticket.seats?.length ?? 0) > 0)
-    .map((ticket, i) => {
-      const palette = getZoneColor(ticket.type, i);
-      const seats = ticket.seats as Seat[];
-      const cols = Math.max(...seats.map((s) => s.col)) + 1;
-      const rows = Math.max(...seats.map((s) => s.row)) + 1;
+    .filter((t) => (t.seats?.length ?? 0) > 0)
+    .map((t, i) => ({
+      ticket: t,
+      ...getZoneColor(t.type, i),
+      minRow: Math.min(...t.seats!.map((s) => s.row)),
+    }))
+    // Xếp zone theo hàng nhỏ nhất → liên tục A→Z, gần sân khấu trước
+    .sort((a, b) => a.minRow - b.minRow);
 
-      return { ticket, ...palette, seats, cols, rows };
-    });
-
-  const selectedTicketId = selectedSeat
-    ? zones.find((z) => z.seats.some((s) => s.id === selectedSeat.id))?.ticket.id
-    : null;
+  // Build render rows: group by zone, then by stored row within zone.
+  // This guarantees no zone disappears even if row numbers collide across zones.
+  const renderRows: RenderRow[] = [];
+  let maxColCount = 0;
+  for (const z of zones) {
+    const byRow = new Map<number, Seat[]>();
+    for (const seat of z.ticket.seats!) {
+      const arr = byRow.get(seat.row) || [];
+      arr.push(seat);
+      byRow.set(seat.row, arr);
+    }
+    const sortedRowKeys = [...byRow.keys()].sort((a, b) => a - b);
+    for (const rk of sortedRowKeys) {
+      const seats = byRow.get(rk)!.sort((a, b) => a.col - b.col);
+      maxColCount = Math.max(maxColCount, seats.length);
+      renderRows.push({ ticket: z.ticket, color: z.color, seats });
+    }
+  }
 
   return (
     <div className="seatmap-root">
-      {/* Stage */}
-      <div className="seatmap-stage">
-        <span>SÂN KHẤU</span>
-      </div>
+      <div className="seatmap-stage"><span>SÂN KHẤU</span></div>
 
-      {/* Status legend */}
       <div className="seatmap-status-legend">
-        <div className="seatmap-status-item">
-          <span className="seatmap-status-dot seatmap-status-dot--available" />
-          <span>Còn trống</span>
-        </div>
-        <div className="seatmap-status-item">
-          <span className="seatmap-status-dot seatmap-status-dot--selected" />
-          <span>Đang chọn</span>
-        </div>
-        <div className="seatmap-status-item">
-          <span className="seatmap-status-dot seatmap-status-dot--held" />
-          <span>Đang giữ</span>
-        </div>
-        <div className="seatmap-status-item">
-          <span className="seatmap-status-dot seatmap-status-dot--booked" />
-          <span>Đã bán</span>
-        </div>
+        <div className="seatmap-status-item"><span className="seatmap-status-dot seatmap-status-dot--available" /><span>Còn trống</span></div>
+        <div className="seatmap-status-item"><span className="seatmap-status-dot seatmap-status-dot--selected" /><span>Đang chọn</span></div>
+        <div className="seatmap-status-item"><span className="seatmap-status-dot seatmap-status-dot--held" /><span>Đang giữ</span></div>
+        <div className="seatmap-status-item"><span className="seatmap-status-dot seatmap-status-dot--booked" /><span>Đã bán</span></div>
       </div>
 
-      {/* Zones */}
-      <div className="seatmap-zones">
-        {zones.length === 0 ? (
-          <p className="seatmap-empty">Chưa có dữ liệu ghế cho sự kiện này.</p>
-        ) : (
-          zones.map((zone) => {
-            const isDimmed = selectedTicketId !== null && selectedTicketId !== undefined && selectedTicketId !== zone.ticket.id;
+      {/* Unified seat grid */}
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, padding: '8px 0', overflowX: 'auto' }}>
+        {renderRows.map((rr, rowIdx) => {
+          const rowLetter = ROW_LETTERS[rowIdx] ?? String(rowIdx + 1);
+          const isNewZone = rowIdx > 0 && renderRows[rowIdx - 1].ticket.id !== rr.ticket.id;
 
-            return (
-              <div
-                key={zone.ticket.id}
-                className={`seatmap-zone-wrap ${isDimmed ? 'seatmap-zone-wrap--dimmed' : ''}`}
-                style={isDimmed ? undefined : { borderColor: zone.color + '40', background: zone.color + '14' }}
-              >
-                {/* Zone label */}
-                <div className="seatmap-zone-label" style={{ color: zone.color }}>
-                  <span className="seatmap-zone-dot" style={{ background: zone.color }} />
-                  {zone.ticket.type}
-                  <span className="seatmap-zone-qty">{zone.ticket.quantity} vé còn lại</span>
-                </div>
+          return (
+            <div key={`${rr.ticket.id}-${rowIdx}`} style={{ marginTop: isNewZone ? 8 : 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                {/* Row label left */}
+                <span style={{ width: 18, textAlign: 'center', fontSize: 10, fontWeight: 700, color: rr.color, fontFamily: "'DM Sans', sans-serif", flexShrink: 0 }}>
+                  {rowLetter}
+                </span>
 
-                {/* Seats grid with row labels */}
-                <div className="seatmap-grid-wrap">
-                  <div className="seatmap-row-labels">
-                    {Array.from({ length: zone.rows }).map((_, r) => (
-                      <span key={r} className="seatmap-row-label">{ROW_LETTERS[r] ?? r + 1}</span>
-                    ))}
-                  </div>
+                {/* Seats */}
+                <div style={{ display: 'flex', gap: 4 }}>
+                  {rr.seats.map((seat, ci) => {
+                    const isSelected = selectedIds.has(seat.id);
+                    const isOwnHold = isSelected && seat.status === 'HELD';
+                    const isLocked = seat.status === 'BOOKED' || (seat.status === 'HELD' && !isOwnHold) || (!!busy && !isSelected);
+                    const isDisabledByMax = atMax && !isSelected && seat.status === 'AVAILABLE';
 
-                  <div
-                    className="seatmap-grid"
-                    style={{ gridTemplateColumns: `repeat(${zone.cols}, 1fr)` }}
-                  >
-                    {zone.seats.map((seat) => {
-                      const isSelected = selectedSeat?.id === seat.id;
-                      const isOwnHold = isSelected && seat.status === 'HELD';
-                      const isLocked = seat.status === 'BOOKED' || (seat.status === 'HELD' && !isOwnHold) || !!busy;
+                    let bg = rr.color;
+                    let opacity = 1;
+                    let border = '1.5px solid transparent';
+                    let boxShadow = 'none';
+                    let textColor = '#fff';
 
-                      let statusClass = 'seatmap-seat--available';
-                      if (seat.status === 'BOOKED') statusClass = 'seatmap-seat--booked';
-                      else if (seat.status === 'HELD' && !isOwnHold) statusClass = 'seatmap-seat--held';
-                      else if (isSelected) statusClass = 'seatmap-seat--selected';
+                    if (seat.status === 'BOOKED') {
+                      bg = '#3a3a4a'; opacity = 0.45; textColor = '#777';
+                    } else if (seat.status === 'HELD' && !isOwnHold) {
+                      bg = '#555'; opacity = 0.55; textColor = '#999';
+                    } else if (isSelected) {
+                      border = '2px solid #fff';
+                      boxShadow = `0 0 0 2px ${rr.color}`;
+                    } else if (isDisabledByMax) {
+                      opacity = 0.3;
+                    }
 
-                      return (
-                        <button
-                          key={seat.id}
-                          type="button"
-                          disabled={isLocked}
-                          onClick={() => onSelectSeat(zone.ticket, seat)}
-                          title={`Ghế ${seat.label}${isLocked ? ' (không khả dụng)' : isSelected ? ' (đang giữ cho bạn — bấm để bỏ chọn)' : ''}`}
-                          aria-label={`Ghế ${seat.label}`}
-                          className={`seatmap-seat ${statusClass}`}
-                          style={{
-                            '--zone-color': zone.color,
-                          } as React.CSSProperties}
-                        />
-                      );
-                    })}
-                  </div>
+                    return (
+                      <button
+                        key={seat.id}
+                        type="button"
+                        disabled={isLocked || isDisabledByMax}
+                        onClick={() => onSelectSeat(rr.ticket, seat)}
+                        title={`${seat.label} — ${rr.ticket.type}`}
+                        style={{
+                          width: 22, height: 22, borderRadius: 11, border, boxShadow,
+                          background: bg, opacity, color: textColor,
+                          fontSize: 8.5, fontWeight: 700, fontFamily: "'DM Sans', sans-serif",
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          cursor: isLocked || isDisabledByMax ? 'not-allowed' : 'pointer',
+                          padding: 0, lineHeight: 1, flexShrink: 0,
+                          transition: 'transform 0.1s, box-shadow 0.1s',
+                        }}
+                      >
+                        {ci + 1}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
-            );
-          })
-        )}
+            </div>
+          );
+        })}
       </div>
 
-      {selectedSeat && (
+      {/* Selection banner */}
+      {selectedSeats.length > 0 && (
         <div className="seatmap-selection-banner">
-          Ghế đã chọn: <strong>{selectedSeat.label}</strong>
+          Đã chọn: <strong>{selectedSeats.length}/{maxSeats}</strong> — {selectedSeats.map((s) => s.label).join(', ')}
         </div>
       )}
 
-      {/* Zone / price legend */}
+      {/* Zone legend */}
       <div className="seatmap-legend">
-        {zones.map((zone) => {
-          const isActiveZone = !!selectedSeat && zone.seats.some((s) => s.id === selectedSeat.id);
-
+        {zones.map((z) => {
+          const isActive = selectedSeats.some((s) => z.ticket.seats!.some((zs) => zs.id === s.id));
           return (
             <div
-              key={zone.ticket.id}
-              className={`seatmap-legend-item ${isActiveZone ? 'seatmap-legend-item--active' : ''}`}
-              style={isActiveZone ? { background: zone.colorBg, borderColor: zone.color } : {}}
+              key={z.ticket.id}
+              className={`seatmap-legend-item ${isActive ? 'seatmap-legend-item--active' : ''}`}
+              style={isActive ? { background: z.colorBg, borderColor: z.color } : {}}
             >
-              <span className="seatmap-legend-dot" style={{ background: zone.color }} />
-              <span className="seatmap-legend-name">{zone.ticket.type}</span>
-              <span className="seatmap-legend-price" style={{ color: zone.color }}>
-                {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(zone.ticket.price)}
+              <span className="seatmap-legend-dot" style={{ background: z.color }} />
+              <span className="seatmap-legend-name">{z.ticket.type}</span>
+              <span className="seatmap-legend-price" style={{ color: z.color }}>
+                {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(z.ticket.price)}
               </span>
             </div>
           );

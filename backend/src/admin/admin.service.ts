@@ -143,6 +143,7 @@ export class AdminService {
     title: string;
     description: string;
     location: string;
+    category?: string;
     bannerUrl: string;
     bannerFocusX?: number;
     bannerFocusY?: number;
@@ -154,6 +155,7 @@ export class AdminService {
       title: data.title,
       description: data.description,
       location: data.location,
+      category: data.category?.trim() || 'Khác',
       bannerUrl: data.bannerUrl,
       bannerFocusX: data.bannerFocusX ?? 50,
       bannerFocusY: data.bannerFocusY ?? 50,
@@ -163,6 +165,7 @@ export class AdminService {
     const savedEvent = await this.eventsRepo.save(event);
 
     if (data.tickets?.length) {
+      let rowOffset = 0;
       for (const t of data.tickets) {
         const ticket = this.ticketsRepo.create({
           type: t.type,
@@ -171,7 +174,8 @@ export class AdminService {
           event: savedEvent,
         });
         const savedTicket = await this.ticketsRepo.save(ticket);
-        await this.generateSeats(savedTicket);
+        const rowsGenerated = await this.generateSeats(savedTicket, rowOffset);
+        rowOffset += rowsGenerated;
       }
     }
 
@@ -184,6 +188,7 @@ export class AdminService {
       title: string;
       description: string;
       location: string;
+      category: string;
       bannerUrl: string;
       bannerFocusX: number;
       bannerFocusY: number;
@@ -197,6 +202,7 @@ export class AdminService {
     if (data.title !== undefined) event.title = data.title;
     if (data.description !== undefined) event.description = data.description;
     if (data.location !== undefined) event.location = data.location;
+    if (data.category !== undefined) event.category = data.category.trim() || 'Khác';
     if (data.bannerUrl !== undefined) event.bannerUrl = data.bannerUrl;
     if (data.bannerFocusX !== undefined) event.bannerFocusX = data.bannerFocusX;
     if (data.bannerFocusY !== undefined) event.bannerFocusY = data.bannerFocusY;
@@ -253,7 +259,13 @@ export class AdminService {
       event,
     });
     const savedTicket = await this.ticketsRepo.save(ticket);
-    await this.generateSeats(savedTicket);
+    const maxRow = await this.seatsRepo
+      .createQueryBuilder('s')
+      .innerJoin('s.ticket', 't')
+      .where('t.eventId = :eventId', { eventId })
+      .select('MAX(s.row)', 'max')
+      .getRawOne();
+    await this.generateSeats(savedTicket, Number(maxRow?.max || 0));
     return this.getEvent(eventId);
   }
 
@@ -444,7 +456,7 @@ export class AdminService {
 
   // ─── Helpers ──────────────────────────────────────────────────────────────
 
-  private async generateSeats(ticket: Ticket) {
+  private async generateSeats(ticket: Ticket, rowOffset = 0): Promise<number> {
     const gridSizes: Record<string, { rows: number; cols: number }> = {
       SVIP: { rows: 2, cols: 8 },
       VIP: { rows: 3, cols: 10 },
@@ -457,11 +469,12 @@ export class AdminService {
 
     const seats: Seat[] = [];
     for (let r = 1; r <= grid.rows; r++) {
+      const globalRow = rowOffset + r;
       for (let c = 1; c <= grid.cols; c++) {
         const seat = this.seatsRepo.create({
-          row: r,
+          row: globalRow,
           col: c,
-          label: `${String.fromCharCode(64 + r)}${c}`,
+          label: `${String.fromCharCode(64 + globalRow)}${c}`,
           status: 'AVAILABLE',
           ticket,
         });
@@ -470,5 +483,6 @@ export class AdminService {
     }
 
     await this.seatsRepo.save(seats);
+    return grid.rows;
   }
 }

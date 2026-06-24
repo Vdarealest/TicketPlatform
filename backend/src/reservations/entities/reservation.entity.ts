@@ -32,6 +32,9 @@ export class Reservation {
   })
   status: string;
 
+  @Column({ nullable: true, unique: true })
+  confirmationCode: string;
+
   @CreateDateColumn()
   createdAt: Date;
 }

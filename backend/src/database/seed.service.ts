@@ -18,6 +18,22 @@ const SEAT_GRID: Record<string, { rows: number; cols: number }> = {
 
 const DEFAULT_SEAT_GRID = { rows: 3, cols: 10 };
 
+// Gán thể loại cho các event seed sẵn (theo id)
+const EVENT_CATEGORY: Record<number, string> = {
+  1: 'Âm nhạc',
+  2: 'Âm nhạc',
+  3: 'Hội thảo',
+  4: 'Âm nhạc',
+  5: 'Âm nhạc',
+  6: 'Hội thảo',
+  7: 'Sân khấu',
+  8: 'Thể thao',
+  9: 'Âm nhạc',
+  10: 'Triển lãm',
+  11: 'Ẩm thực',
+  12: 'Triển lãm',
+};
+
 const EVENT_TICKETS: Record<number, { type: string; price: number; quantity: number }[]> = {
   1: [ // BLACKPINK WORLD TOUR
     { type: 'VIP', price: 5000000, quantity: 100 },
@@ -87,32 +103,44 @@ export class SeedService {
     private userRepository: Repository<User>,
   ) {}
 
-  private async seedSeatsForTicket(ticket: Ticket, type: string) {
+  private readonly rowLetters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+
+  // rowOffset: số hàng đã dùng bởi các hạng vé trước đó trong cùng event,
+  // để các hạng được xếp liên tục A→Z thay vì mỗi hạng bắt đầu lại từ A.
+  private async seedSeatsForTicket(ticket: Ticket, type: string, rowOffset: number): Promise<number> {
+    const grid = SEAT_GRID[type.toLowerCase()] ?? DEFAULT_SEAT_GRID;
+
     const existingSeats = await this.seatRepository.find({
       where: { ticket: { id: ticket.id } },
     });
 
     if (existingSeats.length > 0) {
-      // Reset trạng thái ghế về ban đầu (không xoá vì có thể đang được reservation tham chiếu)
-      for (const seat of existingSeats) {
+      // Tính lại vị trí xác định từ grid (idempotent, không phụ thuộc giá trị cũ).
+      // Sắp xếp theo (row, col) hiện tại để giữ đúng thứ tự đã tạo ban đầu.
+      existingSeats.sort((a, b) => (a.row - b.row) || (a.col - b.col));
+      existingSeats.forEach((seat, i) => {
+        const perZoneRow = Math.floor(i / grid.cols);
+        const perZoneCol = i % grid.cols;
+        const globalRow = rowOffset + perZoneRow;
+        seat.row = globalRow;
+        seat.col = perZoneCol;
+        seat.label = `${this.rowLetters[globalRow] ?? globalRow}${perZoneCol + 1}`;
         seat.status = 'AVAILABLE';
-      }
+      });
       await this.seatRepository.save(existingSeats);
-      return;
+      return grid.rows;
     }
 
-    const grid = SEAT_GRID[type.toLowerCase()] ?? DEFAULT_SEAT_GRID;
-    const rowLetters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
     const seats: Seat[] = [];
-
     for (let row = 0; row < grid.rows; row++) {
+      const globalRow = rowOffset + row;
       for (let col = 0; col < grid.cols; col++) {
         seats.push(
           this.seatRepository.create({
             ticket,
-            row,
+            row: globalRow,
             col,
-            label: `${rowLetters[row] ?? row}${col + 1}`,
+            label: `${this.rowLetters[globalRow] ?? globalRow}${col + 1}`,
             status: 'AVAILABLE',
           }),
         );
@@ -120,6 +148,7 @@ export class SeedService {
     }
 
     await this.seatRepository.save(seats);
+    return grid.rows;
   }
 
   async seed() {
@@ -150,6 +179,15 @@ export class SeedService {
         continue;
       }
 
+      // Backfill thể loại cho event seed sẵn
+      const category = EVENT_CATEGORY[eventId];
+      if (category && event.category !== category) {
+        event.category = category;
+        await this.eventRepository.save(event);
+      }
+
+      // Xếp ghế các hạng vé liên tục A→Z theo thứ tự định nghĩa trong EVENT_TICKETS
+      let rowOffset = 0;
       for (const def of ticketDefs) {
         const existing = await this.ticketRepository.findOne({
           where: { event: { id: eventId }, type: def.type },
@@ -158,13 +196,13 @@ export class SeedService {
         if (!existing) {
           const ticket = this.ticketRepository.create({ event, ...def });
           await this.ticketRepository.save(ticket);
-          await this.seedSeatsForTicket(ticket, def.type);
+          rowOffset += await this.seedSeatsForTicket(ticket, def.type, rowOffset);
           console.log(`✅ Tạo vé [${def.type}] cho "${event.title}"`);
         } else {
           // Reset quantity về giá trị gốc
           existing.quantity = def.quantity;
           await this.ticketRepository.save(existing);
-          await this.seedSeatsForTicket(existing, def.type);
+          rowOffset += await this.seedSeatsForTicket(existing, def.type, rowOffset);
           console.log(`🔄 Reset vé [${def.type}] cho "${event.title}" → ${def.quantity} vé`);
         }
       }

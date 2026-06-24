@@ -54,6 +54,38 @@ export class ReservationsController {
     );
   }
 
+  @Post(':ticketId/bulk')
+  @UseGuards(JwtAuthGuard)
+  reserveBulk(
+    @Param('ticketId') ticketId: string,
+    @Body() body: { seatIds: number[] },
+    @Request() req,
+  ) {
+    return this.reservationsService.reserveMultipleSeats(
+      Number(ticketId),
+      req.user.userId,
+      body.seatIds,
+    );
+  }
+
+  @Post('bulk/details')
+  @UseGuards(JwtAuthGuard)
+  getMultiple(
+    @Body() body: { ids: number[] },
+    @Request() req,
+  ) {
+    return this.reservationsService.getMultipleReservations(body.ids, req.user.userId);
+  }
+
+  @Post('bulk/cancel')
+  @UseGuards(JwtAuthGuard)
+  cancelMultiple(
+    @Body() body: { ids: number[] },
+    @Request() req,
+  ) {
+    return this.reservationsService.cancelMultipleReservations(body.ids, req.user.userId);
+  }
+
   @Post(':id/cancel')
   @UseGuards(JwtAuthGuard)
   cancel(

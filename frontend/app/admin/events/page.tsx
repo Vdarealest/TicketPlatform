@@ -6,14 +6,16 @@ import { formatCurrencyVND } from '../../../lib/format';
 
 interface Ticket { id: number; type: string; price: number; quantity: number; }
 interface EventItem {
-  id: number; title: string; location: string; bannerUrl: string;
+  id: number; title: string; location: string; category: string; bannerUrl: string;
   bannerFocusX: number; bannerFocusY: number;
   startTime: string; endTime: string; description: string; createdAt: string; tickets: Ticket[];
 }
 interface TicketInput { type: string; price: string; quantity: string; }
 
+const CATEGORIES = ['Âm nhạc', 'Thể thao', 'Sân khấu', 'Hội thảo', 'Triển lãm', 'Ẩm thực', 'Khác'];
+
 const EMPTY_FORM = {
-  title: '', description: '', location: '', bannerUrl: '',
+  title: '', description: '', location: '', category: 'Âm nhạc', bannerUrl: '',
   bannerFocusX: 50, bannerFocusY: 50,
   startTime: '', endTime: '',
 };
@@ -45,6 +47,7 @@ export default function AdminEvents() {
     setEditingId(ev.id);
     setForm({
       title: ev.title, description: ev.description, location: ev.location,
+      category: ev.category || 'Khác',
       bannerUrl: ev.bannerUrl, bannerFocusX: ev.bannerFocusX ?? 50, bannerFocusY: ev.bannerFocusY ?? 50,
       startTime: ev.startTime.slice(0, 16), endTime: ev.endTime.slice(0, 16),
     });
@@ -114,7 +117,7 @@ export default function AdminEvents() {
       ) : (
         <div className="admin-table-wrap">
           <table className="admin-table">
-            <thead><tr><th>ID</th><th>Sự kiện</th><th>Địa điểm</th><th>Diễn ra</th><th>Ngày tạo</th><th>Loại vé</th><th style={{ textAlign: 'right' }}>Thao tác</th></tr></thead>
+            <thead><tr><th>ID</th><th>Sự kiện</th><th>Địa điểm</th><th>Thể loại</th><th>Diễn ra</th><th>Ngày tạo</th><th>Loại vé</th><th style={{ textAlign: 'right' }}>Thao tác</th></tr></thead>
             <tbody>
               {events.map((ev) => (
                 <tr key={ev.id}>
@@ -126,6 +129,7 @@ export default function AdminEvents() {
                     </div>
                   </td>
                   <td>{ev.location}</td>
+                  <td><span style={{ fontSize: 11, background: '#eef2ff', color: '#0F35FF', borderRadius: 6, padding: '2px 8px', fontWeight: 600 }}>{ev.category || 'Khác'}</span></td>
                   <td style={{ fontSize: 12, color: '#9ea5ad' }}>{new Date(ev.startTime).toLocaleDateString('vi-VN')}</td>
                   <td style={{ fontSize: 12, color: '#9ea5ad' }}>{ev.createdAt ? new Date(ev.createdAt).toLocaleDateString('vi-VN') : '—'}</td>
                   <td>{ev.tickets?.map((t) => (
@@ -168,6 +172,15 @@ export default function AdminEvents() {
             <div className="admin-form-group">
               <label className="admin-form-label">Địa điểm *</label>
               <input className="admin-form-input" value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} placeholder="Nhập địa điểm" />
+            </div>
+
+            <div className="admin-form-group">
+              <label className="admin-form-label">Thể loại</label>
+              <select className="admin-form-input" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}>
+                {CATEGORIES.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
             </div>
 
             {/* ── Banner Upload + Focal Point ── */}
