@@ -1,21 +1,25 @@
 'use client';
 
 import Link from 'next/link';
+import { useTranslation } from '../../lib/i18n';
 
 interface EventCardProps {
   event: any;
 }
 
 export default function EventCard({ event }: EventCardProps) {
+  const { t, lang } = useTranslation();
+  const locale = lang === 'en' ? 'en-US' : 'vi-VN';
+
   const date = event.startTime
-    ? new Date(event.startTime).toLocaleDateString('vi-VN', {
+    ? new Date(event.startTime).toLocaleDateString(locale, {
         day: 'numeric',
         month: 'long',
         year: 'numeric',
       })
     : null;
 
-  const category = event.category || event.type || 'SỰ KIỆN';
+  const category = event.category || event.type || t.event;
 
   const minPrice = Array.isArray(event.tickets) && event.tickets.length > 0
     ? Math.min(...event.tickets.map((t: { price: number }) => t.price))
@@ -28,8 +32,6 @@ export default function EventCard({ event }: EventCardProps) {
   return (
     <Link href={`/events/${event.id}`} className="ec2-link">
       <div className="ec2-card">
-
-        {/* Ảnh */}
         <div className="ec2-img-wrap">
           <img
             src={
@@ -42,15 +44,12 @@ export default function EventCard({ event }: EventCardProps) {
             style={{ objectPosition: `${event.bannerFocusX ?? 50}% ${event.bannerFocusY ?? 50}%` }}
           />
           {formattedPrice && (
-            <span className="ec2-price">Từ {formattedPrice}</span>
+            <span className="ec2-price">{t.events_from} {formattedPrice}</span>
           )}
         </div>
-
-        {/* Nội dung */}
         <div className="ec2-body">
           <span className="ec2-badge">{category}</span>
           <h3 className="ec2-title">{event.title}</h3>
-
           <div className="ec2-meta">
             {date && (
               <div className="ec2-meta-row">
@@ -73,7 +72,6 @@ export default function EventCard({ event }: EventCardProps) {
             )}
           </div>
         </div>
-
       </div>
     </Link>
   );

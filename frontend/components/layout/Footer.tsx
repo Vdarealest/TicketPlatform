@@ -1,33 +1,34 @@
+'use client';
+
 import Link from 'next/link';
-
-const navLinks = [
-  { label: 'Home', href: '/' },
-  { label: 'My Tickets', href: '/my-tickets' },
-  { label: 'Login', href: '/login' },
-  { label: 'All Events', href: '/events' },
-];
-
-const supportLinks = [
-  { label: 'FAQ', href: '#' },
-  { label: 'Contact Us', href: '/contact' },
-  { label: 'Terms of Service', href: '#' },
-  { label: 'Privacy Policy', href: '#' },
-];
+import { useTranslation } from '../../lib/i18n';
 
 export default function Footer() {
+  const { t } = useTranslation();
+
+  const navLinks = [
+    { label: t.footer_home, href: '/' },
+    { label: t.nav_my_tickets, href: '/my-tickets' },
+    { label: t.nav_login, href: '/login' },
+    { label: t.nav_events, href: '/events' },
+  ];
+
+  const supportLinks = [
+    { label: 'FAQ', href: '/faq' },
+    { label: t.nav_contact, href: '/contact' },
+    { label: 'Terms of Service', href: '/terms' },
+    { label: 'Privacy Policy', href: '/privacy' },
+  ];
+
   return (
     <footer className="oz-footer">
       <div className="oz-footer__accent" />
       <div className="oz-footer__inner">
         <div className="oz-footer__grid">
 
-          {/* Brand */}
           <div>
             <p className="oz-footer__logo">Vietix</p>
-            <p className="oz-footer__desc">
-              Event ticket booking platform with realtime inventory updates.
-              Find, book, and experience the moments that matter.
-            </p>
+            <p className="oz-footer__desc">{t.footer_desc}</p>
             <div className="oz-footer__socials">
               <a href="#" aria-label="Instagram" className="oz-footer__social-btn">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -49,12 +50,11 @@ export default function Footer() {
             </div>
           </div>
 
-          {/* Navigate */}
           <div>
-            <p className="oz-footer__col-title">Navigate</p>
+            <p className="oz-footer__col-title">{t.footer_navigate}</p>
             <div className="oz-footer__links">
               {navLinks.map(({ label, href }) => (
-                <Link key={label} href={href} className="oz-footer__link">
+                <Link key={href} href={href} className="oz-footer__link">
                   <span className="oz-footer__link-bar" />
                   {label}
                 </Link>
@@ -62,15 +62,14 @@ export default function Footer() {
             </div>
           </div>
 
-          {/* Support */}
           <div>
-            <p className="oz-footer__col-title">Support</p>
+            <p className="oz-footer__col-title">{t.footer_support}</p>
             <div className="oz-footer__links">
               {supportLinks.map(({ label, href }) => (
-                <a key={label} href={href} className="oz-footer__link">
+                <Link key={href} href={href} className="oz-footer__link">
                   <span className="oz-footer__link-bar" />
                   {label}
-                </a>
+                </Link>
               ))}
             </div>
           </div>
@@ -79,10 +78,10 @@ export default function Footer() {
 
         <div className="oz-footer__bottom">
           <p className="oz-footer__copy">
-            © 2026 <strong>Vietix</strong>. All rights reserved.
+            © 2026 <strong>Vietix</strong>. {t.footer_rights}
           </p>
           <p className="oz-footer__tagline">
-            Made with <span>♥</span> for live experiences
+            {t.footer_made} <span>♥</span> {t.footer_for}
           </p>
         </div>
       </div>

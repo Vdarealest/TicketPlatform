@@ -3,9 +3,11 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import api from '../lib/api';
+import { useTranslation } from '../lib/i18n';
 import EventCard from '../components/events/EventCard';
 
 export default function Home() {
+  const { t, lang } = useTranslation();
   const [events, setEvents] = useState<any[]>([]);
 
   useEffect(() => {
@@ -13,14 +15,14 @@ export default function Home() {
   }, []);
 
   const heroEvent = events[0];
-  const featuredEvents = events.slice(1, 4);   // 3 card nổi bật
-  const moreEvents = events.slice(4, 8);       // 4 card grid 2x2
+  const featuredEvents = events.slice(1, 4);
+  const moreEvents = events.slice(4, 8);
+
+  const locale = lang === 'en' ? 'en-US' : 'vi-VN';
 
   const heroDate = heroEvent?.startTime
-    ? new Date(heroEvent.startTime).toLocaleDateString('vi-VN', {
-        day: 'numeric',
-        month: 'long',
-        year: 'numeric',
+    ? new Date(heroEvent.startTime).toLocaleDateString(locale, {
+        day: 'numeric', month: 'long', year: 'numeric',
       })
     : null;
 
@@ -35,7 +37,6 @@ export default function Home() {
   return (
     <main className="home-root">
 
-      {/* ── HERO ── */}
       {heroEvent && (
         <section className="home-hero">
           <div className="home-hero__slide">
@@ -47,7 +48,7 @@ export default function Home() {
             />
             <div className="home-hero__scrim" />
             <div className="home-hero__content">
-              <span className="home-hero__tag">🎟 Đang mở bán</span>
+              <span className="home-hero__tag">🎟 {t.home_on_sale}</span>
               <h1 className="home-hero__title">{heroEvent.title}</h1>
               <div className="home-hero__info">
                 {heroEvent.location && (
@@ -72,13 +73,13 @@ export default function Home() {
               </div>
               <div className="home-hero__actions">
                 <Link href={`/events/${heroEvent.id}`} className="home-hero__cta">
-                  Mua vé ngay
+                  {t.home_buy_now}
                   <svg width="14" height="14" viewBox="0 0 12 12" fill="none">
                     <path d="M2 6h8M6.5 2.5L10 6l-3.5 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                   </svg>
                 </Link>
                 {heroFormattedPrice && (
-                  <span className="home-hero__price">Giá từ <strong>{heroFormattedPrice}</strong></span>
+                  <span className="home-hero__price">{t.home_price_from} <strong>{heroFormattedPrice}</strong></span>
                 )}
               </div>
             </div>
@@ -87,12 +88,10 @@ export default function Home() {
       )}
 
       <div className="home-body">
-
-        {/* Tất cả event (nếu chỉ có ≤4) */}
         {events.length > 0 && events.length <= 4 && (
           <section className="home-section">
             <div className="home-section__header">
-              <h2 className="home-section__title">Sự kiện nổi bật</h2>
+              <h2 className="home-section__title">{t.home_featured}</h2>
             </div>
             <div className="home-featured">
               {events.map((event) => (
@@ -102,13 +101,12 @@ export default function Home() {
           </section>
         )}
 
-        {/* Nếu có hơn 4 event */}
         {events.length > 4 && (
           <>
             <section className="home-section">
               <div className="home-section__header">
-                <h2 className="home-section__title">Sự kiện nổi bật</h2>
-                <Link href="/events" className="home-section__more">Xem tất cả →</Link>
+                <h2 className="home-section__title">{t.home_featured}</h2>
+                <Link href="/events" className="home-section__more">{t.home_view_all}</Link>
               </div>
               <div className="home-featured">
                 {featuredEvents.map((event) => (
@@ -119,8 +117,8 @@ export default function Home() {
 
             <section className="home-section">
               <div className="home-section__header">
-                <h2 className="home-section__title">Đang mở bán</h2>
-                <Link href="/events" className="home-section__more">Xem tất cả →</Link>
+                <h2 className="home-section__title">{t.home_on_sale_section}</h2>
+                <Link href="/events" className="home-section__more">{t.home_view_all}</Link>
               </div>
               <div className="home-grid">
                 {moreEvents.map((event) => (
@@ -130,7 +128,6 @@ export default function Home() {
             </section>
           </>
         )}
-
       </div>
     </main>
   );

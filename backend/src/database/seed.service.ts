@@ -108,33 +108,38 @@ export class SeedService {
   // rowOffset: số hàng đã dùng bởi các hạng vé trước đó trong cùng event,
   // để các hạng được xếp liên tục A→Z thay vì mỗi hạng bắt đầu lại từ A.
   private async seedSeatsForTicket(ticket: Ticket, type: string, rowOffset: number): Promise<number> {
-    const grid = SEAT_GRID[type.toLowerCase()] ?? DEFAULT_SEAT_GRID;
+    const qty = ticket.quantity;
+    if (qty <= 0) return 0;
+
+    const colsForType = SEAT_GRID[type.toLowerCase()]?.cols ?? DEFAULT_SEAT_GRID.cols;
+    const cols = Math.min(colsForType, qty);
+    const totalRows = Math.ceil(qty / cols);
 
     const existingSeats = await this.seatRepository.find({
       where: { ticket: { id: ticket.id } },
     });
 
     if (existingSeats.length > 0) {
-      // Tính lại vị trí xác định từ grid (idempotent, không phụ thuộc giá trị cũ).
-      // Sắp xếp theo (row, col) hiện tại để giữ đúng thứ tự đã tạo ban đầu.
       existingSeats.sort((a, b) => (a.row - b.row) || (a.col - b.col));
       existingSeats.forEach((seat, i) => {
-        const perZoneRow = Math.floor(i / grid.cols);
-        const perZoneCol = i % grid.cols;
-        const globalRow = rowOffset + perZoneRow;
+        const r = Math.floor(i / cols);
+        const c = i % cols;
+        const globalRow = rowOffset + r;
         seat.row = globalRow;
-        seat.col = perZoneCol;
-        seat.label = `${this.rowLetters[globalRow] ?? globalRow}${perZoneCol + 1}`;
+        seat.col = c;
+        seat.label = `${this.rowLetters[globalRow] ?? globalRow}${c + 1}`;
         seat.status = 'AVAILABLE';
       });
       await this.seatRepository.save(existingSeats);
-      return grid.rows;
+      return totalRows;
     }
 
     const seats: Seat[] = [];
-    for (let row = 0; row < grid.rows; row++) {
+    let remaining = qty;
+    for (let row = 0; row < totalRows && remaining > 0; row++) {
       const globalRow = rowOffset + row;
-      for (let col = 0; col < grid.cols; col++) {
+      const seatsInRow = Math.min(cols, remaining);
+      for (let col = 0; col < seatsInRow; col++) {
         seats.push(
           this.seatRepository.create({
             ticket,
@@ -144,11 +149,12 @@ export class SeedService {
             status: 'AVAILABLE',
           }),
         );
+        remaining--;
       }
     }
 
     await this.seatRepository.save(seats);
-    return grid.rows;
+    return totalRows;
   }
 
   async seed() {

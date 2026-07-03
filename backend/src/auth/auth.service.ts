@@ -82,7 +82,7 @@ export class AuthService {
   async getMe(userId: number) {
     return this.usersRepository.findOne({
       where: { id: userId },
-      select: ['id', 'email', 'googleId', 'role'],
+      select: ['id', 'email', 'name', 'phone', 'avatarUrl', 'googleId', 'role', 'createdAt'],
     });
   }
 

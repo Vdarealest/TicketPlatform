@@ -173,4 +173,16 @@ export class MailService {
       console.error('Failed to send confirmation email:', err);
     }
   }
+
+  async sendRaw(data: { to?: string; subject: string; html: string }) {
+    const adminEmail =
+      this.configService.get<string>('ADMIN_EMAIL') ||
+      this.configService.get<string>('MAIL_USER');
+    await this.transporter.sendMail({
+      from: this.from,
+      to: data.to || adminEmail,
+      subject: data.subject,
+      html: data.html,
+    });
+  }
 }

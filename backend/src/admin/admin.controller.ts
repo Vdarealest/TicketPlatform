@@ -9,11 +9,21 @@ import {
   Query,
   Req,
   UseGuards,
+  UseInterceptors,
+  UploadedFile,
+  BadRequestException,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { diskStorage } from 'multer';
+import { extname, join } from 'path';
+import { existsSync, mkdirSync } from 'fs';
 
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AdminGuard } from '../auth/guards/admin.guard';
 import { AdminService } from './admin.service';
+
+const SEAT_MAP_DIR = join(process.cwd(), 'uploads', 'seat-maps');
+if (!existsSync(SEAT_MAP_DIR)) mkdirSync(SEAT_MAP_DIR, { recursive: true });
 
 @Controller('admin')
 @UseGuards(JwtAuthGuard, AdminGuard)
@@ -64,6 +74,47 @@ export class AdminController {
   @Delete('tickets/:ticketId')
   deleteTicket(@Param('ticketId') ticketId: string) {
     return this.adminService.deleteTicket(Number(ticketId));
+  }
+
+  // ─── Seat Layout ──────────────────────────────────────────────────────────
+
+  @Get('events/:id/seat-layout')
+  getSeatLayout(@Param('id') id: string) {
+    return this.adminService.getSeatLayout(Number(id));
+  }
+
+  @Put('events/:id/seat-layout')
+  saveSeatLayout(@Param('id') id: string, @Body() body: any) {
+    return this.adminService.saveSeatLayout(Number(id), body);
+  }
+
+  @Post('events/:id/generate-seats')
+  generateSeats(@Param('id') id: string) {
+    return this.adminService.generateSeatsFromLayout(Number(id));
+  }
+
+  @Post('events/:id/seat-map-image')
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: diskStorage({
+        destination: SEAT_MAP_DIR,
+        filename: (_req, file, cb) => {
+          const unique = Date.now() + '-' + Math.round(Math.random() * 1e6);
+          cb(null, `seatmap-${unique}${extname(file.originalname).toLowerCase()}`);
+        },
+      }),
+      fileFilter: (_req, file, cb) => {
+        if (!/\.(jpg|jpeg|png|webp)$/i.test(extname(file.originalname))) {
+          return cb(new BadRequestException('Chỉ hỗ trợ ảnh jpg, png, webp.'), false);
+        }
+        cb(null, true);
+      },
+      limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB
+    }),
+  )
+  uploadSeatMapImage(@UploadedFile() file: Express.Multer.File) {
+    if (!file) throw new BadRequestException('Không có file nào.');
+    return { url: `/uploads/seat-maps/${file.filename}` };
   }
 
   // ─── Users ────────────────────────────────────────────────────────────────

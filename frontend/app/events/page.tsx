@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import api from '@/lib/api';
+import { useTranslation } from '@/lib/i18n';
 import EventCard from '@/components/events/EventCard';
 
 interface Filters {
@@ -27,11 +28,11 @@ const EMPTY_FILTERS: Filters = {
   sort: 'soonest',
 };
 
-const SORT_OPTIONS = [
-  { value: 'soonest', label: 'Sắp diễn ra' },
-  { value: 'latest', label: 'Mới nhất' },
-  { value: 'priceAsc', label: 'Giá thấp → cao' },
-  { value: 'priceDesc', label: 'Giá cao → thấp' },
+const SORT_KEYS = [
+  { value: 'soonest', key: 'events_sort_soonest' as const },
+  { value: 'latest', key: 'events_sort_latest' as const },
+  { value: 'priceAsc', key: 'events_sort_price_asc' as const },
+  { value: 'priceDesc', key: 'events_sort_price_desc' as const },
 ];
 
 const inputStyle: React.CSSProperties = {
@@ -57,6 +58,7 @@ const labelStyle: React.CSSProperties = {
 };
 
 export default function EventsPage() {
+  const { t } = useTranslation();
   const searchParams = useSearchParams();
   const [events, setEvents] = useState<any[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
@@ -125,8 +127,7 @@ export default function EventsPage() {
   return (
     <main className="evp-root">
       <div className="evp-header">
-        <h1 className="evp-title">Tất cả sự kiện</h1>
-        <p className="evp-subtitle">Khám phá các sự kiện đang mở bán</p>
+        <h1 className="evp-title">{t.events_title}</h1>
       </div>
 
       {/* ── Thanh tìm kiếm & lọc ── */}
@@ -152,7 +153,7 @@ export default function EventsPage() {
             </svg>
             <input
               type="text"
-              placeholder="Tìm sự kiện theo tên..."
+              placeholder={t.nav_search}
               value={filters.search}
               onChange={(e) => set('search', e.target.value)}
               style={{ ...inputStyle, paddingLeft: 36 }}
@@ -164,8 +165,8 @@ export default function EventsPage() {
             onChange={(e) => set('sort', e.target.value)}
             style={{ ...inputStyle, width: 'auto', minWidth: 150, flex: '0 0 auto', cursor: 'pointer' }}
           >
-            {SORT_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>{o.label}</option>
+            {SORT_KEYS.map((o) => (
+              <option key={o.value} value={o.value}>{t[o.key]}</option>
             ))}
           </select>
 
@@ -184,7 +185,7 @@ export default function EventsPage() {
             <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
               <path d="M2 4h12M4 8h8M6 12h4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
             </svg>
-            Bộ lọc
+            {t.events_sort}
             {activeCount > 0 && (
               <span style={{
                 background: '#0F35FF', color: '#fff', fontSize: 11, fontWeight: 700,
@@ -202,13 +203,13 @@ export default function EventsPage() {
             gap: 12, marginTop: 16, paddingTop: 16, borderTop: '1px solid #F0F2F5',
           }}>
             <div>
-              <label style={labelStyle}>Thể loại</label>
+              <label style={labelStyle}>{t.events_category}</label>
               <select
                 value={filters.category}
                 onChange={(e) => set('category', e.target.value)}
                 style={{ ...inputStyle, cursor: 'pointer' }}
               >
-                <option value="">Tất cả</option>
+                <option value="">{t.events_all}</option>
                 {categories.map((c) => (
                   <option key={c} value={c}>{c}</option>
                 ))}
@@ -216,10 +217,10 @@ export default function EventsPage() {
             </div>
 
             <div>
-              <label style={labelStyle}>Địa điểm</label>
+              <label style={labelStyle}>{t.events_location}</label>
               <input
                 type="text"
-                placeholder="VD: Hà Nội"
+                placeholder={t.events_location_ph}
                 value={filters.location}
                 onChange={(e) => set('location', e.target.value)}
                 style={inputStyle}
@@ -227,7 +228,7 @@ export default function EventsPage() {
             </div>
 
             <div>
-              <label style={labelStyle}>Từ ngày</label>
+              <label style={labelStyle}>{t.events_date_from}</label>
               <input
                 type="date"
                 value={filters.dateFrom}
@@ -237,7 +238,7 @@ export default function EventsPage() {
             </div>
 
             <div>
-              <label style={labelStyle}>Đến ngày</label>
+              <label style={labelStyle}>{t.events_date_to}</label>
               <input
                 type="date"
                 value={filters.dateTo}
@@ -247,7 +248,7 @@ export default function EventsPage() {
             </div>
 
             <div>
-              <label style={labelStyle}>Giá từ (VND)</label>
+              <label style={labelStyle}>{t.events_price_from}</label>
               <input
                 type="number"
                 placeholder="0"
@@ -259,7 +260,7 @@ export default function EventsPage() {
             </div>
 
             <div>
-              <label style={labelStyle}>Giá đến (VND)</label>
+              <label style={labelStyle}>{t.events_price_to}</label>
               <input
                 type="number"
                 placeholder="Không giới hạn"
@@ -286,7 +287,7 @@ export default function EventsPage() {
               <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
                 <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
               </svg>
-              Xóa bộ lọc
+              {t.events_clear_filters}
             </button>
           </div>
         )}
@@ -295,14 +296,14 @@ export default function EventsPage() {
       {loading && (
         <div className="edp-loading">
           <div className="edp-spinner" />
-          <span>Đang tải...</span>
+          <span>{t.loading}</span>
         </div>
       )}
 
       {!loading && (
         <p style={{ fontSize: 13, color: '#9EA5AD', marginBottom: 16, fontWeight: 500 }}>
           {events.length > 0
-            ? `Tìm thấy ${events.length} sự kiện`
+            ? `${events.length} ${t.nav_events.toLowerCase()}`
             : ''}
         </p>
       )}
@@ -310,9 +311,7 @@ export default function EventsPage() {
       {!loading && events.length === 0 && (
         <div style={{ textAlign: 'center', padding: '60px 20px' }}>
           <p className="evp-empty" style={{ marginBottom: 8 }}>
-            {hasAnyFilter
-              ? 'Không tìm thấy sự kiện phù hợp.'
-              : 'Chưa có sự kiện nào.'}
+            {t.events_empty_title}
           </p>
           {hasAnyFilter && (
             <button
@@ -324,7 +323,7 @@ export default function EventsPage() {
                 fontSize: 14, fontWeight: 600, fontFamily: 'inherit',
               }}
             >
-              Xóa bộ lọc
+              {t.events_clear_filters}
             </button>
           )}
         </div>

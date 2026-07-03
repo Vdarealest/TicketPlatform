@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import api from '../../lib/api';
+import ThemeToggle from '../../components/layout/ThemeToggle';
 
 const NAV_ITEMS = [
   {
@@ -50,33 +51,17 @@ const NAV_ITEMS = [
       </svg>
     ),
   },
+  {
+    href: '/admin/contacts',
+    label: 'Liên hệ',
+    icon: (
+      <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.6" viewBox="0 0 24 24">
+        <rect x="2" y="4" width="20" height="16" rx="3" />
+        <path d="M2 7l10 7 10-7" />
+      </svg>
+    ),
+  },
 ];
-
-const S = {
-  layout: { display: 'flex', minHeight: '100dvh', background: '#f0f2f5', fontFamily: "'DM Sans', sans-serif" } as const,
-  sidebar: {
-    width: 230, background: '#fff', display: 'flex', flexDirection: 'column' as const, flexShrink: 0,
-    position: 'fixed' as const, top: 0, left: 0, bottom: 0, zIndex: 100,
-    borderRight: '1px solid #e8eaed', boxShadow: '2px 0 8px rgba(0,0,0,0.03)',
-  },
-  logo: {
-    fontFamily: "'Bebas Neue', sans-serif", fontSize: '1.6rem', letterSpacing: '0.05em',
-    color: '#e02020', padding: '22px 24px 20px', lineHeight: 1, textDecoration: 'none', display: 'block',
-    borderBottom: '1px solid #f0f2f5',
-  },
-  nav: { display: 'flex', flexDirection: 'column' as const, gap: 2, padding: '16px 12px', flex: 1 },
-  link: (active: boolean) => ({
-    display: 'flex', alignItems: 'center' as const, gap: 12, padding: '10px 14px', borderRadius: 10,
-    fontSize: 13.5, fontWeight: active ? 600 : 500,
-    color: active ? '#e02020' : '#6b7280',
-    background: active ? 'rgba(224,32,32,0.06)' : 'transparent',
-    textDecoration: 'none', transition: 'all 0.15s',
-    borderLeft: active ? '3px solid #e02020' : '3px solid transparent',
-  }),
-  linkIcon: (active: boolean) => ({ width: 18, height: 18, flexShrink: 0, opacity: active ? 1 : 0.55, color: active ? '#e02020' : '#6b7280' } as const),
-  bottom: { padding: '16px 12px', borderTop: '1px solid #f0f2f5' },
-  main: { flex: 1, marginLeft: 230, padding: '28px 36px 48px', minHeight: '100dvh' } as const,
-};
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -84,6 +69,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [authorized, setAuthorized] = useState(false);
   const [loading, setLoading] = useState(true);
   const [userEmail, setUserEmail] = useState('');
+  const [pendingContacts, setPendingContacts] = useState(0);
 
   useEffect(() => {
     const token = localStorage.getItem('access_token');
@@ -97,9 +83,24 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       .finally(() => setLoading(false));
   }, [router]);
 
+  useEffect(() => {
+    if (!authorized) return;
+    const fetchCount = () => {
+      api.get('/contact')
+        .then((r) => {
+          const count = Array.isArray(r.data) ? r.data.filter((m: any) => m.status === 'PENDING').length : 0;
+          setPendingContacts(count);
+        })
+        .catch(() => {});
+    };
+    fetchCount();
+    const interval = setInterval(fetchCount, 30000);
+    return () => clearInterval(interval);
+  }, [authorized]);
+
   if (loading || !authorized) {
     return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100dvh', gap: 12, color: '#a1a1aa', fontSize: 14 }}>
+      <div className="adm-loading">
         <div className="edp-spinner" />
         <span>Đang xác thực...</span>
       </div>
@@ -107,48 +108,53 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }
 
   return (
-    <div style={S.layout}>
-      {/* Sidebar */}
-      <aside style={S.sidebar}>
-        <Link href="/" style={S.logo}>Vietix</Link>
-        <nav style={S.nav}>
+    <div className="adm-layout">
+      <aside className="adm-sidebar">
+        <Link href="/" className="adm-logo">Vietix</Link>
+        <nav className="adm-nav">
           {NAV_ITEMS.map((item) => {
             const isActive = item.exact ? pathname === item.href : pathname.startsWith(item.href);
+            const isContact = item.href === '/admin/contacts';
             return (
-              <Link key={item.href} href={item.href} style={S.link(isActive)}>
-                <span style={S.linkIcon(isActive)}>{item.icon}</span>
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`adm-nav-link ${isActive ? 'adm-nav-link--active' : ''}`}
+              >
+                <span className="adm-nav-icon">{item.icon}</span>
                 {item.label}
+                {isContact && pendingContacts > 0 && (
+                  <span className="adm-nav-noti">{pendingContacts}</span>
+                )}
               </Link>
             );
           })}
         </nav>
-        <div style={S.bottom}>
-          <Link href="/" style={{ ...S.link(false), fontSize: 13, color: '#9ca3af' }}>
+        <div className="adm-sidebar-bottom">
+          <div className="adm-theme-row">
+            <ThemeToggle />
+            <span className="adm-theme-label">Giao diện</span>
+          </div>
+          <Link href="/" className="adm-nav-link adm-back-link">
             <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.6" viewBox="0 0 24 24" style={{ opacity: 0.5 }}>
               <path d="M15 19l-7-7 7-7" />
             </svg>
             Về trang chính
           </Link>
           {userEmail && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px 4px', marginTop: 8 }}>
-              <div style={{
-                width: 32, height: 32, borderRadius: '50%', background: '#e02020',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 11, fontWeight: 700, color: '#fff', flexShrink: 0,
-              }}>
+            <div className="adm-user-info">
+              <div className="adm-user-avatar">
                 {userEmail.slice(0, 2).toUpperCase()}
               </div>
-              <div style={{ minWidth: 0 }}>
-                <div style={{ fontSize: 12, fontWeight: 600, color: '#18181b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {userEmail.split('@')[0]}
-                </div>
-                <div style={{ fontSize: 10, color: '#9ca3af' }}>Admin</div>
+              <div className="adm-user-detail">
+                <div className="adm-user-name">{userEmail.split('@')[0]}</div>
+                <div className="adm-user-role">Admin</div>
               </div>
             </div>
           )}
         </div>
       </aside>
-      <main style={S.main}>{children}</main>
+      <main className="adm-main">{children}</main>
     </div>
   );
 }

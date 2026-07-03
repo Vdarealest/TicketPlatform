@@ -25,7 +25,7 @@ export function useBackendConnection() {
             isConnected: true,
             timestamp: new Date().toISOString(),
           });
-          console.log('✅ Backend connection successful');
+          console.log('Backend connection successful');
         }
       } catch (error: any) {
         const errorMsg =
@@ -39,7 +39,7 @@ export function useBackendConnection() {
           timestamp: new Date().toISOString(),
         });
 
-        console.error('❌ Backend connection failed:', errorMsg);
+        console.error('Backend connection failed:', errorMsg);
         console.error('Backend URL:', process.env.NEXT_PUBLIC_API_URL);
       }
     };

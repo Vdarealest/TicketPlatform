@@ -27,5 +27,6 @@ export interface EventDetail {
   category?: string;
   startDate?: string;
   startTime?: string;
+  endTime?: string;
   tickets: Ticket[];
 }

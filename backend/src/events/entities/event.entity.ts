@@ -40,6 +40,9 @@ export class Event {
   @Column()
   endTime: Date;
 
+  @Column({ type: 'jsonb', nullable: true })
+  seatLayout: any;
+
   @CreateDateColumn()
   createdAt: Date;
 

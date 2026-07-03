@@ -191,6 +191,7 @@ export default function TicketSelectionPage() {
   const step = !selectedTicket ? 1 : selectedSeats.length === 0 ? 2 : 3;
   const zoneColor = selectedTicket ? getZoneColor(selectedTicket.type, tickets.findIndex((t) => t.id === selectedTicket.id)).color : '#e02020';
   const totalPrice = selectedTicket ? selectedTicket.price * selectedSeats.length : 0;
+
   const sessionFormatted = formatMMSS(sessionRemaining);
   const sessionLow = sessionRemaining <= 60;
 

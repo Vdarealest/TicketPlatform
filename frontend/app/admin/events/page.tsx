@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
+import Link from 'next/link';
 import api from '../../../lib/api';
 import { formatCurrencyVND } from '../../../lib/format';
 
@@ -137,6 +138,7 @@ export default function AdminEvents() {
                   ))}</td>
                   <td style={{ textAlign: 'right' }}>
                     <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+                      <Link href={`/admin/events/${ev.id}/seats`} className="admin-btn admin-btn--ghost admin-btn--sm" style={{ textDecoration: 'none' }}>Seats</Link>
                       <button className="admin-btn admin-btn--ghost admin-btn--sm" onClick={() => openEdit(ev)}>Sửa</button>
                       <button className="admin-btn admin-btn--danger admin-btn--sm" onClick={() => handleDelete(ev.id)}>Xóa</button>
                     </div>

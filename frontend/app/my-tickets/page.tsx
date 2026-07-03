@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { QRCodeSVG } from 'qrcode.react';
 import api from '@/lib/api';
+import { useTranslation } from '@/lib/i18n';
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
@@ -33,16 +34,15 @@ function fmtRef(id: number) {
 
 // ─── status config ────────────────────────────────────────────────────────────
 
-const STATUS_CFG: Record<string, { label: string; color: string; cls: string }> = {
-  HOLD:      { label: 'Đang giữ',      color: '#f59e0b', cls: 'tk-badge--hold' },
-  CONFIRMED: { label: 'Đã xác nhận',   color: '#10b981', cls: 'tk-badge--confirmed' },
-  PAID:      { label: 'Đã thanh toán', color: '#10b981', cls: 'tk-badge--confirmed' },
-  EXPIRED:   { label: 'Hết hạn',       color: '#52525b', cls: 'tk-badge--expired' },
-  CANCELLED: { label: 'Đã huỷ',        color: '#52525b', cls: 'tk-badge--expired' },
-};
-
-function getStatus(status: string) {
-  return STATUS_CFG[status] ?? { label: status, color: '#52525b', cls: 'tk-badge--expired' };
+function getStatusCfg(status: string, t: any) {
+  const map: Record<string, { label: string; color: string; cls: string }> = {
+    HOLD:      { label: t.status_hold,      color: '#f59e0b', cls: 'tk-badge--hold' },
+    CONFIRMED: { label: t.status_confirmed, color: '#10b981', cls: 'tk-badge--confirmed' },
+    PAID:      { label: t.status_paid,      color: '#10b981', cls: 'tk-badge--confirmed' },
+    EXPIRED:   { label: t.status_expired,   color: '#52525b', cls: 'tk-badge--expired' },
+    CANCELLED: { label: t.status_cancelled, color: '#52525b', cls: 'tk-badge--expired' },
+  };
+  return map[status] ?? { label: status, color: '#52525b', cls: 'tk-badge--expired' };
 }
 
 // ─── types ────────────────────────────────────────────────────────────────────
@@ -76,9 +76,9 @@ const PURCHASED = ['CONFIRMED', 'PAID'];
 
 type FilterKey = 'active' | 'history';
 
-const FILTERS: { key: FilterKey; label: string }[] = [
-  { key: 'active',  label: 'Đang có hiệu lực' },
-  { key: 'history', label: 'Lịch sử' },
+const FILTER_KEYS: { key: FilterKey; tKey: 'mt_tab_active' | 'mt_tab_history' }[] = [
+  { key: 'active',  tKey: 'mt_tab_active' },
+  { key: 'history', tKey: 'mt_tab_history' },
 ];
 
 function applyFilter(list: Reservation[], f: FilterKey) {
@@ -135,9 +135,10 @@ function TicketQr({ code }: { code: string | null }) {
 // ─── ticket card ─────────────────────────────────────────────────────────────
 
 function TicketCard({ r }: { r: Reservation }) {
-  const s = getStatus(r.status);
+  const { t } = useTranslation();
+  const s = getStatusCfg(r.status, t);
   const isExpired = ['EXPIRED', 'CANCELLED'].includes(r.status);
-  const eventTitle = r.ticket?.event?.title ?? 'Sự kiện';
+  const eventTitle = r.ticket?.event?.title ?? t.event;
   const location   = r.ticket?.event?.location ?? '—';
   const startTime  = r.ticket?.event?.startTime ?? r.createdAt;
   const price      = r.ticket?.price ?? 0;
@@ -172,7 +173,7 @@ function TicketCard({ r }: { r: Reservation }) {
         <div className="tk-bottom-row">
           <span className="tk-ref">{fmtRef(r.id)}</span>
           <span className="tk-type-pill">{type}</span>
-          {seatLabel && <span className="tk-type-pill" style={{ background: '#EEF2FF', color: '#0F35FF' }}>Ghế {seatLabel}</span>}
+          {seatLabel && <span className="tk-type-pill" style={{ background: '#EEF2FF', color: '#0F35FF' }}>{t.mt_seat} {seatLabel}</span>}
         </div>
       </div>
 
@@ -209,6 +210,7 @@ function SkeletonCard() {
 // ─── page ─────────────────────────────────────────────────────────────────────
 
 export default function MyTicketsPage() {
+  const { t } = useTranslation();
   const router = useRouter();
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [loading, setLoading] = useState(true);
@@ -237,10 +239,10 @@ export default function MyTicketsPage() {
             <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
               <path d="M10 3L5 8l5 5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
-            Hồ sơ
+            {t.mt_profile}
           </Link>
           <h1 className="mt-title">
-            Vé của tôi
+            {t.mt_title}
             {!loading && (
               <span className="mt-count">
                 {reservations.filter(r => PURCHASED.includes(r.status)).length}
@@ -251,7 +253,7 @@ export default function MyTicketsPage() {
 
         {/* filter tabs */}
         <div className="mt-tabs" role="tablist" aria-label="Lọc vé">
-          {FILTERS.map(f => {
+          {FILTER_KEYS.map(f => {
             const count = applyFilter(reservations, f.key).length;
             return (
               <button
@@ -261,7 +263,7 @@ export default function MyTicketsPage() {
                 className={`mt-tab${filter === f.key ? ' mt-tab--active' : ''}`}
                 onClick={() => setFilter(f.key)}
               >
-                {f.label}
+                {t[f.tKey]}
                 {!loading && (
                   <span className="mt-tab-count">{count}</span>
                 )}
@@ -289,11 +291,11 @@ export default function MyTicketsPage() {
             </svg>
             <p className="mt-empty-msg">
               {filter === 'active'
-                ? 'Không có vé đang có hiệu lực'
-                : 'Chưa có sự kiện nào đã kết thúc'}
+                ? t.mt_empty_active
+                : t.mt_empty_history}
             </p>
-            <p className="mt-empty-sub">Khám phá các sự kiện và đặt vé ngay!</p>
-            <Link href="/events" className="mt-empty-cta">Xem sự kiện</Link>
+            <p className="mt-empty-sub">{t.mt_empty_cta}</p>
+            <Link href="/events" className="mt-empty-cta">{t.mt_view_events}</Link>
           </div>
         ) : (
           <div className="mt-list">

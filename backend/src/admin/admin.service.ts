@@ -454,35 +454,139 @@ export class AdminService {
     });
   }
 
+  // ─── Seat Layout Designer ────────────────────────────────────────────────
+
+  async saveSeatLayout(eventId: number, layout: any) {
+    const event = await this.eventsRepo.findOne({ where: { id: eventId } });
+    if (!event) throw new NotFoundException('Sự kiện không tồn tại.');
+    event.seatLayout = layout;
+    await this.eventsRepo.save(event);
+    return { message: 'Layout saved.' };
+  }
+
+  async getSeatLayout(eventId: number) {
+    const event = await this.eventsRepo.findOne({
+      where: { id: eventId },
+      relations: ['tickets'],
+    });
+    if (!event) throw new NotFoundException('Sự kiện không tồn tại.');
+    return {
+      layout: event.seatLayout || null,
+      tickets: (event.tickets || []).map((t) => ({
+        id: t.id,
+        type: t.type,
+        price: t.price,
+        quantity: t.quantity,
+      })),
+    };
+  }
+
+  async generateSeatsFromLayout(eventId: number) {
+    const event = await this.eventsRepo.findOne({
+      where: { id: eventId },
+      relations: ['tickets', 'tickets.seats'],
+    });
+    if (!event) throw new NotFoundException('Sự kiện không tồn tại.');
+    if (!event.tickets?.length) throw new BadRequestException('Chưa có loại vé nào.');
+
+    // Guard: refuse if any seat is already sold/held
+    for (const ticket of event.tickets) {
+      if (ticket.seats?.some((s) => s.status !== 'AVAILABLE')) {
+        throw new BadRequestException(
+          `Loại vé "${ticket.type}" đã có ghế đang giữ/đã bán. Không thể tạo lại.`,
+        );
+      }
+    }
+
+    // Remove all existing available seats first
+    for (const ticket of event.tickets) {
+      if (ticket.seats?.length) await this.seatsRepo.remove(ticket.seats);
+    }
+
+    const layout = event.seatLayout as any;
+
+    // ── Image-based layout (type: 'image') or no sections ─────────────────
+    if (!layout?.sections?.length) {
+      let totalCreated = 0;
+      let rowOffset = 0;
+      for (const ticket of event.tickets) {
+        const rowsGenerated = await this.generateSeats(ticket, rowOffset);
+        rowOffset += rowsGenerated;
+        totalCreated += ticket.quantity;
+      }
+      return { message: `Đã tạo ${totalCreated} ghế.`, total: totalCreated };
+    }
+
+    // ── SVG sections-based layout ──────────────────────────────────────────
+    const ticketMap = new Map(event.tickets.map((t) => [t.id, t]));
+    let totalCreated = 0;
+
+    for (const section of layout.sections) {
+      const ticket = ticketMap.get(section.ticketId);
+      if (!ticket) continue;
+
+      const seats: Seat[] = [];
+      const rowCount = section.rows || 1;
+      const colCount = section.seatsPerRow || 10;
+      const startLabel = section.startLabel || 'A';
+
+      for (let r = 0; r < rowCount; r++) {
+        const rowChar = String.fromCharCode(startLabel.charCodeAt(0) + r);
+        for (let c = 0; c < colCount; c++) {
+          seats.push(this.seatsRepo.create({
+            row: r,
+            col: c,
+            label: `${rowChar}${c + 1}`,
+            status: 'AVAILABLE',
+            ticket,
+          }));
+        }
+      }
+
+      await this.seatsRepo.save(seats);
+      ticket.quantity = seats.length;
+      await this.ticketsRepo.save(ticket);
+      totalCreated += seats.length;
+    }
+
+    return { message: `Đã tạo ${totalCreated} ghế.`, total: totalCreated };
+  }
+
   // ─── Helpers ──────────────────────────────────────────────────────────────
 
   private async generateSeats(ticket: Ticket, rowOffset = 0): Promise<number> {
-    const gridSizes: Record<string, { rows: number; cols: number }> = {
-      SVIP: { rows: 2, cols: 8 },
-      VIP: { rows: 3, cols: 10 },
-      Premium: { rows: 4, cols: 12 },
-      Standard: { rows: 5, cols: 14 },
-      Economy: { rows: 6, cols: 16 },
-    };
+    const qty = ticket.quantity;
+    if (qty <= 0) return 0;
 
-    const grid = gridSizes[ticket.type] || { rows: 4, cols: 10 };
+    const colsPerType: Record<string, number> = {
+      SVIP: 8,
+      VIP: 10,
+      Premium: 12,
+      Standard: 14,
+      Economy: 16,
+    };
+    const cols = colsPerType[ticket.type] || Math.min(Math.ceil(Math.sqrt(qty * 2)), 16);
+    const rows = Math.ceil(qty / cols);
 
     const seats: Seat[] = [];
-    for (let r = 1; r <= grid.rows; r++) {
+    let remaining = qty;
+
+    for (let r = 1; r <= rows && remaining > 0; r++) {
       const globalRow = rowOffset + r;
-      for (let c = 1; c <= grid.cols; c++) {
-        const seat = this.seatsRepo.create({
+      const seatsInRow = Math.min(cols, remaining);
+      for (let c = 1; c <= seatsInRow; c++) {
+        seats.push(this.seatsRepo.create({
           row: globalRow,
           col: c,
           label: `${String.fromCharCode(64 + globalRow)}${c}`,
           status: 'AVAILABLE',
           ticket,
-        });
-        seats.push(seat);
+        }));
+        remaining--;
       }
     }
 
     await this.seatsRepo.save(seats);
-    return grid.rows;
+    return rows;
   }
 }

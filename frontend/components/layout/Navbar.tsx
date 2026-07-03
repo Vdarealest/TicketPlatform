@@ -4,10 +4,13 @@ import Link from 'next/link';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import api from '../../lib/api';
+import { useTranslation } from '../../lib/i18n';
+import ThemeToggle from './ThemeToggle';
+import LanguageSwitcher from './LanguageSwitcher';
 
-const NAV_LINKS = [
-  { label: 'Events', href: '/events' },
-  { label: 'My Tickets', href: '/my-tickets' },
+const NAV_KEYS = [
+  { key: 'nav_events' as const, href: '/events' },
+  { key: 'nav_my_tickets' as const, href: '/my-tickets' },
 ];
 
 const AVATAR_COLORS = ['#e02020', '#0f35ff', '#007aff', '#34aadc', '#10b981', '#f59e0b', '#8b5cf6'];
@@ -34,12 +37,15 @@ function decodeJwtEmail(token: string): string | null {
 }
 
 export default function Navbar() {
+  const { t } = useTranslation();
   const router = useRouter();
   const [scrolled, setScrolled] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
   const [searchValue, setSearchValue] = useState('');
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<string | null>(null);
+  const [userAvatar, setUserAvatar] = useState<string | null>(null);
+  const [userName, setUserName] = useState<string | null>(null);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -48,10 +54,22 @@ export default function Navbar() {
     if (token) {
       const email = decodeJwtEmail(token);
       setUserEmail(email);
-      api.get('/auth/me').then((res) => setUserRole(res.data?.role || null)).catch(() => setUserRole(null));
+      api.get('/users/profile')
+        .then((res) => {
+          setUserRole(res.data?.role || null);
+          setUserAvatar(res.data?.avatarUrl || null);
+          setUserName(res.data?.name || null);
+        })
+        .catch(() => {
+          api.get('/auth/me')
+            .then((res) => setUserRole(res.data?.role || null))
+            .catch(() => setUserRole(null));
+        });
     } else {
       setUserEmail(null);
       setUserRole(null);
+      setUserAvatar(null);
+      setUserName(null);
     }
   }, []);
 
@@ -116,9 +134,9 @@ export default function Navbar() {
         <div className="onezone-nav__left">
           <Link href="/" className="onezone-nav__logo">Vietix</Link>
           <div className="onezone-nav__links">
-            {NAV_LINKS.map((item) => (
-              <Link key={item.label} href={item.href} className="onezone-nav__link">
-                {item.label}
+            {NAV_KEYS.map((item) => (
+              <Link key={item.key} href={item.href} className="onezone-nav__link">
+                {t[item.key]}
               </Link>
             ))}
           </div>
@@ -134,7 +152,7 @@ export default function Navbar() {
               </svg>
             </button>
             <input
-              placeholder="Tìm sự kiện..."
+              placeholder={t.nav_search}
               className="onezone-nav__search-input"
               value={searchValue}
               onChange={(e) => setSearchValue(e.target.value)}
@@ -144,8 +162,17 @@ export default function Navbar() {
           </form>
         </div>
 
-        {/* RIGHT */}
+        {/* RIGHT: Liên hệ → Ngôn ngữ → Dark mode → Profile */}
         <div className="onezone-nav__right">
+          <Link href="/contact" className="nav-header-link">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
+              <rect x="2" y="4" width="20" height="16" rx="3" />
+              <path d="M2 7l10 7 10-7" />
+            </svg>
+            <span className="nav-header-link__text">{t.nav_contact}</span>
+          </Link>
+          <LanguageSwitcher />
+          <ThemeToggle />
           {userEmail ? (
             <div className="nav-avatar-wrap" ref={dropdownRef}>
               <button
@@ -155,7 +182,15 @@ export default function Navbar() {
                 aria-label="Tài khoản"
                 aria-expanded={dropdownOpen}
               >
-                <span className="nav-avatar-initials">{getInitials(userEmail)}</span>
+                {userAvatar ? (
+                  <img
+                    src={userAvatar.startsWith('http') ? userAvatar : `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}${userAvatar}`}
+                    alt=""
+                    className="nav-avatar-img"
+                  />
+                ) : (
+                  <span className="nav-avatar-initials">{getInitials(userEmail)}</span>
+                )}
                 <svg
                   width="10" height="10" viewBox="0 0 10 10" fill="none"
                   className={`nav-avatar-chevron ${dropdownOpen ? 'nav-avatar-chevron--open' : ''}`}
@@ -167,12 +202,21 @@ export default function Navbar() {
               {dropdownOpen && (
                 <div className="nav-dropdown">
                   <div className="nav-dropdown__header">
-                    <div className="nav-dropdown__avatar" style={{ background: getAvatarColor(userEmail) }}>
-                      {getInitials(userEmail)}
-                    </div>
+                    {userAvatar ? (
+                      <img
+                        src={userAvatar.startsWith('http') ? userAvatar : `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}${userAvatar}`}
+                        alt=""
+                        className="nav-dropdown__avatar nav-dropdown__avatar--img"
+                      />
+                    ) : (
+                      <div className="nav-dropdown__avatar" style={{ background: getAvatarColor(userEmail) }}>
+                        {getInitials(userEmail)}
+                      </div>
+                    )}
                     <div className="nav-dropdown__email-wrap">
-                      <span className="nav-dropdown__label">Đăng nhập với</span>
-                      <span className="nav-dropdown__email">{userEmail}</span>
+                      {userName && <span className="nav-dropdown__name">{userName}</span>}
+                      <span className={userName ? 'nav-dropdown__email' : 'nav-dropdown__label'}>{userName ? userEmail : t.nav_login_with}</span>
+                      {!userName && <span className="nav-dropdown__email">{userEmail}</span>}
                     </div>
                   </div>
 
@@ -183,7 +227,7 @@ export default function Navbar() {
                       <circle cx="8" cy="5.5" r="2.5" stroke="currentColor" strokeWidth="1.4" />
                       <path d="M2.5 13.5c0-2.485 2.462-4.5 5.5-4.5s5.5 2.015 5.5 4.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
                     </svg>
-                    Hồ sơ của tôi
+                    {t.nav_profile}
                   </Link>
 
                   <Link href="/my-tickets" className="nav-dropdown__item" onClick={() => setDropdownOpen(false)}>
@@ -192,7 +236,7 @@ export default function Navbar() {
                       <path d="M5.5 4.5V3a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1v1.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
                       <path d="M5.5 4.5v7M10.5 4.5v7" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
                     </svg>
-                    Vé của tôi
+                    {t.nav_tickets}
                   </Link>
 
                   {userRole === 'ADMIN' && (
@@ -203,7 +247,7 @@ export default function Navbar() {
                         <rect x="2" y="9" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.4" />
                         <rect x="9" y="9" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.4" />
                       </svg>
-                      Quản trị Admin
+                      {t.nav_admin}
                     </Link>
                   )}
 
@@ -215,14 +259,14 @@ export default function Navbar() {
                       <path d="M10.5 10.5L13.5 8l-3-2.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
                       <path d="M13.5 8H6.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
                     </svg>
-                    Đăng xuất
+                    {t.nav_logout}
                   </button>
                 </div>
               )}
             </div>
           ) : (
             <Link href="/login" className="onezone-nav__login">
-              Đăng nhập
+              {t.nav_login}
               <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
                 <path d="M2 6h8M6.5 2.5L10 6l-3.5 3.5" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
