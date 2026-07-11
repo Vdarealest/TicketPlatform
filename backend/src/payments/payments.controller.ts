@@ -2,7 +2,6 @@ import {
   Controller,
   Post,
   Get,
-  Param,
   Body,
   Query,
   Request,
@@ -74,31 +73,5 @@ export class PaymentsController {
   @Get('momo/return')
   handleMomoReturn(@Query() query: Record<string, string>) {
     return this.paymentsService.handleMomoReturn(query);
-  }
-
-  // ── Legacy mock endpoints ──
-
-  @Post('mock-success/:reservationId')
-  @UseGuards(JwtAuthGuard)
-  confirmPayment(
-    @Param('reservationId') reservationId: string,
-    @Request() req: any,
-  ) {
-    return this.paymentsService.confirmPayment(
-      +reservationId,
-      req.user.userId,
-    );
-  }
-
-  @Post('mock-success-bulk')
-  @UseGuards(JwtAuthGuard)
-  confirmBulk(
-    @Body() body: { reservationIds: number[] },
-    @Request() req: any,
-  ) {
-    return this.paymentsService.confirmBulkPayment(
-      body.reservationIds,
-      req.user.userId,
-    );
   }
 }

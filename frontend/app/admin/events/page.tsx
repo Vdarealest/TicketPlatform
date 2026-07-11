@@ -4,13 +4,16 @@ import { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
 import api from '../../../lib/api';
 import { formatCurrencyVND } from '../../../lib/format';
+import { resolveImageUrl } from '../../../lib/image';
 
 interface Ticket { id: number; type: string; price: number; quantity: number; }
 interface EventItem {
   id: number; title: string; location: string; category: string; bannerUrl: string;
   bannerFocusX: number; bannerFocusY: number;
-  startTime: string; endTime: string; description: string; createdAt: string; tickets: Ticket[];
+  startTime: string; endTime: string; description: string; createdAt: string;
+  tickets: Ticket[]; venueId?: number; venue?: { id: number; name: string };
 }
+interface VenueOption { id: number; name: string; }
 interface TicketInput { type: string; price: string; quantity: string; }
 
 const CATEGORIES = ['Âm nhạc', 'Thể thao', 'Sân khấu', 'Hội thảo', 'Triển lãm', 'Ẩm thực', 'Khác'];
@@ -19,28 +22,38 @@ const EMPTY_FORM = {
   title: '', description: '', location: '', category: 'Âm nhạc', bannerUrl: '',
   bannerFocusX: 50, bannerFocusY: 50,
   startTime: '', endTime: '',
+  venueId: '' as string,
 };
 
 export default function AdminEvents() {
   const [events, setEvents] = useState<EventItem[]>([]);
+  const [venues, setVenues] = useState<VenueOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState(EMPTY_FORM);
   const [ticketInputs, setTicketInputs] = useState<TicketInput[]>([]);
+  const [existingTickets, setExistingTickets] = useState<Ticket[]>([]);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const focusRef = useRef<HTMLDivElement>(null);
 
   const load = () => {
-    api.get('/admin/events').then((r) => setEvents(r.data)).catch(() => {}).finally(() => setLoading(false));
+    Promise.all([
+      api.get('/admin/events'),
+      api.get('/admin/venues'),
+    ]).then(([evRes, vRes]) => {
+      setEvents(evRes.data);
+      setVenues(vRes.data);
+    }).catch(() => {}).finally(() => setLoading(false));
   };
   useEffect(load, []);
 
   const openCreate = () => {
     setEditingId(null); setForm(EMPTY_FORM);
     setTicketInputs([{ type: 'Standard', price: '', quantity: '' }]);
+    setExistingTickets([]);
     setShowModal(true);
   };
 
@@ -51,8 +64,11 @@ export default function AdminEvents() {
       category: ev.category || 'Khác',
       bannerUrl: ev.bannerUrl, bannerFocusX: ev.bannerFocusX ?? 50, bannerFocusY: ev.bannerFocusY ?? 50,
       startTime: ev.startTime.slice(0, 16), endTime: ev.endTime.slice(0, 16),
+      venueId: ev.venueId ? String(ev.venueId) : '',
     });
-    setTicketInputs([]); setShowModal(true);
+    setTicketInputs([]);
+    setExistingTickets(ev.tickets || []);
+    setShowModal(true);
   };
 
   const handleUpload = async (file: File) => {
@@ -62,8 +78,8 @@ export default function AdminEvents() {
       const fd = new FormData();
       fd.append('file', file);
       const res = await api.post('/upload/image', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
-      const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
-      setForm((f) => ({ ...f, bannerUrl: `${backendUrl}${res.data.url}`, bannerFocusX: 50, bannerFocusY: 50 }));
+      // Store the relative path ("/uploads/…"); the domain is added at render time.
+      setForm((f) => ({ ...f, bannerUrl: res.data.url, bannerFocusX: 50, bannerFocusY: 50 }));
     } catch {}
     setUploading(false);
   };
@@ -79,12 +95,16 @@ export default function AdminEvents() {
     if (!form.title || !form.location || !form.startTime || !form.endTime) return;
     setSaving(true);
     try {
+      const venueId = form.venueId ? Number(form.venueId) : null;
+      const newTickets = ticketInputs.filter((t) => t.type && t.price && t.quantity)
+        .map((t) => ({ type: t.type, price: Number(t.price), quantity: Number(t.quantity) }));
       if (editingId) {
-        await api.put(`/admin/events/${editingId}`, form);
+        await api.put(`/admin/events/${editingId}`, { ...form, venueId });
+        for (const t of newTickets) {
+          await api.post(`/admin/events/${editingId}/tickets`, t);
+        }
       } else {
-        const tickets = ticketInputs.filter((t) => t.type && t.price && t.quantity)
-          .map((t) => ({ type: t.type, price: Number(t.price), quantity: Number(t.quantity) }));
-        await api.post('/admin/events', { ...form, tickets });
+        await api.post('/admin/events', { ...form, venueId, tickets: newTickets });
       }
       setShowModal(false); load();
     } catch {} finally { setSaving(false); }
@@ -125,11 +145,14 @@ export default function AdminEvents() {
                   <td style={{ fontWeight: 600 }}>{ev.id}</td>
                   <td>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      {ev.bannerUrl && <img src={ev.bannerUrl.startsWith('http') ? ev.bannerUrl : `/img/${ev.bannerUrl}`} alt="" style={{ width: 48, height: 32, borderRadius: 6, objectFit: 'cover', objectPosition: `${ev.bannerFocusX ?? 50}% ${ev.bannerFocusY ?? 50}%` }} />}
+                      {ev.bannerUrl && <img src={resolveImageUrl(ev.bannerUrl)} alt="" style={{ width: 48, height: 32, borderRadius: 6, objectFit: 'cover', objectPosition: `${ev.bannerFocusX ?? 50}% ${ev.bannerFocusY ?? 50}%` }} />}
                       <span style={{ fontWeight: 600, color: '#111', maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }}>{ev.title}</span>
                     </div>
                   </td>
-                  <td>{ev.location}</td>
+                  <td>
+                    <div>{ev.location}</div>
+                    {ev.venue && <span style={{ fontSize: 11, color: '#6b7280' }}>{ev.venue.name}</span>}
+                  </td>
                   <td><span style={{ fontSize: 11, background: '#eef2ff', color: '#0F35FF', borderRadius: 6, padding: '2px 8px', fontWeight: 600 }}>{ev.category || 'Khác'}</span></td>
                   <td style={{ fontSize: 12, color: '#9ea5ad' }}>{new Date(ev.startTime).toLocaleDateString('vi-VN')}</td>
                   <td style={{ fontSize: 12, color: '#9ea5ad' }}>{ev.createdAt ? new Date(ev.createdAt).toLocaleDateString('vi-VN') : '—'}</td>
@@ -177,6 +200,21 @@ export default function AdminEvents() {
             </div>
 
             <div className="admin-form-group">
+              <label className="admin-form-label">Venue (sơ đồ ghế)</label>
+              <select className="admin-form-input" value={form.venueId} onChange={(e) => setForm({ ...form, venueId: e.target.value })}>
+                <option value="">— Không chọn —</option>
+                {venues.map((v) => (
+                  <option key={v.id} value={v.id}>{v.name}</option>
+                ))}
+              </select>
+              {form.venueId && (
+                <p style={{ fontSize: 12, color: '#6b7280', marginTop: 4 }}>
+                  Sơ đồ ghế của venue này sẽ được dùng để tạo ghế cho sự kiện.
+                </p>
+              )}
+            </div>
+
+            <div className="admin-form-group">
               <label className="admin-form-label">Thể loại</label>
               <select className="admin-form-input" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}>
                 {CATEGORIES.map((c) => (
@@ -200,7 +238,7 @@ export default function AdminEvents() {
                       border: '1px solid #e5e7ea', cursor: 'crosshair', userSelect: 'none',
                     }}
                   >
-                    <img src={form.bannerUrl} alt="Banner" style={{ width: '100%', display: 'block' }} />
+                    <img src={resolveImageUrl(form.bannerUrl)} alt="Banner" style={{ width: '100%', display: 'block' }} />
                     {/* Focus dot */}
                     <div style={{
                       position: 'absolute',
@@ -232,13 +270,13 @@ export default function AdminEvents() {
                     <div style={{ flex: 1 }}>
                       <div style={{ fontSize: 10, fontWeight: 600, color: '#9ca3af', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Event Card (16:10)</div>
                       <div style={{ borderRadius: 8, overflow: 'hidden', border: '1px solid #e5e7ea', aspectRatio: '16/10' }}>
-                        <img src={form.bannerUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `${form.bannerFocusX}% ${form.bannerFocusY}%`, display: 'block' }} />
+                        <img src={resolveImageUrl(form.bannerUrl)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `${form.bannerFocusX}% ${form.bannerFocusY}%`, display: 'block' }} />
                       </div>
                     </div>
                     <div style={{ flex: 1.2 }}>
                       <div style={{ fontSize: 10, fontWeight: 600, color: '#9ca3af', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Banner Detail (21:9)</div>
                       <div style={{ borderRadius: 8, overflow: 'hidden', border: '1px solid #e5e7ea', aspectRatio: '21/9' }}>
-                        <img src={form.bannerUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `${form.bannerFocusX}% ${form.bannerFocusY}%`, display: 'block' }} />
+                        <img src={resolveImageUrl(form.bannerUrl)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `${form.bannerFocusX}% ${form.bannerFocusY}%`, display: 'block' }} />
                       </div>
                     </div>
                   </div>
@@ -301,22 +339,34 @@ export default function AdminEvents() {
               </div>
             </div>
 
-            {!editingId && (
-              <div className="admin-form-group">
-                <label className="admin-form-label">Loại vé</label>
-                <div className="admin-ticket-list">
-                  {ticketInputs.map((t, i) => (
-                    <div className="admin-ticket-row" key={i}>
-                      <input className="admin-form-input" value={t.type} onChange={(e) => updateTicketInput(i, 'type', e.target.value)} placeholder="Loại (VD: VIP)" style={{ flex: 1 }} />
-                      <input className="admin-form-input" type="number" value={t.price} onChange={(e) => updateTicketInput(i, 'price', e.target.value)} placeholder="Giá" style={{ width: 110 }} />
-                      <input className="admin-form-input" type="number" value={t.quantity} onChange={(e) => updateTicketInput(i, 'quantity', e.target.value)} placeholder="SL" style={{ width: 70 }} />
-                      <button className="admin-btn admin-btn--danger admin-btn--sm" onClick={() => removeTicketInput(i)} type="button">×</button>
+            <div className="admin-form-group">
+              <label className="admin-form-label">Loại vé</label>
+              {existingTickets.length > 0 && (
+                <div className="admin-ticket-list" style={{ marginBottom: 8 }}>
+                  {existingTickets.map((t) => (
+                    <div className="admin-ticket-row" key={t.id} style={{ opacity: 0.75 }}>
+                      <input className="admin-form-input" value={t.type} disabled style={{ flex: 1 }} />
+                      <input className="admin-form-input" value={t.price.toLocaleString('vi-VN') + ' đ'} disabled style={{ width: 110 }} />
+                      <input className="admin-form-input" value={t.quantity} disabled style={{ width: 70 }} />
                     </div>
                   ))}
                 </div>
-                <button className="admin-btn admin-btn--ghost admin-btn--sm" onClick={addTicketInput} type="button" style={{ marginTop: 8 }}>+ Thêm loại vé</button>
+              )}
+              <div className="admin-ticket-list">
+                {ticketInputs.map((t, i) => (
+                  <div className="admin-ticket-row" key={i}>
+                    <input className="admin-form-input" value={t.type} onChange={(e) => updateTicketInput(i, 'type', e.target.value)} placeholder="Loại (VD: VIP)" style={{ flex: 1 }} />
+                    <input className="admin-form-input" type="number" value={t.price} onChange={(e) => updateTicketInput(i, 'price', e.target.value)} placeholder="Giá" style={{ width: 110 }} />
+                    <input className="admin-form-input" type="number" value={t.quantity} onChange={(e) => updateTicketInput(i, 'quantity', e.target.value)} placeholder="SL" style={{ width: 70 }} />
+                    <button className="admin-btn admin-btn--danger admin-btn--sm" onClick={() => removeTicketInput(i)} type="button">×</button>
+                  </div>
+                ))}
               </div>
-            )}
+              <button className="admin-btn admin-btn--ghost admin-btn--sm" onClick={addTicketInput} type="button" style={{ marginTop: 8 }}>+ Thêm loại vé</button>
+              {editingId !== null && existingTickets.length === 0 && ticketInputs.length === 0 && (
+                <p style={{ fontSize: 12, color: '#b45309', marginTop: 6 }}>Sự kiện này chưa có loại vé — thêm ít nhất một loại để gán vào sơ đồ ghế.</p>
+              )}
+            </div>
 
             <div className="admin-form-actions">
               <button className="admin-btn admin-btn--ghost" onClick={() => setShowModal(false)}>Hủy</button>

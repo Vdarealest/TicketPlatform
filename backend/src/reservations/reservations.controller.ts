@@ -40,20 +40,6 @@ export class ReservationsController {
     );
   }
 
-  @Post(':ticketId')
-  @UseGuards(JwtAuthGuard)
-  reserve(
-    @Param('ticketId') ticketId: string,
-    @Body() body: { seatId?: number },
-    @Request() req,
-  ) {
-    return this.reservationsService.reserveTicket(
-      Number(ticketId),
-      req.user.userId,
-      body?.seatId,
-    );
-  }
-
   @Post(':ticketId/bulk')
   @UseGuards(JwtAuthGuard)
   reserveBulk(

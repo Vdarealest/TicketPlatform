@@ -12,7 +12,10 @@ interface OtpRecord {
   otp: string;
   expiresAt: number;
   verified: boolean;
+  attempts: number;
 }
+
+const MAX_OTP_ATTEMPTS = 5;
 
 @Injectable()
 export class AuthService {
@@ -104,7 +107,12 @@ export class AuthService {
     }
 
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    this.otpStore.set(user.email, { otp, expiresAt: Date.now() + 5 * 60 * 1000, verified: false });
+    this.otpStore.set(user.email, {
+      otp,
+      expiresAt: Date.now() + 5 * 60 * 1000,
+      verified: false,
+      attempts: 0,
+    });
 
     await this.sendOtpEmail(user.email, otp);
 
@@ -117,7 +125,15 @@ export class AuthService {
 
   async verifyOtp(email: string, otp: string) {
     const record = this.getValidOtp(email);
-    if (record.otp !== otp) throw new BadRequestException('Mã OTP không đúng.');
+    if (record.otp !== otp) {
+      record.attempts += 1;
+      // Too many wrong guesses: burn this OTP so it can't be brute-forced.
+      if (record.attempts >= MAX_OTP_ATTEMPTS) {
+        this.otpStore.delete(email);
+        throw new BadRequestException('Nhập sai OTP quá nhiều lần. Vui lòng yêu cầu mã mới.');
+      }
+      throw new BadRequestException('Mã OTP không đúng.');
+    }
 
     record.verified = true;
     return { message: 'Xác minh thành công.' };

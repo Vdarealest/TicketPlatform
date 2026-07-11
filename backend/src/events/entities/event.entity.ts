@@ -4,9 +4,12 @@ import {
   Column,
   CreateDateColumn,
   OneToMany,
+  ManyToOne,
+  JoinColumn,
 } from 'typeorm';
 
 import { Ticket } from '../../tickets/entities/ticket.entity';
+import { Venue } from '../../venues/venue.entity';
 
 @Entity()
 export class Event {
@@ -42,6 +45,13 @@ export class Event {
 
   @Column({ type: 'jsonb', nullable: true })
   seatLayout: any;
+
+  @Column({ nullable: true })
+  venueId: number;
+
+  @ManyToOne(() => Venue, { nullable: true, onDelete: 'SET NULL', eager: false })
+  @JoinColumn({ name: 'venueId' })
+  venue: Venue;
 
   @CreateDateColumn()
   createdAt: Date;

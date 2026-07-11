@@ -76,6 +76,22 @@ export class PaymentsService {
       0,
     );
 
+    // Supersede any earlier PENDING payment covering the same reservations
+    // (e.g. user started VNPay then switched to MoMo). Only the newest payment
+    // stays live, so completing an abandoned gateway session can't double-charge:
+    // the stale payment is CANCELLED and the confirm handlers ignore it.
+    const pendings = await this.paymentRepository.find({
+      where: { status: 'PENDING', user: { id: userId } },
+    });
+    const idSet = new Set(reservationIds);
+    const stale = pendings.filter((p) =>
+      p.reservationIds.some((rid) => idSet.has(Number(rid))),
+    );
+    if (stale.length) {
+      for (const p of stale) p.status = 'CANCELLED';
+      await this.paymentRepository.save(stale);
+    }
+
     const user = await this.userRepository.findOneOrFail({
       where: { id: userId },
     });
@@ -155,6 +171,11 @@ export class PaymentsService {
       return { resultCode: 0, message: 'Already processed' };
     }
 
+    // Defense-in-depth: the amount MoMo confirms must match what we charged.
+    if (Number(momoParams.amount) !== Number(payment.amount)) {
+      return { resultCode: 21, message: 'Invalid amount' };
+    }
+
     payment.vnpTransactionNo = momoParams.transId || '';
     payment.responseCode = String(momoParams.resultCode);
 
@@ -186,6 +207,9 @@ export class PaymentsService {
 
     if (Number(momoParams.resultCode) === 0) {
       if (payment.status === 'PENDING') {
+        if (Number(momoParams.amount) !== Number(payment.amount)) {
+          return { success: false, message: 'Số tiền thanh toán không khớp.' };
+        }
         payment.status = 'SUCCESS';
         payment.vnpTransactionNo = momoParams.transId || '';
         payment.responseCode = String(momoParams.resultCode);
@@ -379,55 +403,4 @@ export class PaymentsService {
     }
   }
 
-  // --- Legacy mock endpoints (giữ lại để backward-compatible) ---
-
-  async confirmBulkPayment(reservationIds: number[], userId: number) {
-    const results: any[] = [];
-    for (const id of reservationIds) {
-      results.push(await this.confirmPayment(id, userId));
-    }
-    return {
-      message: `Đã thanh toán ${results.length} vé.`,
-      reservations: results.map((r: any) => r.reservation),
-    };
-  }
-
-  async confirmPayment(reservationId: number, userId: number) {
-    const reservation = await this.reservationRepository.findOne({
-      where: { id: reservationId },
-      relations: ['ticket', 'ticket.event', 'seat', 'user'],
-    });
-
-    if (!reservation) {
-      throw new NotFoundException('Reservation not found');
-    }
-
-    if (reservation.user.id !== userId) {
-      throw new ForbiddenException('Not your reservation');
-    }
-
-    if (reservation.status !== 'HOLD') {
-      throw new BadRequestException('Reservation already processed');
-    }
-
-    reservation.status = 'CONFIRMED';
-    await this.reservationRepository.save(reservation);
-
-    if (reservation.seat) {
-      reservation.seat.status = 'BOOKED';
-      await this.seatRepository.save(reservation.seat);
-
-      if (reservation.ticket.event?.id) {
-        this.ticketGateway.emitSeatUpdate(
-          String(reservation.ticket.event.id),
-          reservation.ticket.id,
-          reservation.seat.id,
-          reservation.seat.status,
-        );
-      }
-    }
-
-    const { user, ...rest } = reservation;
-    return { message: 'Payment confirmed', reservation: rest };
-  }
 }

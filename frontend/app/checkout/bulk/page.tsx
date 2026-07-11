@@ -6,6 +6,7 @@ import Link from 'next/link';
 
 import api from '@/lib/api';
 import { formatCurrencyVND } from '@/lib/format';
+import { resolveImageUrl } from '@/lib/image';
 
 interface ReservationItem {
   id: number;
@@ -123,9 +124,7 @@ export default function BulkCheckoutPage() {
     ? new Date(event.startTime).toLocaleDateString('vi-VN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
     : null;
 
-  const bannerSrc = event.bannerUrl
-    ? (event.bannerUrl.startsWith('http') ? event.bannerUrl : `/img/${event.bannerUrl}`)
-    : '/img/placeholder.jpg';
+  const bannerSrc = resolveImageUrl(event.bannerUrl);
 
   return (
     <main className="tsp-root">

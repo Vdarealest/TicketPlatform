@@ -17,10 +17,15 @@ import { GoogleStrategy } from './strategies/google.strategy';
     TypeOrmModule.forFeature([User]),
 
     JwtModule.registerAsync({
-      useFactory: (configService: ConfigService) => ({
-        secret: configService.get<string>('JWT_SECRET') || 'your-secret-key',
-        signOptions: { expiresIn: '7d' },
-      }),
+      useFactory: (configService: ConfigService) => {
+        const secret = configService.get<string>('JWT_SECRET');
+        // Fail fast: never fall back to a hardcoded secret — that would let
+        // anyone forge admin tokens if the env var is ever missing.
+        if (!secret) {
+          throw new Error('JWT_SECRET is not set. Refusing to start.');
+        }
+        return { secret, signOptions: { expiresIn: '7d' } };
+      },
       inject: [ConfigService],
     }),
 

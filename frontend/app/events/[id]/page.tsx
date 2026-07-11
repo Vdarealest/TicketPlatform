@@ -6,6 +6,7 @@ import Link from 'next/link';
 
 import api from '@/lib/api';
 import { useTranslation } from '@/lib/i18n';
+import { resolveImageUrl } from '@/lib/image';
 import { EventDetail } from '@/lib/types';
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
@@ -341,7 +342,7 @@ export default function EventDetailPage() {
       {/* Hero */}
       <div className="edp-hero">
         <img
-          src={event.bannerUrl ? (event.bannerUrl.startsWith('http') ? event.bannerUrl : `/img/${event.bannerUrl}`) : '/img/placeholder.jpg'}
+          src={resolveImageUrl(event.bannerUrl)}
           alt={event.title}
           className="edp-hero__img"
           style={{ objectPosition: `${event.bannerFocusX ?? 50}% ${event.bannerFocusY ?? 50}%` }}

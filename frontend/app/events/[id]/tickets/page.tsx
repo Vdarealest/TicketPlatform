@@ -7,10 +7,12 @@ import { AxiosError } from 'axios';
 
 import api from '@/lib/api';
 import { socket } from '@/lib/socket';
-import { EventDetail, Seat, Ticket } from '@/lib/types';
+import { EventDetail, Seat, SeatLayout, Ticket } from '@/lib/types';
 import { formatCurrencyVND } from '@/lib/format';
+import { resolveImageUrl } from '@/lib/image';
 import TicketTypeCard from '@/components/tickets/TicketTypeCard';
 import SeatMap, { getZoneColor } from '@/components/tickets/SeatMap';
+import VenueSeatMap from '@/components/tickets/VenueSeatMap';
 
 interface SeatUpdatePayload { ticketId: number; seatId: number; status: Seat['status']; }
 interface TicketUpdatePayload { ticketId: number; availableQuantity: number; }
@@ -187,9 +189,28 @@ export default function TicketSelectionPage() {
   if (loadError || !event) return <div className="tsp-error"><p>{loadError || 'Không tìm thấy sự kiện.'}</p><Link href={`/events/${params.id}`} className="tsp-error__link">Quay lại trang sự kiện</Link></div>;
 
   const tickets = event.tickets ?? [];
+  const rawLayout: SeatLayout | null =
+    event.seatLayout?.sections?.length ? event.seatLayout
+    : event.venue?.layout?.sections?.length ? (event.venue.layout as SeatLayout)
+    : null;
+  // Only use the venue map when DB seats actually line up with the drawing;
+  // otherwise (stale seats from before a redesign) fall back to the plain grid.
+  const layout: SeatLayout | null = (() => {
+    if (!rawLayout) return null;
+    const capacity = new Map<number, number>();
+    for (const s of rawLayout.sections) {
+      if (s.ticketId) capacity.set(s.ticketId, (capacity.get(s.ticketId) ?? 0) + s.rows * s.seatsPerRow);
+    }
+    for (const [tid, cap] of capacity) {
+      const count = tickets.find((t) => t.id === tid)?.seats?.length ?? 0;
+      if (count > 0 && count !== cap) return null;
+    }
+    return rawLayout;
+  })();
   const formattedDate = event.startTime ? new Date(event.startTime).toLocaleDateString('vi-VN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) : null;
   const step = !selectedTicket ? 1 : selectedSeats.length === 0 ? 2 : 3;
-  const zoneColor = selectedTicket ? getZoneColor(selectedTicket.type, tickets.findIndex((t) => t.id === selectedTicket.id)).color : '#e02020';
+  const layoutZoneColor = selectedTicket && layout ? layout.sections.find((s) => s.ticketId === selectedTicket.id)?.color : undefined;
+  const zoneColor = layoutZoneColor ?? (selectedTicket ? getZoneColor(selectedTicket.type, tickets.findIndex((t) => t.id === selectedTicket.id)).color : '#e02020');
   const totalPrice = selectedTicket ? selectedTicket.price * selectedSeats.length : 0;
 
   const sessionFormatted = formatMMSS(sessionRemaining);
@@ -206,7 +227,7 @@ export default function TicketSelectionPage() {
           </Link>
           <div className="tsp-header__main">
             <img
-              src={event.bannerUrl ? (event.bannerUrl.startsWith('http') ? event.bannerUrl : `/img/${event.bannerUrl}`) : '/img/placeholder.jpg'}
+              src={resolveImageUrl(event.bannerUrl)}
               alt={event.title} className="tsp-header__img"
               style={{ objectPosition: `${event.bannerFocusX ?? 50}% ${event.bannerFocusY ?? 50}%` }}
             />
@@ -251,7 +272,19 @@ export default function TicketSelectionPage() {
                 <h2 className="tsp-card__title"><span className="tsp-card__step">2</span>Chọn ghế</h2>
                 <span className="tsp-card__badge">{selectedSeats.length}/{MAX_SEATS} đã chọn</span>
               </div>
-              <SeatMap tickets={tickets} selectedSeats={selectedSeats} onSelectSeat={handleSelectSeat} busy={holdLoading} maxSeats={MAX_SEATS} />
+              {layout ? (
+                <VenueSeatMap
+                  layout={layout}
+                  tickets={tickets}
+                  selectedSeats={selectedSeats}
+                  onSelectSeat={handleSelectSeat}
+                  onZoneFocus={(ticket) => { if (selectedSeats.length === 0) setSelectedTicket(ticket); }}
+                  busy={holdLoading}
+                  maxSeats={MAX_SEATS}
+                />
+              ) : (
+                <SeatMap tickets={tickets} selectedSeats={selectedSeats} onSelectSeat={handleSelectSeat} busy={holdLoading} maxSeats={MAX_SEATS} />
+              )}
             </section>
           </div>
 

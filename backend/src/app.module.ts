@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { APP_GUARD } from '@nestjs/core';
 
 import { UsersModule } from './users/users.module';
 import { AuthModule } from './auth/auth.module';
@@ -29,6 +31,9 @@ import { join } from 'path';
       
     }),
     ScheduleModule.forRoot(),
+    // Global rate limiting: 120 requests / minute per IP by default.
+    // Auth routes tighten this further with @Throttle in the controller.
+    ThrottlerModule.forRoot([{ ttl: 60_000, limit: 120 }]),
     TypeOrmModule.forRoot({
       type: 'postgres',
       host: process.env.DB_HOST,
@@ -37,7 +42,8 @@ import { join } from 'path';
       password: process.env.DB_PASSWORD,
       database: process.env.DB_NAME,
       autoLoadEntities: true,
-      synchronize: true,
+      // Auto-syncing the schema can silently drop/alter columns — never in prod.
+      synchronize: process.env.NODE_ENV !== 'production',
     }),
     QueueModule,
     UsersModule,
@@ -60,6 +66,10 @@ import { join } from 'path';
   ],
    controllers: [
     HealthController,
+  ],
+  providers: [
+    // Apply rate limiting to every route
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
   ],
 })
 export class AppModule {}

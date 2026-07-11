@@ -117,7 +117,7 @@ export class EventsService {
   findOne(id: number) {
     return this.eventRepository.findOne({
       where: { id },
-      relations: ['tickets', 'tickets.seats'],
+      relations: ['tickets', 'tickets.seats', 'venue'],
     });
   }
 }

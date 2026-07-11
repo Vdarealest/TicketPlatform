@@ -2,6 +2,7 @@ import {
   Body, Controller, Get, Post, Req, Res, UseGuards,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import { Throttle } from '@nestjs/throttler';
 import type { Response } from 'express';
 import { ConfigService } from '@nestjs/config';
 
@@ -17,26 +18,33 @@ export class AuthController {
     private configService: ConfigService,
   ) {}
 
+  // Tight per-IP limits on credential/OTP endpoints to stop brute-force,
+  // OTP guessing and email bombing.
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @Post('register')
   register(@Body() body: RegisterDto) {
     return this.authService.register(body.email, body.password, body.phone);
   }
 
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @Post('login')
   login(@Body() body: LoginDto) {
     return this.authService.login(body.email, body.password);
   }
 
+  @Throttle({ default: { limit: 3, ttl: 60_000 } })
   @Post('forgot-password')
   forgotPassword(@Body() body: { identifier: string }) {
     return this.authService.forgotPassword(body.identifier);
   }
 
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @Post('verify-otp')
   verifyOtp(@Body() body: { email: string; otp: string }) {
     return this.authService.verifyOtp(body.email, body.otp);
   }
 
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @Post('reset-password')
   resetPassword(@Body() body: { email: string; otp: string; newPassword: string }) {
     return this.authService.resetPassword(body.email, body.otp, body.newPassword);

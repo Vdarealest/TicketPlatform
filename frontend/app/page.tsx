@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import api from '../lib/api';
 import { useTranslation } from '../lib/i18n';
+import { resolveImageUrl } from '../lib/image';
 import EventCard from '../components/events/EventCard';
 
 export default function Home() {
@@ -41,7 +42,7 @@ export default function Home() {
         <section className="home-hero">
           <div className="home-hero__slide">
             <img
-              src={heroEvent.bannerUrl ? (heroEvent.bannerUrl.startsWith('http') ? heroEvent.bannerUrl : `/img/${heroEvent.bannerUrl}`) : '/img/placeholder.jpg'}
+              src={resolveImageUrl(heroEvent.bannerUrl)}
               alt={heroEvent.title}
               className="home-hero__img"
               style={{ objectPosition: `${heroEvent.bannerFocusX ?? 50}% ${heroEvent.bannerFocusY ?? 50}%` }}

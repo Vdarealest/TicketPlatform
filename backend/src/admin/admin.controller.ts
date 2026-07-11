@@ -9,21 +9,11 @@ import {
   Query,
   Req,
   UseGuards,
-  UseInterceptors,
-  UploadedFile,
-  BadRequestException,
 } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
-import { diskStorage } from 'multer';
-import { extname, join } from 'path';
-import { existsSync, mkdirSync } from 'fs';
 
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AdminGuard } from '../auth/guards/admin.guard';
 import { AdminService } from './admin.service';
-
-const SEAT_MAP_DIR = join(process.cwd(), 'uploads', 'seat-maps');
-if (!existsSync(SEAT_MAP_DIR)) mkdirSync(SEAT_MAP_DIR, { recursive: true });
 
 @Controller('admin')
 @UseGuards(JwtAuthGuard, AdminGuard)
@@ -93,28 +83,36 @@ export class AdminController {
     return this.adminService.generateSeatsFromLayout(Number(id));
   }
 
-  @Post('events/:id/seat-map-image')
-  @UseInterceptors(
-    FileInterceptor('file', {
-      storage: diskStorage({
-        destination: SEAT_MAP_DIR,
-        filename: (_req, file, cb) => {
-          const unique = Date.now() + '-' + Math.round(Math.random() * 1e6);
-          cb(null, `seatmap-${unique}${extname(file.originalname).toLowerCase()}`);
-        },
-      }),
-      fileFilter: (_req, file, cb) => {
-        if (!/\.(jpg|jpeg|png|webp)$/i.test(extname(file.originalname))) {
-          return cb(new BadRequestException('Chỉ hỗ trợ ảnh jpg, png, webp.'), false);
-        }
-        cb(null, true);
-      },
-      limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB
-    }),
-  )
-  uploadSeatMapImage(@UploadedFile() file: Express.Multer.File) {
-    if (!file) throw new BadRequestException('Không có file nào.');
-    return { url: `/uploads/seat-maps/${file.filename}` };
+  // ─── Venues ───────────────────────────────────────────────────────────────
+
+  @Get('venues')
+  getVenues() {
+    return this.adminService.getVenues();
+  }
+
+  @Get('venues/:id')
+  getVenue(@Param('id') id: string) {
+    return this.adminService.getVenue(Number(id));
+  }
+
+  @Post('venues')
+  createVenue(@Body() body: { name: string; address?: string; capacity?: number }) {
+    return this.adminService.createVenue(body);
+  }
+
+  @Put('venues/:id')
+  updateVenue(@Param('id') id: string, @Body() body: any) {
+    return this.adminService.updateVenue(Number(id), body);
+  }
+
+  @Delete('venues/:id')
+  deleteVenue(@Param('id') id: string) {
+    return this.adminService.deleteVenue(Number(id));
+  }
+
+  @Put('venues/:id/layout')
+  saveVenueLayout(@Param('id') id: string, @Body() body: any) {
+    return this.adminService.saveVenueLayout(Number(id), body);
   }
 
   // ─── Users ────────────────────────────────────────────────────────────────

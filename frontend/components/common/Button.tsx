@@ -19,14 +19,8 @@ export default function Button({
   disabled,
   ...props
 }: ButtonProps) {
-  const getVariantStyles = () => {
+  const getVariantStyles = (): { background: string; color: string; hover: string } => {
     switch (variant) {
-      case 'primary':
-        return {
-          background: COLORS.darkButton,
-          color: COLORS.offWhite,
-          hover: '#0F0F0F',
-        };
       case 'secondary':
         return {
           background: COLORS.lightButtonBg,
@@ -45,8 +39,13 @@ export default function Button({
           color: COLORS.deepNavy,
           hover: '#D4D6DA',
         };
+      case 'primary':
       default:
-        return {};
+        return {
+          background: COLORS.darkButton,
+          color: COLORS.offWhite,
+          hover: '#0F0F0F',
+        };
     }
   };
 

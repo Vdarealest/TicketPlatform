@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useTranslation } from '../../lib/i18n';
+import { resolveImageUrl } from '../../lib/image';
 
 interface EventCardProps {
   event: any;
@@ -34,11 +35,7 @@ export default function EventCard({ event }: EventCardProps) {
       <div className="ec2-card">
         <div className="ec2-img-wrap">
           <img
-            src={
-              event.bannerUrl
-                ? (event.bannerUrl.startsWith('http') ? event.bannerUrl : `/img/${event.bannerUrl}`)
-                : '/img/placeholder.jpg'
-            }
+            src={resolveImageUrl(event.bannerUrl)}
             alt={event.title}
             className="ec2-img"
             style={{ objectPosition: `${event.bannerFocusX ?? 50}% ${event.bannerFocusY ?? 50}%` }}

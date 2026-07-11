@@ -35,9 +35,11 @@ export class UploadController {
         },
       }),
       fileFilter: (_req, file, cb) => {
-        const allowed = /\.(jpg|jpeg|png|gif|webp|svg)$/i;
+        // SVG intentionally excluded: it can carry <script> and become stored
+        // XSS when served from /uploads and opened directly.
+        const allowed = /\.(jpg|jpeg|png|gif|webp)$/i;
         if (!allowed.test(extname(file.originalname))) {
-          return cb(new BadRequestException('Chỉ cho phép tải lên hình ảnh (jpg, png, gif, webp, svg).'), false);
+          return cb(new BadRequestException('Chỉ cho phép tải lên hình ảnh (jpg, png, gif, webp).'), false);
         }
         cb(null, true);
       },
