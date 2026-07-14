@@ -50,7 +50,7 @@ export default function MomoReturnPage() {
             width: 40, height: 40, border: '3px solid #f0d4e4', borderTopColor: '#a50064',
             borderRadius: '50%', animation: 'spin 0.7s linear infinite', margin: '0 auto 16px',
           }} />
-          <p style={{ fontSize: 15, color: '#6b7280' }}>Đang xác minh thanh toán MoMo...</p>
+          <p style={{ fontSize: 15, color: 'var(--text-tertiary)' }}>Đang xác minh thanh toán MoMo...</p>
         </div>
         <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       </main>
@@ -62,7 +62,7 @@ export default function MomoReturnPage() {
   return (
     <main style={{ minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f8f9fb', padding: 16 }}>
       <div style={{
-        width: '100%', maxWidth: 440, background: '#fff', borderRadius: 16,
+        width: '100%', maxWidth: 440, background: 'var(--surface-primary)', borderRadius: 16,
         boxShadow: '0 4px 24px rgba(0,0,0,0.08)', padding: '40px 32px', textAlign: 'center',
       }}>
         {result.success ? (
@@ -77,37 +77,37 @@ export default function MomoReturnPage() {
               </svg>
             </div>
 
-            <h1 style={{ fontSize: 22, fontWeight: 800, color: '#111', margin: '0 0 8px' }}>
+            <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 8px' }}>
               Thanh toán thành công!
             </h1>
 
-            <p style={{ fontSize: 14, color: '#6b7280', margin: '0 0 20px', lineHeight: 1.5 }}>
+            <p style={{ fontSize: 14, color: 'var(--text-tertiary)', margin: '0 0 20px', lineHeight: 1.5 }}>
               Cảm ơn bạn đã mua vé. Vé của bạn đã được xác nhận.
             </p>
 
             {result.amount && (
               <div style={{
-                background: '#f9fafb', borderRadius: 12, padding: '16px 20px',
-                margin: '0 0 20px', border: '1px solid #f0f2f5',
+                background: 'var(--surface-secondary)', borderRadius: 12, padding: '16px 20px',
+                margin: '0 0 20px', border: '1px solid var(--border-secondary)',
               }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                  <span style={{ fontSize: 13, color: '#6b7280' }}>Mã đơn hàng</span>
-                  <span style={{ fontSize: 13, fontWeight: 700, color: '#111', fontFamily: 'monospace' }}>
+                  <span style={{ fontSize: 13, color: 'var(--text-tertiary)' }}>Mã đơn hàng</span>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'monospace' }}>
                     {result.orderId}
                   </span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                  <span style={{ fontSize: 13, color: '#6b7280' }}>Số lượng vé</span>
-                  <span style={{ fontSize: 13, fontWeight: 700, color: '#111' }}>
+                  <span style={{ fontSize: 13, color: 'var(--text-tertiary)' }}>Số lượng vé</span>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>
                     {result.reservationIds?.length || 0} vé
                   </span>
                 </div>
                 <div style={{
-                  borderTop: '1px solid #e5e7eb', paddingTop: 8, marginTop: 4,
+                  borderTop: '1px solid var(--border-input)', paddingTop: 8, marginTop: 4,
                   display: 'flex', justifyContent: 'space-between',
                 }}>
-                  <span style={{ fontSize: 14, fontWeight: 600, color: '#374151' }}>Tổng tiền</span>
-                  <span style={{ fontSize: 16, fontWeight: 800, color: '#111' }}>
+                  <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-secondary)' }}>Tổng tiền</span>
+                  <span style={{ fontSize: 16, fontWeight: 800, color: 'var(--text-primary)' }}>
                     {formatCurrencyVND(result.amount)}
                   </span>
                 </div>
@@ -127,8 +127,8 @@ export default function MomoReturnPage() {
               <Link
                 href="/"
                 style={{
-                  padding: '12px 24px', borderRadius: 10, border: '1px solid #e5e7ea',
-                  background: '#fff', color: '#374151', fontSize: 14, fontWeight: 600,
+                  padding: '12px 24px', borderRadius: 10, border: '1px solid var(--border-input)',
+                  background: 'var(--surface-primary)', color: 'var(--text-secondary)', fontSize: 14, fontWeight: 600,
                   textDecoration: 'none',
                 }}
               >
@@ -148,16 +148,16 @@ export default function MomoReturnPage() {
               </svg>
             </div>
 
-            <h1 style={{ fontSize: 22, fontWeight: 800, color: '#111', margin: '0 0 8px' }}>
+            <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 8px' }}>
               Thanh toán thất bại
             </h1>
 
-            <p style={{ fontSize: 14, color: '#6b7280', margin: '0 0 24px', lineHeight: 1.5 }}>
+            <p style={{ fontSize: 14, color: 'var(--text-tertiary)', margin: '0 0 24px', lineHeight: 1.5 }}>
               {result.message}
             </p>
 
             {result.responseCode && result.responseCode !== '0' && (
-              <p style={{ fontSize: 12, color: '#9ca3af', margin: '0 0 20px' }}>
+              <p style={{ fontSize: 12, color: 'var(--text-quaternary)', margin: '0 0 20px' }}>
                 Mã lỗi: {result.responseCode}
               </p>
             )}

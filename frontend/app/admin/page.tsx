@@ -30,17 +30,17 @@ const PIE_COLORS: Record<string, string> = { HOLD: '#f59e0b', CONFIRMED: '#10b98
 const TYPE_COLORS = ['#6366f1', '#e02020', '#06b6d4', '#10b981', '#f59e0b', '#8b5cf6'];
 
 const card = (extra?: React.CSSProperties): React.CSSProperties => ({
-  background: '#fff', borderRadius: 14, border: '1px solid #e8eaed',
+  background: 'var(--surface-primary)', borderRadius: 14, border: '1px solid #e8eaed',
   boxShadow: '0 1px 4px rgba(0,0,0,0.04)', ...extra,
 });
 
 function ProgressBar({ pct, color }: { pct: number; color: string }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 12 }}>
-      <div style={{ flex: 1, height: 4, background: '#f0f2f5', borderRadius: 2, overflow: 'hidden' }}>
+      <div style={{ flex: 1, height: 4, background: 'var(--surface-tertiary)', borderRadius: 2, overflow: 'hidden' }}>
         <div style={{ width: `${Math.min(pct, 100)}%`, height: '100%', background: color, borderRadius: 2, transition: 'width 0.8s cubic-bezier(0.16,1,0.3,1)' }} />
       </div>
-      <span style={{ fontSize: 11, fontWeight: 600, color: '#9ca3af', minWidth: 30, textAlign: 'right' }}>{pct}%</span>
+      <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-quaternary)', minWidth: 30, textAlign: 'right' }}>{pct}%</span>
     </div>
   );
 }
@@ -90,10 +90,10 @@ export default function AdminDashboard() {
 
   if (loading) return <Skeleton />;
   if (!data) return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 400, gap: 12, color: '#9ca3af' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 400, gap: 12, color: 'var(--text-quaternary)' }}>
       <svg width="36" height="36" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /><path d="M12 8v4M12 16h.01" /></svg>
       <span style={{ fontSize: 14 }}>Không thể tải dữ liệu.</span>
-      <button onClick={() => window.location.reload()} style={{ marginTop: 8, padding: '7px 18px', borderRadius: 8, border: '1px solid #e5e7eb', background: '#fff', fontSize: 13, fontWeight: 600, color: '#374151', cursor: 'pointer' }}>Thử lại</button>
+      <button onClick={() => window.location.reload()} style={{ marginTop: 8, padding: '7px 18px', borderRadius: 8, border: '1px solid var(--border-input)', background: 'var(--surface-primary)', fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer' }}>Thử lại</button>
     </div>
   );
 
@@ -102,7 +102,7 @@ export default function AdminDashboard() {
   const stats = [
     {
       value: formatCurrencyVND(data.totalRevenue), label: `Từ ${data.confirmedReservations} đơn thanh toán`,
-      color: '#6366f1', bg: '#eef2ff', pct: convPct,
+      color: '#6366f1', bg: 'rgba(15, 53, 255, 0.1)', pct: convPct,
       icon: <svg width="20" height="20" fill="none" stroke="#6366f1" strokeWidth="2" viewBox="0 0 24 24"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" /></svg>,
     },
     {
@@ -127,14 +127,14 @@ export default function AdminDashboard() {
       {/* ── Header ── */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 28 }}>
         <div>
-          <h1 style={{ fontSize: 26, fontWeight: 800, color: '#111827', margin: 0, lineHeight: 1.3 }}>Hi Admin</h1>
-          <p style={{ fontSize: 13.5, color: '#9ca3af', marginTop: 4 }}>
+          <h1 style={{ fontSize: 26, fontWeight: 800, color: 'var(--text-primary)', margin: 0, lineHeight: 1.3 }}>Hi Admin</h1>
+          <p style={{ fontSize: 13.5, color: 'var(--text-quaternary)', marginTop: 4 }}>
             {new Date().toLocaleDateString('vi-VN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
           </p>
         </div>
         <Link href="/admin/events" style={{
           display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 16px', borderRadius: 10,
-          border: '1px solid #e5e7eb', background: '#fff', fontSize: 13, fontWeight: 600, color: '#374151', textDecoration: 'none',
+          border: '1px solid var(--border-input)', background: 'var(--surface-primary)', fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)', textDecoration: 'none',
         }}>
           <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" /></svg>
           Tạo sự kiện
@@ -147,8 +147,8 @@ export default function AdminDashboard() {
           <div key={i} style={card({ padding: '20px 22px' })}>
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 14 }}>
               <div>
-                <div style={{ fontSize: 22, fontWeight: 800, color: '#111827', letterSpacing: '-0.02em', lineHeight: 1.2 }}>{s.value}</div>
-                <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 4, fontWeight: 500 }}>{s.label}</div>
+                <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.02em', lineHeight: 1.2 }}>{s.value}</div>
+                <div style={{ fontSize: 12, color: 'var(--text-quaternary)', marginTop: 4, fontWeight: 500 }}>{s.label}</div>
               </div>
               <div style={{ width: 38, height: 38, borderRadius: 10, background: s.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{s.icon}</div>
             </div>
@@ -164,8 +164,8 @@ export default function AdminDashboard() {
         <div style={card({ padding: '22px' })}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
             <div>
-              <div style={{ fontSize: 16, fontWeight: 700, color: '#111827' }}>Doanh thu 7 ngày</div>
-              <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 2 }}>Biểu đồ doanh thu theo ngày</div>
+              <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)' }}>Doanh thu 7 ngày</div>
+              <div style={{ fontSize: 12, color: 'var(--text-quaternary)', marginTop: 2 }}>Biểu đồ doanh thu theo ngày</div>
             </div>
           </div>
           <ResponsiveContainer width="100%" height={220}>
@@ -188,8 +188,8 @@ export default function AdminDashboard() {
         {/* Order Status Pie */}
         <div style={card({ padding: '22px' })}>
           <div style={{ marginBottom: 16 }}>
-            <div style={{ fontSize: 16, fontWeight: 700, color: '#111827' }}>Trạng thái đơn</div>
-            <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 2 }}>Phân bổ theo trạng thái</div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)' }}>Trạng thái đơn</div>
+            <div style={{ fontSize: 12, color: 'var(--text-quaternary)', marginTop: 2 }}>Phân bổ theo trạng thái</div>
           </div>
           {data.ordersByStatus.length === 0 ? (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 180, color: '#d1d5db', fontSize: 13 }}>Chưa có dữ liệu</div>
@@ -215,9 +215,9 @@ export default function AdminDashboard() {
               </ResponsiveContainer>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px 16px', justifyContent: 'center', marginTop: 8 }}>
                 {data.ordersByStatus.map((s) => (
-                  <div key={s.status} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#6b7280' }}>
+                  <div key={s.status} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--text-tertiary)' }}>
                     <span style={{ width: 8, height: 8, borderRadius: '50%', background: PIE_COLORS[s.status] || '#d1d5db', display: 'inline-block' }} />
-                    {STATUS_LABEL[s.status] || s.status}: <strong style={{ color: '#111827', fontWeight: 700 }}>{s.count}</strong>
+                    {STATUS_LABEL[s.status] || s.status}: <strong style={{ color: 'var(--text-primary)', fontWeight: 700 }}>{s.count}</strong>
                   </div>
                 ))}
               </div>
@@ -232,8 +232,8 @@ export default function AdminDashboard() {
         {/* Bar Chart: Revenue by ticket type */}
         <div style={card({ padding: '22px' })}>
           <div style={{ marginBottom: 16 }}>
-            <div style={{ fontSize: 16, fontWeight: 700, color: '#111827' }}>Doanh thu theo loại vé</div>
-            <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 2 }}>So sánh các hạng vé</div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)' }}>Doanh thu theo loại vé</div>
+            <div style={{ fontSize: 12, color: 'var(--text-quaternary)', marginTop: 2 }}>So sánh các hạng vé</div>
           </div>
           {data.ticketTypeStats.length === 0 ? (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 200, color: '#d1d5db', fontSize: 13 }}>Chưa có dữ liệu</div>
@@ -256,10 +256,10 @@ export default function AdminDashboard() {
 
         {/* Recent Orders */}
         <div style={card()}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '18px 22px', borderBottom: '1px solid #f0f2f5' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '18px 22px', borderBottom: '1px solid var(--border-secondary)' }}>
             <div>
-              <div style={{ fontSize: 16, fontWeight: 700, color: '#111827' }}>Đơn hàng gần đây</div>
-              <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 2 }}>5 đơn mới nhất</div>
+              <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)' }}>Đơn hàng gần đây</div>
+              <div style={{ fontSize: 12, color: 'var(--text-quaternary)', marginTop: 2 }}>5 đơn mới nhất</div>
             </div>
             <Link href="/admin/orders" style={{
               fontSize: 12, fontWeight: 600, color: '#e02020', textDecoration: 'none',
@@ -268,21 +268,21 @@ export default function AdminDashboard() {
           </div>
 
           {/* Table header */}
-          <div style={{ display: 'grid', gridTemplateColumns: '36px 1.5fr 0.8fr 1fr 90px', gap: 8, padding: '10px 22px', borderBottom: '1px solid #f0f2f5' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '36px 1.5fr 0.8fr 1fr 90px', gap: 8, padding: '10px 22px', borderBottom: '1px solid var(--border-secondary)' }}>
             {['No', 'Sự kiện', 'Vé', 'Giá', 'Trạng thái'].map(h => (
-              <span key={h} style={{ fontSize: 11, fontWeight: 600, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{h}</span>
+              <span key={h} style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-quaternary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{h}</span>
             ))}
           </div>
 
           {data.recentOrders.length === 0 ? (
-            <div style={{ padding: '40px 22px', textAlign: 'center', color: '#9ca3af', fontSize: 13 }}>Chưa có đơn hàng.</div>
+            <div style={{ padding: '40px 22px', textAlign: 'center', color: 'var(--text-quaternary)', fontSize: 13 }}>Chưa có đơn hàng.</div>
           ) : (
             data.recentOrders.map((o, i) => (
               <div key={o.id} style={{
                 display: 'grid', gridTemplateColumns: '36px 1.5fr 0.8fr 1fr 90px', gap: 8,
                 padding: '12px 22px', borderBottom: i < data.recentOrders.length - 1 ? '1px solid #f8f9fa' : 'none', alignItems: 'center',
               }}>
-                <span style={{ fontSize: 12, fontWeight: 600, color: '#9ca3af' }}>{i + 1}.</span>
+                <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-quaternary)' }}>{i + 1}.</span>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
                   <div style={{
                     width: 28, height: 28, borderRadius: 7, flexShrink: 0,
@@ -293,12 +293,12 @@ export default function AdminDashboard() {
                     {(o.userEmail || '??').slice(0, 2).toUpperCase()}
                   </div>
                   <div style={{ minWidth: 0 }}>
-                    <div style={{ fontSize: 12.5, fontWeight: 600, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{o.eventTitle}</div>
-                    <div style={{ fontSize: 10.5, color: '#9ca3af' }}>{o.userEmail}</div>
+                    <div style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{o.eventTitle}</div>
+                    <div style={{ fontSize: 10.5, color: 'var(--text-quaternary)' }}>{o.userEmail}</div>
                   </div>
                 </div>
-                <span style={{ fontSize: 12, color: '#6b7280', fontWeight: 500 }}>{o.ticketType}</span>
-                <span style={{ fontSize: 13, fontWeight: 700, color: '#111827' }}>{formatCurrencyVND(o.price)}</span>
+                <span style={{ fontSize: 12, color: 'var(--text-tertiary)', fontWeight: 500 }}>{o.ticketType}</span>
+                <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>{formatCurrencyVND(o.price)}</span>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
                   <span style={{ width: 6, height: 6, borderRadius: '50%', background: STATUS_DOT[o.status] || '#9ca3af', flexShrink: 0 }} />
                   <span style={{ fontSize: 11, fontWeight: 600, color: STATUS_DOT[o.status] || '#9ca3af' }}>{STATUS_LABEL[o.status] || o.status}</span>

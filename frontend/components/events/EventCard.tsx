@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useTranslation } from '../../lib/i18n';
 import { resolveImageUrl } from '../../lib/image';
+import { effectiveSaleStatus } from '../../lib/eventStatus';
 
 interface EventCardProps {
   event: any;
@@ -42,6 +43,9 @@ export default function EventCard({ event }: EventCardProps) {
           />
           {formattedPrice && (
             <span className="ec2-price">{t.events_from} {formattedPrice}</span>
+          )}
+          {effectiveSaleStatus(event) === 'UPCOMING' && (
+            <span className="ec2-upcoming">{lang === 'en' ? 'Coming soon' : 'Sắp mở bán'}</span>
           )}
         </div>
         <div className="ec2-body">

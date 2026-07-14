@@ -41,6 +41,12 @@ export class EventsController {
     return this.eventsService.getCategories();
   }
 
+  // Must stay above ':id' so "featured" isn't parsed as an event id.
+  @Get('featured')
+  findFeatured() {
+    return this.eventsService.findFeatured();
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.eventsService.findOne(Number(id));

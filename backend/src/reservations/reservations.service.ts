@@ -21,6 +21,7 @@ import { Reservation } from './entities/reservation.entity';
 import { Ticket } from '../tickets/entities/ticket.entity';
 import { Seat } from '../tickets/entities/seat.entity';
 import { TicketGateway } from '../websocket/gateways/ticket.gateway';
+import { effectiveSaleStatus } from '../events/event-status.util';
 
 @Injectable()
 export class ReservationsService {
@@ -58,6 +59,11 @@ export class ReservationsService {
         .getOne();
 
       if (!ticket) throw new BadRequestException('Ticket not found');
+      // Refuse to sell if the event isn't actually on sale (draft / upcoming).
+      // Authoritative check — the frontend also hides the button, but never trust it.
+      if (effectiveSaleStatus(ticket.event) !== 'ON_SALE') {
+        throw new BadRequestException('Sự kiện này chưa mở bán.');
+      }
       if (ticket.quantity < seatIds.length) {
         throw new BadRequestException(`Chỉ còn ${ticket.quantity} vé, không đủ cho ${seatIds.length} ghế.`);
       }

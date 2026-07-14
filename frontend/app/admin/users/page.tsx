@@ -165,7 +165,7 @@ export default function AdminUsers() {
       <div className="admin-page-header">
         <h1 className="admin-page-title">Quản lý người dùng</h1>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <span style={{ fontSize: 13, color: '#9ca3af' }}>Tổng: {users.length}</span>
+          <span style={{ fontSize: 13, color: 'var(--text-quaternary)' }}>Tổng: {users.length}</span>
           <button className="admin-btn admin-btn--primary" onClick={openCreate}>
             <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" /></svg>
             Thêm Admin
@@ -304,7 +304,7 @@ export default function AdminUsers() {
         <div className="admin-modal-overlay" onClick={() => { setDetailUser(null); setDetailLoading(false); }}>
           <div className="admin-modal" style={{ maxWidth: 620 }} onClick={(e) => e.stopPropagation()}>
             {detailLoading ? (
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '48px 0', gap: 10, color: '#9ca3af' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '48px 0', gap: 10, color: 'var(--text-quaternary)' }}>
                 <div className="edp-spinner" /><span>Đang tải...</span>
               </div>
             ) : detailUser && (
@@ -317,7 +317,7 @@ export default function AdminUsers() {
                 </div>
 
                 {/* User info */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 20, padding: '16px 18px', background: '#f9fafb', borderRadius: 14 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 20, padding: '16px 18px', background: 'var(--surface-secondary)', borderRadius: 14 }}>
                   <div style={{
                     width: 44, height: 44, borderRadius: '50%', flexShrink: 0,
                     background: detailUser.role === 'ADMIN' ? '#e02020' : '#3b82f6',
@@ -327,8 +327,8 @@ export default function AdminUsers() {
                     {detailUser.email.slice(0, 2).toUpperCase()}
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 15, fontWeight: 700, color: '#111' }}>{detailUser.email}</div>
-                    <div style={{ display: 'flex', gap: 12, marginTop: 4, fontSize: 12, color: '#9ca3af' }}>
+                    <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)' }}>{detailUser.email}</div>
+                    <div style={{ display: 'flex', gap: 12, marginTop: 4, fontSize: 12, color: 'var(--text-quaternary)' }}>
                       <span>SĐT: {detailUser.phone || '—'}</span>
                       <span>Đăng ký: {new Date(detailUser.createdAt).toLocaleDateString('vi-VN')}</span>
                     </div>
@@ -343,38 +343,38 @@ export default function AdminUsers() {
                     { label: 'Đã thanh toán', value: detailUser.reservations.filter(r => r.status === 'CONFIRMED').length, color: '#10b981' },
                     { label: 'Tổng chi tiêu', value: formatCurrencyVND(detailUser.reservations.filter(r => r.status === 'CONFIRMED').reduce((s, r) => s + (r.price || 0), 0)), color: '#e02020' },
                   ].map((s) => (
-                    <div key={s.label} style={{ background: '#f9fafb', borderRadius: 12, padding: '14px 16px', textAlign: 'center' }}>
-                      <div style={{ fontSize: 20, fontWeight: 800, color: '#111', letterSpacing: '-0.02em' }}>{s.value}</div>
-                      <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>{s.label}</div>
+                    <div key={s.label} style={{ background: 'var(--surface-secondary)', borderRadius: 12, padding: '14px 16px', textAlign: 'center' }}>
+                      <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>{s.value}</div>
+                      <div style={{ fontSize: 11, color: 'var(--text-quaternary)', marginTop: 2 }}>{s.label}</div>
                     </div>
                   ))}
                 </div>
 
                 {/* Reservation list */}
-                <div style={{ fontSize: 13, fontWeight: 700, color: '#111', marginBottom: 10 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 10 }}>
                   Lịch sử giao dịch ({detailUser.reservations.length})
                 </div>
 
                 {detailUser.reservations.length === 0 ? (
                   <div style={{ textAlign: 'center', padding: '24px 0', color: '#c4c9d0', fontSize: 13 }}>Chưa có giao dịch nào.</div>
                 ) : (
-                  <div style={{ maxHeight: 300, overflowY: 'auto', border: '1px solid #f0f2f5', borderRadius: 12 }}>
+                  <div style={{ maxHeight: 300, overflowY: 'auto', border: '1px solid var(--border-secondary)', borderRadius: 12 }}>
                     {detailUser.reservations.map((r, i) => (
                       <div key={r.id} style={{
                         display: 'flex', alignItems: 'center', gap: 12,
                         padding: '12px 16px',
-                        borderBottom: i < detailUser.reservations.length - 1 ? '1px solid #f4f4f5' : 'none',
+                        borderBottom: i < detailUser.reservations.length - 1 ? '1px solid var(--border-secondary)' : 'none',
                       }}>
                         <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: 13, fontWeight: 600, color: '#111', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                             {r.eventTitle || '—'}
                           </div>
-                          <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 2 }}>
+                          <div style={{ fontSize: 11, color: 'var(--text-quaternary)', marginTop: 2 }}>
                             {r.ticketType}{r.seatLabel ? ` — Ghế ${r.seatLabel}` : ''} — {new Date(r.createdAt).toLocaleString('vi-VN')}
                           </div>
                         </div>
                         <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                          <div style={{ fontSize: 13, fontWeight: 700, color: '#111' }}>{formatCurrencyVND(r.price)}</div>
+                          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>{formatCurrencyVND(r.price)}</div>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 4, justifyContent: 'flex-end', marginTop: 2 }}>
                             <span style={{ width: 6, height: 6, borderRadius: '50%', background: STATUS_DOT[r.status] || '#9ca3af' }} />
                             <span style={{ fontSize: 11, fontWeight: 600, color: STATUS_DOT[r.status] || '#9ca3af' }}>{STATUS_LABEL[r.status] || r.status}</span>
@@ -394,7 +394,7 @@ export default function AdminUsers() {
       {confirmAction && (
         <div className="admin-modal-overlay" style={{ zIndex: 1200 }} onClick={() => setConfirmAction(null)}>
           <div onClick={(e) => e.stopPropagation()} style={{
-            background: '#fff', borderRadius: 20, padding: 28, width: '100%', maxWidth: 400,
+            background: 'var(--surface-primary)', borderRadius: 20, padding: 28, width: '100%', maxWidth: 400,
             boxShadow: '0 20px 60px rgba(0,0,0,0.2)', animation: 'admin-modal-up 0.2s ease',
           }}>
             {/* Icon */}
@@ -418,10 +418,10 @@ export default function AdminUsers() {
               </div>
             </div>
 
-            <h3 style={{ fontSize: 17, fontWeight: 700, color: '#111', textAlign: 'center', margin: '0 0 6px' }}>
+            <h3 style={{ fontSize: 17, fontWeight: 700, color: 'var(--text-primary)', textAlign: 'center', margin: '0 0 6px' }}>
               {confirmAction.type === 'delete' ? 'Xác nhận xóa người dùng' : 'Xác nhận mật khẩu admin'}
             </h3>
-            <p style={{ fontSize: 13, color: '#6b7280', textAlign: 'center', marginBottom: 20 }}>
+            <p style={{ fontSize: 13, color: 'var(--text-tertiary)', textAlign: 'center', marginBottom: 20 }}>
               {confirmAction.type === 'delete'
                 ? 'Hành động này không thể hoàn tác. Nhập mật khẩu admin để xác nhận.'
                 : 'Nhập mật khẩu tài khoản admin hiện tại để tiếp tục.'
@@ -451,7 +451,7 @@ export default function AdminUsers() {
             <div style={{ display: 'flex', gap: 8 }}>
               <button
                 onClick={() => setConfirmAction(null)}
-                style={{ flex: 1, padding: '10px 16px', borderRadius: 10, border: '1px solid #e5e7ea', background: '#fff', fontSize: 13, fontWeight: 600, color: '#374151', cursor: 'pointer' }}
+                style={{ flex: 1, padding: '10px 16px', borderRadius: 10, border: '1px solid var(--border-input)', background: 'var(--surface-primary)', fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer' }}
               >
                 Hủy
               </button>

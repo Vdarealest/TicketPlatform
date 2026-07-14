@@ -10,6 +10,7 @@ import { socket } from '@/lib/socket';
 import { EventDetail, Seat, SeatLayout, Ticket } from '@/lib/types';
 import { formatCurrencyVND } from '@/lib/format';
 import { resolveImageUrl } from '@/lib/image';
+import { isOnSale, upcomingLabel } from '@/lib/eventStatus';
 import TicketTypeCard from '@/components/tickets/TicketTypeCard';
 import SeatMap, { getZoneColor } from '@/components/tickets/SeatMap';
 import VenueSeatMap from '@/components/tickets/VenueSeatMap';
@@ -187,6 +188,13 @@ export default function TicketSelectionPage() {
 
   if (loading) return <div className="tsp-loading"><div className="edp-spinner" /><span>Đang tải...</span></div>;
   if (loadError || !event) return <div className="tsp-error"><p>{loadError || 'Không tìm thấy sự kiện.'}</p><Link href={`/events/${params.id}`} className="tsp-error__link">Quay lại trang sự kiện</Link></div>;
+  // Block direct-URL access to seat selection before sales open (backend also enforces this).
+  if (!isOnSale(event)) return (
+    <div className="tsp-error">
+      <p>⏳ {upcomingLabel(event.saleOpenAt, 'vi')}</p>
+      <Link href={`/events/${params.id}`} className="tsp-error__link">Quay lại trang sự kiện</Link>
+    </div>
+  );
 
   const tickets = event.tickets ?? [];
   const rawLayout: SeatLayout | null =

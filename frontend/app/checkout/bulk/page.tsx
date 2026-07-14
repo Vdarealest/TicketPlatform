@@ -159,15 +159,15 @@ export default function BulkCheckoutPage() {
               <div style={{ width: 56, height: 56, borderRadius: '50%', background: '#ecfdf5', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
                 <svg width="28" height="28" fill="none" stroke="#10b981" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7" /></svg>
               </div>
-              <h2 style={{ fontSize: 20, fontWeight: 800, color: '#111', margin: '0 0 6px' }}>Thanh toán thành công!</h2>
-              <p style={{ fontSize: 14, color: '#6b7280', marginBottom: 20 }}>
+              <h2 style={{ fontSize: 20, fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 6px' }}>Thanh toán thành công!</h2>
+              <p style={{ fontSize: 14, color: 'var(--text-tertiary)', marginBottom: 20 }}>
                 {reservations.length} vé {ticketType} — {seatLabels}
               </p>
               <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
                 <Link href="/my-tickets" style={{ padding: '10px 20px', borderRadius: 10, background: '#111', color: '#fff', fontSize: 14, fontWeight: 600, textDecoration: 'none' }}>
                   Xem vé của tôi
                 </Link>
-                <Link href={`/events/${event.id}`} style={{ padding: '10px 20px', borderRadius: 10, border: '1px solid #e5e7ea', background: '#fff', color: '#374151', fontSize: 14, fontWeight: 600, textDecoration: 'none' }}>
+                <Link href={`/events/${event.id}`} style={{ padding: '10px 20px', borderRadius: 10, border: '1px solid var(--border-input)', background: 'var(--surface-primary)', color: 'var(--text-secondary)', fontSize: 14, fontWeight: 600, textDecoration: 'none' }}>
                   Về sự kiện
                 </Link>
               </div>
@@ -185,18 +185,18 @@ export default function BulkCheckoutPage() {
               </div>
 
               {/* Seat list */}
-              <div style={{ margin: '12px 0', border: '1px solid #f0f2f5', borderRadius: 12, overflow: 'hidden' }}>
+              <div style={{ margin: '12px 0', border: '1px solid var(--border-secondary)', borderRadius: 12, overflow: 'hidden' }}>
                 {reservations.map((r, i) => (
                   <div key={r.id} style={{
                     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                    padding: '10px 16px', borderBottom: i < reservations.length - 1 ? '1px solid #f4f4f5' : 'none',
+                    padding: '10px 16px', borderBottom: i < reservations.length - 1 ? '1px solid var(--border-secondary)' : 'none',
                   }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#10b981', flexShrink: 0 }} />
-                      <span style={{ fontSize: 13, fontWeight: 600, color: '#111' }}>Ghế {r.seat?.label || '—'}</span>
-                      <span style={{ fontSize: 12, color: '#9ca3af' }}>{ticketType}</span>
+                      <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>Ghế {r.seat?.label || '—'}</span>
+                      <span style={{ fontSize: 12, color: 'var(--text-quaternary)' }}>{ticketType}</span>
                     </div>
-                    <span style={{ fontSize: 13, fontWeight: 700, color: '#111' }}>{formatCurrencyVND(unitPrice)}</span>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>{formatCurrencyVND(unitPrice)}</span>
                   </div>
                 ))}
               </div>
@@ -222,7 +222,7 @@ export default function BulkCheckoutPage() {
               )}
 
               {/* Chọn phương thức thanh toán */}
-              <p style={{ fontSize: 13, fontWeight: 700, color: '#374151', margin: '18px 0 10px' }}>
+              <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-secondary)', margin: '18px 0 10px' }}>
                 Phương thức thanh toán
               </p>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
@@ -240,7 +240,7 @@ export default function BulkCheckoutPage() {
                       style={{
                         display: 'flex', alignItems: 'center', gap: 10,
                         padding: '12px 14px', borderRadius: 12, cursor: 'pointer',
-                        border: active ? '2px solid #111' : '1.5px solid #e5e7ea',
+                        border: active ? '2px solid var(--text-primary)' : '1.5px solid var(--border-input)',
                         background: active ? '#fafafa' : '#fff',
                         textAlign: 'left', transition: 'border-color 0.15s, background 0.15s',
                       }}
@@ -253,8 +253,8 @@ export default function BulkCheckoutPage() {
                         {m.logoText}
                       </span>
                       <span style={{ display: 'flex', flexDirection: 'column' }}>
-                        <span style={{ fontSize: 14, fontWeight: 700, color: '#111' }}>{m.label}</span>
-                        <span style={{ fontSize: 11.5, color: '#9ca3af' }}>{m.desc}</span>
+                        <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>{m.label}</span>
+                        <span style={{ fontSize: 11.5, color: 'var(--text-quaternary)' }}>{m.desc}</span>
                       </span>
                       {active && (
                         <svg width="16" height="16" fill="none" stroke="#111" strokeWidth="2.5" viewBox="0 0 24 24" style={{ marginLeft: 'auto', flexShrink: 0 }}>
@@ -295,8 +295,8 @@ export default function BulkCheckoutPage() {
                             textAlign: 'left', transition: 'border-color 0.15s, background 0.15s',
                           }}
                         >
-                          <span style={{ fontSize: 13, fontWeight: 700, color: '#111' }}>{mm.label}</span>
-                          <span style={{ fontSize: 11, color: '#9ca3af' }}>{mm.desc}</span>
+                          <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>{mm.label}</span>
+                          <span style={{ fontSize: 11, color: 'var(--text-quaternary)' }}>{mm.desc}</span>
                         </button>
                       );
                     })}

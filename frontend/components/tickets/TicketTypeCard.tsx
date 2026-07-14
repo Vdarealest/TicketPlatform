@@ -23,12 +23,14 @@ export default function TicketTypeCard({ ticket, selected, index, onSelect }: Ti
       disabled={soldOut}
       aria-pressed={selected}
       style={{
-        borderColor: selected ? color : undefined,
-        background: selected ? colorBg : undefined,
+        // Selected state keeps its light pastel tint in both themes, so text
+        // inside must stay dark; unselected follows the theme variables.
+        borderColor: selected ? color : 'var(--border-input)',
+        background: selected ? colorBg : 'var(--surface-primary)',
         boxShadow: selected ? `0 4px 16px ${color}33` : undefined,
       }}
       className={`flex w-full items-center gap-4 rounded-2xl border-2 px-5 py-4 text-left transition-all duration-200 sm:px-6
-        ${selected ? '' : 'border-gray-200 bg-white hover:border-gray-300 hover:shadow-md'}
+        ${selected ? '' : 'hover:shadow-md'}
         ${soldOut ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}
     >
       <span
@@ -37,8 +39,22 @@ export default function TicketTypeCard({ ticket, selected, index, onSelect }: Ti
       />
 
       <div className="flex flex-1 flex-col">
-        <span className="text-base font-bold text-gray-900 sm:text-lg">{ticket.type}</span>
-        <span className={`text-xs font-medium sm:text-sm ${soldOut ? 'text-gray-400' : lowStock ? 'text-amber-600' : 'text-gray-500'}`}>
+        <span
+          className="text-base font-bold sm:text-lg"
+          style={{ color: selected ? '#111' : 'var(--text-primary)' }}
+        >
+          {ticket.type}
+        </span>
+        <span
+          className="text-xs font-medium sm:text-sm"
+          style={{
+            color: soldOut
+              ? 'var(--text-quaternary)'
+              : lowStock
+                ? '#d97706'
+                : selected ? '#6b7280' : 'var(--text-tertiary)',
+          }}
+        >
           {soldOut ? 'Hết vé' : lowStock ? `Sắp hết · còn ${ticket.quantity} vé` : `Còn ${ticket.quantity} vé`}
         </span>
       </div>
@@ -50,8 +66,8 @@ export default function TicketTypeCard({ ticket, selected, index, onSelect }: Ti
         <span
           className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 transition-colors"
           style={{
-            borderColor: selected ? color : '#d1d5db',
-            background: selected ? color : '#fff',
+            borderColor: selected ? color : 'var(--border-input)',
+            background: selected ? color : 'var(--input-bg)',
           }}
         >
           {selected && (

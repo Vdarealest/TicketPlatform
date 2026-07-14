@@ -40,11 +40,11 @@ const inputStyle: React.CSSProperties = {
   height: 42,
   padding: '0 12px',
   borderRadius: 10,
-  border: '1.5px solid #E5E7EA',
-  background: '#fff',
+  border: '1.5px solid var(--border-input)',
+  background: 'var(--surface-primary)',
   fontSize: 14,
   fontWeight: 500,
-  color: '#24292E',
+  color: 'var(--text-secondary)',
   outline: 'none',
   fontFamily: 'inherit',
 };
@@ -52,7 +52,7 @@ const inputStyle: React.CSSProperties = {
 const labelStyle: React.CSSProperties = {
   fontSize: 12,
   fontWeight: 700,
-  color: '#6b7280',
+  color: 'var(--text-tertiary)',
   marginBottom: 6,
   display: 'block',
 };
@@ -133,7 +133,7 @@ export default function EventsPage() {
       {/* ── Thanh tìm kiếm & lọc ── */}
       <div
         style={{
-          background: '#fff',
+          background: 'var(--surface-primary)',
           border: '1px solid #EEF0F2',
           borderRadius: 16,
           padding: 16,
@@ -175,8 +175,8 @@ export default function EventsPage() {
             onClick={() => setShowAdvanced((s) => !s)}
             style={{
               height: 42, padding: '0 16px', borderRadius: 10, cursor: 'pointer',
-              border: showAdvanced || activeCount > 0 ? '1.5px solid #0F35FF' : '1.5px solid #E5E7EA',
-              background: showAdvanced || activeCount > 0 ? '#EEF2FF' : '#fff',
+              border: showAdvanced || activeCount > 0 ? '1.5px solid #0F35FF' : '1.5px solid var(--border-input)',
+              background: showAdvanced || activeCount > 0 ? 'rgba(15, 53, 255, 0.1)' : '#fff',
               color: showAdvanced || activeCount > 0 ? '#0F35FF' : '#24292E',
               fontSize: 14, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8,
               flex: '0 0 auto', fontFamily: 'inherit',
@@ -200,7 +200,7 @@ export default function EventsPage() {
         {showAdvanced && (
           <div style={{
             display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
-            gap: 12, marginTop: 16, paddingTop: 16, borderTop: '1px solid #F0F2F5',
+            gap: 12, marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--border-secondary)',
           }}>
             <div>
               <label style={labelStyle}>{t.events_category}</label>
@@ -319,7 +319,7 @@ export default function EventsPage() {
               onClick={() => setFilters(EMPTY_FILTERS)}
               style={{
                 marginTop: 6, padding: '8px 18px', borderRadius: 10, cursor: 'pointer',
-                border: '1.5px solid #E5E7EA', background: '#fff', color: '#24292E',
+                border: '1.5px solid var(--border-input)', background: 'var(--surface-primary)', color: 'var(--text-secondary)',
                 fontSize: 14, fontWeight: 600, fontFamily: 'inherit',
               }}
             >

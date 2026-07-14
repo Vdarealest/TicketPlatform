@@ -22,10 +22,37 @@ export class EventsService {
     private eventRepository: Repository<Event>,
   ) {}
 
+  // Hero carousel: admin-picked featured events, ordered. If none are picked,
+  // fall back to the soonest upcoming events so the banner is never empty.
+  async findFeatured(limit = 6) {
+    // DRAFT events never appear publicly, even if marked featured.
+    const featured = await this.eventRepository
+      .createQueryBuilder('event')
+      .leftJoinAndSelect('event.tickets', 'ticket')
+      .where('event.featured = true')
+      .andWhere("event.status != 'DRAFT'")
+      .orderBy('event.featuredOrder', 'ASC')
+      .addOrderBy('event.startTime', 'ASC')
+      .take(limit)
+      .getMany();
+    if (featured.length) return featured;
+
+    return this.eventRepository
+      .createQueryBuilder('event')
+      .leftJoinAndSelect('event.tickets', 'ticket')
+      .where('event.startTime >= :now', { now: new Date() })
+      .andWhere("event.status != 'DRAFT'")
+      .orderBy('event.startTime', 'ASC')
+      .take(limit)
+      .getMany();
+  }
+
   async findAll(filters: EventFilters = {}) {
     const qb = this.eventRepository
       .createQueryBuilder('event')
-      .leftJoinAndSelect('event.tickets', 'ticket');
+      .leftJoinAndSelect('event.tickets', 'ticket')
+      // Hide drafts from the public listing.
+      .where("event.status != 'DRAFT'");
 
     if (filters.search?.trim()) {
       qb.andWhere('LOWER(event.title) LIKE LOWER(:search)', {

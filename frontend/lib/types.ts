@@ -62,4 +62,6 @@ export interface EventDetail {
   tickets: Ticket[];
   seatLayout?: SeatLayout | null;
   venue?: Venue | null;
+  status?: 'DRAFT' | 'UPCOMING' | 'ON_SALE';
+  saleOpenAt?: string | null;
 }

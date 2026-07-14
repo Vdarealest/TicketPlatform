@@ -7,6 +7,7 @@ import Link from 'next/link';
 import api from '@/lib/api';
 import { useTranslation } from '@/lib/i18n';
 import { resolveImageUrl } from '@/lib/image';
+import { isOnSale, upcomingLabel } from '@/lib/eventStatus';
 import { EventDetail } from '@/lib/types';
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
@@ -420,13 +421,25 @@ export default function EventDetailPage() {
               <p className="edp-ticket-box__note">{t.edp_coming_soon}</p>
             )}
 
-            <Link href={`/events/${event.id}/tickets`} className="edp-cta-button">
-              {t.edp_select_ticket}
-            </Link>
-
-            <p className="edp-ticket-box__note">
-              🔒 {t.edp_secure_note}
-            </p>
+            {isOnSale(event) ? (
+              <>
+                <Link href={`/events/${event.id}/tickets`} className="edp-cta-button">
+                  {t.edp_select_ticket}
+                </Link>
+                <p className="edp-ticket-box__note">
+                  🔒 {t.edp_secure_note}
+                </p>
+              </>
+            ) : (
+              <>
+                <button className="edp-cta-button edp-cta-button--disabled" disabled>
+                  {lang === 'en' ? 'Not on sale yet' : 'Chưa mở bán'}
+                </button>
+                <p className="edp-ticket-box__note" style={{ textAlign: 'center', fontWeight: 600, color: '#b45309' }}>
+                  ⏳ {upcomingLabel(event.saleOpenAt, lang === 'en' ? 'en' : 'vi')}
+                </p>
+              </>
+            )}
           </div>
         </div>
 

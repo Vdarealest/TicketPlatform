@@ -12,6 +12,8 @@ interface EventItem {
   bannerFocusX: number; bannerFocusY: number;
   startTime: string; endTime: string; description: string; createdAt: string;
   tickets: Ticket[]; venueId?: number; venue?: { id: number; name: string };
+  featured?: boolean; featuredOrder?: number;
+  status?: 'DRAFT' | 'UPCOMING' | 'ON_SALE'; saleOpenAt?: string | null;
 }
 interface VenueOption { id: number; name: string; }
 interface TicketInput { type: string; price: string; quantity: string; }
@@ -23,6 +25,10 @@ const EMPTY_FORM = {
   bannerFocusX: 50, bannerFocusY: 50,
   startTime: '', endTime: '',
   venueId: '' as string,
+  featured: false,
+  featuredOrder: 0,
+  status: 'ON_SALE' as 'DRAFT' | 'UPCOMING' | 'ON_SALE',
+  saleOpenAt: '' as string,
 };
 
 export default function AdminEvents() {
@@ -65,6 +71,10 @@ export default function AdminEvents() {
       bannerUrl: ev.bannerUrl, bannerFocusX: ev.bannerFocusX ?? 50, bannerFocusY: ev.bannerFocusY ?? 50,
       startTime: ev.startTime.slice(0, 16), endTime: ev.endTime.slice(0, 16),
       venueId: ev.venueId ? String(ev.venueId) : '',
+      featured: ev.featured ?? false,
+      featuredOrder: ev.featuredOrder ?? 0,
+      status: ev.status ?? 'ON_SALE',
+      saleOpenAt: ev.saleOpenAt ? ev.saleOpenAt.slice(0, 16) : '',
     });
     setTicketInputs([]);
     setExistingTickets(ev.tickets || []);
@@ -115,6 +125,17 @@ export default function AdminEvents() {
     try { await api.delete(`/admin/events/${id}`); load(); } catch {}
   };
 
+  // Quick on/off for the homepage hero carousel — optimistic update then persist.
+  const toggleFeatured = async (ev: EventItem) => {
+    const next = !ev.featured;
+    setEvents((list) => list.map((e) => e.id === ev.id ? { ...e, featured: next } : e));
+    try {
+      await api.put(`/admin/events/${ev.id}`, { featured: next });
+    } catch {
+      setEvents((list) => list.map((e) => e.id === ev.id ? { ...e, featured: !next } : e));
+    }
+  };
+
   const addTicketInput = () => setTicketInputs([...ticketInputs, { type: '', price: '', quantity: '' }]);
   const updateTicketInput = (idx: number, field: keyof TicketInput, val: string) => {
     const copy = [...ticketInputs]; copy[idx] = { ...copy[idx], [field]: val }; setTicketInputs(copy);
@@ -138,26 +159,43 @@ export default function AdminEvents() {
       ) : (
         <div className="admin-table-wrap">
           <table className="admin-table">
-            <thead><tr><th>ID</th><th>Sự kiện</th><th>Địa điểm</th><th>Thể loại</th><th>Diễn ra</th><th>Ngày tạo</th><th>Loại vé</th><th style={{ textAlign: 'right' }}>Thao tác</th></tr></thead>
+            <thead><tr><th style={{ textAlign: 'center' }} title="Hiển thị trên banner trang chủ">Banner</th><th>ID</th><th>Sự kiện</th><th>Địa điểm</th><th>Thể loại</th><th>Diễn ra</th><th>Ngày tạo</th><th>Loại vé</th><th style={{ textAlign: 'right' }}>Thao tác</th></tr></thead>
             <tbody>
               {events.map((ev) => (
                 <tr key={ev.id}>
+                  <td style={{ textAlign: 'center' }}>
+                    <button
+                      type="button"
+                      onClick={() => toggleFeatured(ev)}
+                      title={ev.featured ? 'Đang hiển thị trên banner — bấm để tắt' : 'Bấm để đưa lên banner trang chủ'}
+                      className="adm-star"
+                      style={{ color: ev.featured ? '#f59e0b' : '#cbd0d6' }}
+                    >
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill={ev.featured ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.6">
+                        <path d="M12 2.5l2.9 5.9 6.5.9-4.7 4.6 1.1 6.5-5.8-3-5.8 3 1.1-6.5L2.6 9.3l6.5-.9L12 2.5z" strokeLinejoin="round"/>
+                      </svg>
+                    </button>
+                  </td>
                   <td style={{ fontWeight: 600 }}>{ev.id}</td>
                   <td>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                       {ev.bannerUrl && <img src={resolveImageUrl(ev.bannerUrl)} alt="" style={{ width: 48, height: 32, borderRadius: 6, objectFit: 'cover', objectPosition: `${ev.bannerFocusX ?? 50}% ${ev.bannerFocusY ?? 50}%` }} />}
-                      <span style={{ fontWeight: 600, color: '#111', maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }}>{ev.title}</span>
+                      <div style={{ minWidth: 0 }}>
+                        <span style={{ fontWeight: 600, color: 'var(--text-primary)', maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }}>{ev.title}</span>
+                        {ev.status === 'DRAFT' && <span className="adm-status adm-status--draft">Nháp</span>}
+                        {ev.status === 'UPCOMING' && <span className="adm-status adm-status--upcoming">Sắp mở bán</span>}
+                      </div>
                     </div>
                   </td>
                   <td>
                     <div>{ev.location}</div>
-                    {ev.venue && <span style={{ fontSize: 11, color: '#6b7280' }}>{ev.venue.name}</span>}
+                    {ev.venue && <span style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>{ev.venue.name}</span>}
                   </td>
-                  <td><span style={{ fontSize: 11, background: '#eef2ff', color: '#0F35FF', borderRadius: 6, padding: '2px 8px', fontWeight: 600 }}>{ev.category || 'Khác'}</span></td>
+                  <td><span style={{ fontSize: 11, background: 'rgba(15, 53, 255, 0.1)', color: '#0F35FF', borderRadius: 6, padding: '2px 8px', fontWeight: 600 }}>{ev.category || 'Khác'}</span></td>
                   <td style={{ fontSize: 12, color: '#9ea5ad' }}>{new Date(ev.startTime).toLocaleDateString('vi-VN')}</td>
                   <td style={{ fontSize: 12, color: '#9ea5ad' }}>{ev.createdAt ? new Date(ev.createdAt).toLocaleDateString('vi-VN') : '—'}</td>
                   <td>{ev.tickets?.map((t) => (
-                    <span key={t.id} style={{ display: 'inline-block', fontSize: 11, background: '#f0f2f5', borderRadius: 6, padding: '2px 8px', marginRight: 4, marginBottom: 2, fontWeight: 500 }}>{t.type}: {formatCurrencyVND(t.price)}</span>
+                    <span key={t.id} style={{ display: 'inline-block', fontSize: 11, background: 'var(--surface-tertiary)', borderRadius: 6, padding: '2px 8px', marginRight: 4, marginBottom: 2, fontWeight: 500 }}>{t.type}: {formatCurrencyVND(t.price)}</span>
                   ))}</td>
                   <td style={{ textAlign: 'right' }}>
                     <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
@@ -208,7 +246,7 @@ export default function AdminEvents() {
                 ))}
               </select>
               {form.venueId && (
-                <p style={{ fontSize: 12, color: '#6b7280', marginTop: 4 }}>
+                <p style={{ fontSize: 12, color: 'var(--text-tertiary)', marginTop: 4 }}>
                   Sơ đồ ghế của venue này sẽ được dùng để tạo ghế cho sự kiện.
                 </p>
               )}
@@ -223,6 +261,55 @@ export default function AdminEvents() {
               </select>
             </div>
 
+            {/* ── Sale status ── */}
+            <div className="admin-form-group">
+              <label className="admin-form-label">Trạng thái mở bán</label>
+              <select
+                className="admin-form-input"
+                value={form.status}
+                onChange={(e) => setForm({ ...form, status: e.target.value as typeof form.status })}
+              >
+                <option value="DRAFT">Nháp — ẩn khỏi web</option>
+                <option value="UPCOMING">Sắp mở bán — hiện nhưng chưa bán</option>
+                <option value="ON_SALE">Đang mở bán</option>
+              </select>
+              {form.status === 'UPCOMING' && (
+                <div style={{ marginTop: 8 }}>
+                  <label className="admin-form-label">Tự động mở bán lúc (để trống = admin tự bấm)</label>
+                  <input
+                    className="admin-form-input"
+                    type="datetime-local"
+                    value={form.saleOpenAt}
+                    onChange={(e) => setForm({ ...form, saleOpenAt: e.target.value })}
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* ── Featured on homepage hero ── */}
+            <div className="admin-form-group">
+              <label className="adm-featured-toggle">
+                <input
+                  type="checkbox"
+                  checked={form.featured}
+                  onChange={(e) => setForm({ ...form, featured: e.target.checked })}
+                />
+                <span>Hiển thị trên banner trang chủ (nổi bật)</span>
+              </label>
+              {form.featured && (
+                <div style={{ marginTop: 8 }}>
+                  <label className="admin-form-label">Thứ tự hiển thị (số nhỏ hiện trước)</label>
+                  <input
+                    className="admin-form-input"
+                    type="number"
+                    value={form.featuredOrder}
+                    onChange={(e) => setForm({ ...form, featuredOrder: Number(e.target.value) })}
+                    style={{ width: 140 }}
+                  />
+                </div>
+              )}
+            </div>
+
             {/* ── Banner Upload + Focal Point ── */}
             <div className="admin-form-group">
               <label className="admin-form-label">Hình ảnh banner</label>
@@ -235,7 +322,7 @@ export default function AdminEvents() {
                     onClick={handleFocusClick}
                     style={{
                       position: 'relative', borderRadius: 12, overflow: 'hidden',
-                      border: '1px solid #e5e7ea', cursor: 'crosshair', userSelect: 'none',
+                      border: '1px solid var(--border-input)', cursor: 'crosshair', userSelect: 'none',
                     }}
                   >
                     <img src={resolveImageUrl(form.bannerUrl)} alt="Banner" style={{ width: '100%', display: 'block' }} />
@@ -268,14 +355,14 @@ export default function AdminEvents() {
                   {/* Preview strips */}
                   <div style={{ display: 'flex', gap: 8 }}>
                     <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 10, fontWeight: 600, color: '#9ca3af', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Event Card (16:10)</div>
-                      <div style={{ borderRadius: 8, overflow: 'hidden', border: '1px solid #e5e7ea', aspectRatio: '16/10' }}>
+                      <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-quaternary)', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Event Card (16:10)</div>
+                      <div style={{ borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border-input)', aspectRatio: '16/10' }}>
                         <img src={resolveImageUrl(form.bannerUrl)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `${form.bannerFocusX}% ${form.bannerFocusY}%`, display: 'block' }} />
                       </div>
                     </div>
                     <div style={{ flex: 1.2 }}>
-                      <div style={{ fontSize: 10, fontWeight: 600, color: '#9ca3af', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Banner Detail (21:9)</div>
-                      <div style={{ borderRadius: 8, overflow: 'hidden', border: '1px solid #e5e7ea', aspectRatio: '21/9' }}>
+                      <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-quaternary)', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Banner Detail (21:9)</div>
+                      <div style={{ borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border-input)', aspectRatio: '21/9' }}>
                         <img src={resolveImageUrl(form.bannerUrl)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `${form.bannerFocusX}% ${form.bannerFocusY}%`, display: 'block' }} />
                       </div>
                     </div>
@@ -285,8 +372,8 @@ export default function AdminEvents() {
                   <div style={{ display: 'flex', gap: 6 }}>
                     <label style={{
                       flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-                      padding: '7px 12px', borderRadius: 8, border: '1px solid #e5e7ea',
-                      fontSize: 12, fontWeight: 600, color: '#374151', cursor: 'pointer', background: '#fff',
+                      padding: '7px 12px', borderRadius: 8, border: '1px solid var(--border-input)',
+                      fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer', background: 'var(--surface-primary)',
                     }}>
                       <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M4 16l4.586-4.586a2 2 0 0 1 2.828 0L16 16" /><rect x="3" y="3" width="18" height="18" rx="3" /></svg>
                       Đổi ảnh
@@ -294,7 +381,7 @@ export default function AdminEvents() {
                     </label>
                     <button type="button" onClick={() => setForm({ ...form, bannerUrl: '', bannerFocusX: 50, bannerFocusY: 50 })} style={{
                       padding: '7px 16px', borderRadius: 8, border: '1px solid #fecaca',
-                      fontSize: 12, fontWeight: 600, color: '#ef4444', background: '#fff', cursor: 'pointer',
+                      fontSize: 12, fontWeight: 600, color: '#ef4444', background: 'var(--surface-primary)', cursor: 'pointer',
                     }}>Xóa</button>
                   </div>
                 </div>
@@ -313,7 +400,7 @@ export default function AdminEvents() {
                 >
                   <input type="file" accept="image/*" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) handleUpload(f); }} />
                   {uploading ? (
-                    <><div className="edp-spinner" /><span style={{ fontSize: 13, color: '#9ca3af' }}>Đang tải lên...</span></>
+                    <><div className="edp-spinner" /><span style={{ fontSize: 13, color: 'var(--text-quaternary)' }}>Đang tải lên...</span></>
                   ) : (
                     <>
                       <svg width="32" height="32" fill="none" stroke={dragOver ? '#e02020' : '#c4c9d0'} strokeWidth="1.5" viewBox="0 0 24 24">
@@ -321,7 +408,7 @@ export default function AdminEvents() {
                         <rect x="3" y="3" width="18" height="18" rx="3" /><circle cx="8.5" cy="8.5" r="1.5" />
                       </svg>
                       <span style={{ fontSize: 13, fontWeight: 600, color: dragOver ? '#e02020' : '#6b7280' }}>Kéo thả ảnh vào đây hoặc nhấn để chọn</span>
-                      <span style={{ fontSize: 11, color: '#9ca3af' }}>JPG, PNG, WebP — tối đa 5MB</span>
+                      <span style={{ fontSize: 11, color: 'var(--text-quaternary)' }}>JPG, PNG, WebP — tối đa 5MB</span>
                     </>
                   )}
                 </label>

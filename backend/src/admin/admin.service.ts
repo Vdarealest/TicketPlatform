@@ -152,6 +152,10 @@ export class AdminService {
     startTime: string;
     endTime: string;
     venueId?: number | null;
+    featured?: boolean;
+    featuredOrder?: number;
+    status?: 'DRAFT' | 'UPCOMING' | 'ON_SALE';
+    saleOpenAt?: string | null;
     tickets?: { type: string; price: number; quantity: number }[];
   }) {
     const event = this.eventsRepo.create({
@@ -165,6 +169,10 @@ export class AdminService {
       bannerFocusY: data.bannerFocusY ?? 50,
       startTime: new Date(data.startTime),
       endTime: new Date(data.endTime),
+      featured: data.featured ?? false,
+      featuredOrder: data.featuredOrder ?? 0,
+      status: data.status ?? 'ON_SALE',
+      saleOpenAt: data.saleOpenAt ? new Date(data.saleOpenAt) : null,
     });
     const savedEvent = await this.eventsRepo.save(event);
 
@@ -199,6 +207,10 @@ export class AdminService {
       startTime: string;
       endTime: string;
       venueId: number | null;
+      featured: boolean;
+      featuredOrder: number;
+      status: 'DRAFT' | 'UPCOMING' | 'ON_SALE';
+      saleOpenAt: string | null;
     }>,
   ) {
     const event = await this.eventsRepo.findOne({ where: { id } });
@@ -214,6 +226,10 @@ export class AdminService {
     if (data.startTime !== undefined) event.startTime = new Date(data.startTime);
     if (data.endTime !== undefined) event.endTime = new Date(data.endTime);
     if ('venueId' in data) event.venueId = data.venueId as any;
+    if (data.featured !== undefined) event.featured = data.featured;
+    if (data.featuredOrder !== undefined) event.featuredOrder = data.featuredOrder;
+    if (data.status !== undefined) event.status = data.status;
+    if ('saleOpenAt' in data) event.saleOpenAt = data.saleOpenAt ? new Date(data.saleOpenAt as string) : null;
 
     await this.eventsRepo.save(event);
     return this.getEvent(id);

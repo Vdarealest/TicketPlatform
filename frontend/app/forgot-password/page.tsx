@@ -286,7 +286,7 @@ export default function ForgotPasswordPage() {
               <>
                 <h1 className="lp-title">Nhập mã OTP</h1>
                 <p className="lp-subtitle">
-                  OTP đã được gửi vào <strong style={{ color: '#111' }}>{maskedEmail}</strong>. Hiệu lực 5 phút.
+                  OTP đã được gửi vào <strong style={{ color: 'var(--text-primary)' }}>{maskedEmail}</strong>. Hiệu lực 5 phút.
                 </p>
 
                 <OtpInput value={otp} onChange={setOtp} />
@@ -321,7 +321,7 @@ export default function ForgotPasswordPage() {
             {step === 3 && (
               <>
                 <h1 className="lp-title">Mật khẩu mới</h1>
-                <p className="lp-subtitle">Tạo mật khẩu mới cho tài khoản <strong style={{ color: '#111' }}>{maskedEmail}</strong>.</p>
+                <p className="lp-subtitle">Tạo mật khẩu mới cho tài khoản <strong style={{ color: 'var(--text-primary)' }}>{maskedEmail}</strong>.</p>
 
                 <div className="lp-field">
                   <label className="lp-label" htmlFor="fp-password">Mật khẩu mới</label>
