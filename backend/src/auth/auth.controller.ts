@@ -62,7 +62,18 @@ export class AuthController {
     const { access_token } = req.user;
     const frontendUrl =
       this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3001';
-    res.redirect(`${frontendUrl}/auth/callback?token=${access_token}`);
+    // Never put the long-lived JWT in a redirect URL — it would land in
+    // browser history, server access logs, and the Referer header of any
+    // third-party resource the callback page loads. Hand over a short-lived,
+    // single-use code instead; the frontend exchanges it server-side below.
+    const code = this.authService.createOAuthCode(access_token);
+    res.redirect(`${frontendUrl}/auth/callback?code=${code}`);
+  }
+
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @Post('oauth/exchange')
+  exchangeOAuthCode(@Body() body: { code: string }) {
+    return this.authService.exchangeOAuthCode(body.code);
   }
 
   @UseGuards(JwtAuthGuard)

@@ -46,8 +46,10 @@ export class Payment {
   @Column({ nullable: true })
   responseCode: string;
 
-  @ManyToOne(() => User)
-  user: User;
+  // Null for guest checkouts — ownership of the payment is then derived from
+  // the underlying reservations' guestToken (see PaymentsService.assertOwnsPayment).
+  @ManyToOne(() => User, { nullable: true })
+  user: User | null;
 
   @CreateDateColumn()
   createdAt: Date;

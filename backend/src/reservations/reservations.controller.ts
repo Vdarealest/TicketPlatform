@@ -10,6 +10,7 @@ import {
 
 import { ReservationsService } from './reservations.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
 
 @Controller('reservations')
 export class ReservationsController {
@@ -18,6 +19,8 @@ export class ReservationsController {
       ReservationsService,
   ) {}
 
+  // "My tickets" genuinely requires an account — guests have nowhere to log
+  // back into, so this one stays strictly authenticated.
   @Get('my')
   @UseGuards(JwtAuthGuard)
   getMyReservations(
@@ -36,51 +39,64 @@ export class ReservationsController {
   ) {
     return this.reservationsService.getReservation(
       Number(id),
-      req.user.userId,
+      { userId: req.user.userId },
     );
   }
 
+  // ── Guest-checkout-capable endpoints ──
+  // OptionalJwtAuthGuard: works whether or not the caller is logged in. When
+  // logged in, ownership ties to the user id as before. When not, the caller
+  // must supply a guestEmail (to reserve) or guestToken (to look up/cancel) —
+  // enforced in the service layer via ownsReservation().
+
   @Post(':ticketId/bulk')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(OptionalJwtAuthGuard)
   reserveBulk(
     @Param('ticketId') ticketId: string,
-    @Body() body: { seatIds: number[] },
+    @Body() body: { seatIds: number[]; guestEmail?: string },
     @Request() req,
   ) {
     return this.reservationsService.reserveMultipleSeats(
       Number(ticketId),
-      req.user.userId,
       body.seatIds,
+      { userId: req.user?.userId, guestEmail: body.guestEmail },
     );
   }
 
   @Post('bulk/details')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(OptionalJwtAuthGuard)
   getMultiple(
-    @Body() body: { ids: number[] },
+    @Body() body: { ids: number[]; guestToken?: string },
     @Request() req,
   ) {
-    return this.reservationsService.getMultipleReservations(body.ids, req.user.userId);
+    return this.reservationsService.getMultipleReservations(
+      body.ids,
+      { userId: req.user?.userId, guestToken: body.guestToken },
+    );
   }
 
   @Post('bulk/cancel')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(OptionalJwtAuthGuard)
   cancelMultiple(
-    @Body() body: { ids: number[] },
+    @Body() body: { ids: number[]; guestToken?: string },
     @Request() req,
   ) {
-    return this.reservationsService.cancelMultipleReservations(body.ids, req.user.userId);
+    return this.reservationsService.cancelMultipleReservations(
+      body.ids,
+      { userId: req.user?.userId, guestToken: body.guestToken },
+    );
   }
 
   @Post(':id/cancel')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(OptionalJwtAuthGuard)
   cancel(
     @Param('id') id: string,
+    @Body() body: { guestToken?: string },
     @Request() req,
   ) {
     return this.reservationsService.cancelReservation(
       Number(id),
-      req.user.userId,
+      { userId: req.user?.userId, guestToken: body?.guestToken },
     );
   }
 }

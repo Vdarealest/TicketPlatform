@@ -3,20 +3,31 @@
 import { useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense } from 'react';
+import api from '@/lib/api';
 
 function GoogleCallbackInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
   useEffect(() => {
-    const token = searchParams.get('token');
-    if (token) {
-      localStorage.setItem('access_token', token);
-      window.dispatchEvent(new Event('auth-changed'));
-      router.replace('/');
-    } else {
+    const code = searchParams.get('code');
+    if (!code) {
       router.replace('/login?error=google_failed');
+      return;
     }
+    // Exchange the short-lived one-time code for the actual token — the JWT
+    // never appears in this page's URL, so it never lands in history/logs.
+    api.post('/auth/oauth/exchange', { code })
+      .then((res) => {
+        const token = res.data?.access_token;
+        if (!token) throw new Error('no token');
+        localStorage.setItem('access_token', token);
+        window.dispatchEvent(new Event('auth-changed'));
+        router.replace('/');
+      })
+      .catch(() => {
+        router.replace('/login?error=google_failed');
+      });
   }, [router, searchParams]);
 
   return (

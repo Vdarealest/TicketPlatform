@@ -17,6 +17,7 @@ import { TicketGateway } from '../websocket/gateways/ticket.gateway';
 import { VnpayService } from './vnpay.service';
 import { MomoService } from './momo.service';
 import { MailService } from '../mail/mail.service';
+import { Requester, ownsReservation } from '../reservations/reservation-ownership.util';
 
 @Injectable()
 export class PaymentsService {
@@ -29,9 +30,6 @@ export class PaymentsService {
 
     @InjectRepository(Payment)
     private paymentRepository: Repository<Payment>,
-
-    @InjectRepository(User)
-    private userRepository: Repository<User>,
 
     private ticketGateway: TicketGateway,
     private vnpayService: VnpayService,
@@ -47,7 +45,7 @@ export class PaymentsService {
   // Kiểm tra reservations hợp lệ + tạo bản ghi Payment PENDING, trả về { payment, count }
   private async validateAndCreatePayment(
     reservationIds: number[],
-    userId: number,
+    requester: Requester,
     provider: string,
     orderId: string,
   ) {
@@ -61,7 +59,7 @@ export class PaymentsService {
     }
 
     for (const r of reservations) {
-      if (r.user.id !== userId) {
+      if (!ownsReservation(r, requester)) {
         throw new ForbiddenException('Đơn đặt vé không thuộc về bạn.');
       }
       if (r.status !== 'HOLD') {
@@ -80,10 +78,10 @@ export class PaymentsService {
     // (e.g. user started VNPay then switched to MoMo). Only the newest payment
     // stays live, so completing an abandoned gateway session can't double-charge:
     // the stale payment is CANCELLED and the confirm handlers ignore it.
-    const pendings = await this.paymentRepository.find({
-      where: { status: 'PENDING', user: { id: userId } },
-    });
+    // Scoped by reservation-id overlap rather than by user — ownership of
+    // those ids was already verified above, guest or not.
     const idSet = new Set(reservationIds);
+    const pendings = await this.paymentRepository.find({ where: { status: 'PENDING' } });
     const stale = pendings.filter((p) =>
       p.reservationIds.some((rid) => idSet.has(Number(rid))),
     );
@@ -92,16 +90,13 @@ export class PaymentsService {
       await this.paymentRepository.save(stale);
     }
 
-    const user = await this.userRepository.findOneOrFail({
-      where: { id: userId },
-    });
     const payment = this.paymentRepository.create({
       orderId,
       provider,
       amount: totalAmount,
       status: 'PENDING',
       reservationIds,
-      user: user as User,
+      user: requester.userId ? ({ id: requester.userId } as User) : null,
     });
     await this.paymentRepository.save(payment);
 
@@ -110,13 +105,13 @@ export class PaymentsService {
 
   async createVnpayPaymentUrl(
     reservationIds: number[],
-    userId: number,
+    requester: Requester,
     ipAddr: string,
   ) {
     const orderId = `VTX${Date.now()}${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
     const { totalAmount, count } = await this.validateAndCreatePayment(
       reservationIds,
-      userId,
+      requester,
       'VNPAY',
       orderId,
     );
@@ -133,13 +128,13 @@ export class PaymentsService {
 
   async createMomoPaymentUrl(
     reservationIds: number[],
-    userId: number,
+    requester: Requester,
     requestType?: string,
   ) {
     const orderId = `VTX${Date.now()}${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
     const { totalAmount, count } = await this.validateAndCreatePayment(
       reservationIds,
-      userId,
+      requester,
       'MOMO',
       orderId,
     );
@@ -152,6 +147,84 @@ export class PaymentsService {
     });
 
     return { paymentUrl: payUrl, orderId };
+  }
+
+  // ── VietQR (test-friendly) ────────────────────────────────────────────────
+  // Generates a real Napas-247 QR via the free img.vietqr.io service (no API
+  // key). There is no automatic bank IPN here, so confirmVietQR is a MANUAL
+  // confirm — great for fast local testing. For production you'd wire a bank
+  // webhook (e.g. Casso / SePay) instead of trusting the client's "I paid".
+  async createVietQR(reservationIds: number[], requester: Requester) {
+    const orderId = `VTX${Date.now()}${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+    const { totalAmount } = await this.validateAndCreatePayment(
+      reservationIds,
+      requester,
+      'VIETQR',
+      orderId,
+    );
+
+    const bankId = process.env.VIETQR_BANK_ID || '970422'; // 970422 = MB Bank
+    const accountNo = process.env.VIETQR_ACCOUNT_NO || '0123456789';
+    const accountName = process.env.VIETQR_ACCOUNT_NAME || 'VIETIX DEMO';
+    const qrUrl =
+      `https://img.vietqr.io/image/${bankId}-${accountNo}-compact2.png` +
+      `?amount=${totalAmount}` +
+      `&addInfo=${encodeURIComponent(orderId)}` +
+      `&accountName=${encodeURIComponent(accountName)}`;
+
+    return { orderId, amount: totalAmount, qrUrl, bankId, accountNo, accountName };
+  }
+
+  async confirmVietQR(orderId: string, requester: Requester) {
+    const payment = await this.paymentRepository.findOne({
+      where: { orderId },
+      relations: ['user'],
+    });
+    if (!payment) throw new NotFoundException('Không tìm thấy đơn thanh toán.');
+    await this.assertOwnsPayment(payment, requester);
+    if (payment.provider !== 'VIETQR') {
+      throw new BadRequestException('Phương thức thanh toán không hợp lệ.');
+    }
+    if (payment.status === 'SUCCESS') {
+      return {
+        success: true,
+        message: 'Đơn đã được thanh toán.',
+        orderId,
+        reservationIds: payment.reservationIds,
+      };
+    }
+    if (payment.status !== 'PENDING') {
+      throw new BadRequestException('Đơn thanh toán đã hết hạn hoặc bị hủy.');
+    }
+
+    payment.status = 'SUCCESS';
+    await this.paymentRepository.save(payment);
+    await this.confirmReservations(payment.reservationIds, requester.userId, payment);
+
+    return {
+      success: true,
+      message: 'Thanh toán thành công!',
+      orderId,
+      amount: payment.amount,
+      reservationIds: payment.reservationIds,
+    };
+  }
+
+  // Payments don't carry a guestToken of their own — ownership of a guest
+  // payment is derived from any one of its underlying reservations, which all
+  // share the same guestToken from the checkout batch that created them.
+  private async assertOwnsPayment(payment: Payment, requester: Requester) {
+    if (payment.user) {
+      if (payment.user.id !== requester.userId) {
+        throw new ForbiddenException('Đơn thanh toán không thuộc về bạn.');
+      }
+      return;
+    }
+    const firstId = Number(payment.reservationIds[0]);
+    const reservation = await this.reservationRepository.findOne({ where: { id: firstId } });
+    if (!reservation || !ownsReservation(reservation, requester)) {
+      throw new ForbiddenException('Đơn thanh toán không thuộc về bạn.');
+    }
   }
 
   async handleMomoIpn(momoParams: Record<string, string>) {
@@ -182,7 +255,7 @@ export class PaymentsService {
     if (Number(momoParams.resultCode) === 0) {
       payment.status = 'SUCCESS';
       await this.paymentRepository.save(payment);
-      await this.confirmReservations(payment.reservationIds, payment.user.id, payment);
+      await this.confirmReservations(payment.reservationIds, payment.user?.id, payment);
     } else {
       payment.status = 'FAILED';
       await this.paymentRepository.save(payment);
@@ -269,7 +342,7 @@ export class PaymentsService {
       await this.paymentRepository.save(payment);
       await this.confirmReservations(
         payment.reservationIds,
-        payment.user.id,
+        payment.user?.id,
         payment,
       );
       return { RspCode: '00', Message: 'Confirm Success' };
@@ -349,7 +422,7 @@ export class PaymentsService {
       });
 
       if (!reservation) continue;
-      if (userId && reservation.user.id !== userId) continue;
+      if (userId && reservation.user?.id !== userId) continue;
       if (reservation.status !== 'HOLD') continue;
 
       reservation.status = 'CONFIRMED';
@@ -373,7 +446,9 @@ export class PaymentsService {
     }
 
     if (confirmed.length > 0 && payment) {
-      const userEmail = confirmed[0].user?.email;
+      // Guests have no account to check tickets on later — email is the
+      // only delivery channel, so the fallback here isn't optional for them.
+      const userEmail = confirmed[0].user?.email ?? confirmed[0].guestEmail;
       if (userEmail) {
         const fmtDate = (d: string) => {
           try {

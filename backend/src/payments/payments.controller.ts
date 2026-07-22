@@ -10,7 +10,7 @@ import {
 } from '@nestjs/common';
 
 import { PaymentsService } from './payments.service';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
 
 @Controller('payments')
 export class PaymentsController {
@@ -18,12 +18,16 @@ export class PaymentsController {
     private readonly paymentsService: PaymentsService,
   ) {}
 
+  // All create/confirm endpoints below accept either a logged-in user (JWT)
+  // or a guest carrying the guestToken from their reservation — see
+  // OptionalJwtAuthGuard and Requester/ownsReservation for the enforcement.
+
   // ── VNPay endpoints ──
 
   @Post('vnpay/create-url')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(OptionalJwtAuthGuard)
   createVnpayUrl(
-    @Body() body: { reservationIds: number[] },
+    @Body() body: { reservationIds: number[]; guestToken?: string },
     @Request() req: any,
     @Ip() ip: string,
   ) {
@@ -33,7 +37,7 @@ export class PaymentsController {
       '127.0.0.1';
     return this.paymentsService.createVnpayPaymentUrl(
       body.reservationIds,
-      req.user.userId,
+      { userId: req.user?.userId, guestToken: body.guestToken },
       clientIp,
     );
   }
@@ -51,14 +55,14 @@ export class PaymentsController {
   // ── MoMo endpoints ──
 
   @Post('momo/create-url')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(OptionalJwtAuthGuard)
   createMomoUrl(
-    @Body() body: { reservationIds: number[]; requestType?: string },
+    @Body() body: { reservationIds: number[]; requestType?: string; guestToken?: string },
     @Request() req: any,
   ) {
     return this.paymentsService.createMomoPaymentUrl(
       body.reservationIds,
-      req.user.userId,
+      { userId: req.user?.userId, guestToken: body.guestToken },
       body.requestType,
     );
   }
@@ -73,5 +77,25 @@ export class PaymentsController {
   @Get('momo/return')
   handleMomoReturn(@Query() query: Record<string, string>) {
     return this.paymentsService.handleMomoReturn(query);
+  }
+
+  // ── VietQR (test-friendly, no redirect) ──
+
+  @Post('vietqr/create')
+  @UseGuards(OptionalJwtAuthGuard)
+  createVietQR(@Body() body: { reservationIds: number[]; guestToken?: string }, @Request() req: any) {
+    return this.paymentsService.createVietQR(
+      body.reservationIds,
+      { userId: req.user?.userId, guestToken: body.guestToken },
+    );
+  }
+
+  @Post('vietqr/confirm')
+  @UseGuards(OptionalJwtAuthGuard)
+  confirmVietQR(@Body() body: { orderId: string; guestToken?: string }, @Request() req: any) {
+    return this.paymentsService.confirmVietQR(
+      body.orderId,
+      { userId: req.user?.userId, guestToken: body.guestToken },
+    );
   }
 }

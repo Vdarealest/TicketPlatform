@@ -402,6 +402,24 @@ const translations = {
 export type Lang = keyof typeof translations;
 export type TranslationKey = keyof typeof translations['vi'];
 
+// Event categories are stored in the DB in Vietnamese (a fixed vocabulary),
+// so they can be mapped to English for display without touching the data.
+const CATEGORY_EN: Record<string, string> = {
+  'Âm nhạc': 'Music',
+  'Thể thao': 'Sports',
+  'Sân khấu': 'Theater',
+  'Hội thảo': 'Conference',
+  'Triển lãm': 'Exhibition',
+  'Ẩm thực': 'Food',
+  'Khác': 'Other',
+};
+
+export function translateCategory(category?: string | null, lang?: string): string {
+  if (!category) return '';
+  if (lang === 'en') return CATEGORY_EN[category] || category;
+  return category;
+}
+
 export function getTranslations(lang?: string) {
   const l = lang || (typeof window !== 'undefined' ? localStorage.getItem('lang') : null) || 'vi';
   return translations[l as Lang] || translations.vi;

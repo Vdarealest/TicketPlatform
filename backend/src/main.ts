@@ -6,13 +6,14 @@ import helmet from 'helmet';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  // Security headers (HSTS, X-Frame-Options, no-sniff, …).
-  // Allow cross-origin loading of /uploads assets by the frontend, and drop the
-  // default CSP (it applies to API/static responses and would block those images).
+  // Security headers (CSP, HSTS, X-Frame-Options, no-sniff, …).
+  // crossOriginResourcePolicy stays 'cross-origin' so the frontend (a
+  // different origin) can load /uploads images — that's unrelated to CSP,
+  // which only governs what THIS server's own HTML/JS would be allowed to
+  // load, so helmet's default CSP is safe to keep here.
   app.use(
     helmet({
       crossOriginResourcePolicy: { policy: 'cross-origin' },
-      contentSecurityPolicy: false,
     }),
   );
 

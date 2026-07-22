@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 
 import api from '@/lib/api';
-import { useTranslation } from '@/lib/i18n';
+import { useTranslation, translateCategory } from '@/lib/i18n';
 import { resolveImageUrl } from '@/lib/image';
 import { isOnSale, upcomingLabel } from '@/lib/eventStatus';
 import { EventDetail } from '@/lib/types';
@@ -351,7 +351,7 @@ export default function EventDetailPage() {
         <div className="edp-hero__scrim" />
         <div className="edp-hero__title-wrap">
           {event.category && (
-            <span className="edp-hero__badge">{event.category}</span>
+            <span className="edp-hero__badge">{translateCategory(event.category, lang)}</span>
           )}
           <h1 className="edp-hero__title">{event.title}</h1>
         </div>

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import api from '@/lib/api';
-import { useTranslation } from '@/lib/i18n';
+import { useTranslation, translateCategory } from '@/lib/i18n';
 import EventCard from '@/components/events/EventCard';
 
 interface Filters {
@@ -58,7 +58,7 @@ const labelStyle: React.CSSProperties = {
 };
 
 export default function EventsPage() {
-  const { t } = useTranslation();
+  const { t, lang } = useTranslation();
   const searchParams = useSearchParams();
   const [events, setEvents] = useState<any[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
@@ -211,7 +211,7 @@ export default function EventsPage() {
               >
                 <option value="">{t.events_all}</option>
                 {categories.map((c) => (
-                  <option key={c} value={c}>{c}</option>
+                  <option key={c} value={c}>{translateCategory(c, lang)}</option>
                 ))}
               </select>
             </div>

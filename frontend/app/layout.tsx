@@ -1,17 +1,24 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Be_Vietnam_Pro, Bebas_Neue } from "next/font/google";
 import "./globals.css";
 import "./custom.css";
 import LayoutShell from '@/components/layout/LayoutShell';
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
+// Primary UI font — full Vietnamese diacritics (U+1EA0–1EF9) drawn natively,
+// so mixed-font "ế/ộ/ữ" fallback glyphs disappear.
+const beVietnam = Be_Vietnam_Pro({
+  variable: "--font-be-vietnam",
+  subsets: ["latin", "vietnamese"],
+  weight: ["400", "500", "600", "700", "800"],
+  display: "swap",
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+// Display face for the "Vietix" logo only (latin text).
+const bebas = Bebas_Neue({
+  variable: "--font-bebas-neue",
   subsets: ["latin"],
+  weight: "400",
+  display: "swap",
 });
 
 export const metadata: Metadata = {
@@ -26,8 +33,8 @@ export default function RootLayout({
 }>) {
   return (
     <html
-      lang="en"
-      className={`${geistSans.variable} ${geistMono.variable}`}
+      lang="vi"
+      className={`${beVietnam.variable} ${bebas.variable}`}
       suppressHydrationWarning
     >
       <head>

@@ -9,7 +9,6 @@ import { MomoService } from './momo.service';
 import { Reservation } from '../reservations/entities/reservation.entity';
 import { Seat } from '../tickets/entities/seat.entity';
 import { Payment } from './entities/payment.entity';
-import { User } from '../users/entities/user.entity';
 import { WebsocketModule } from '../websocket/websocket.module';
 
 @Module({
@@ -18,7 +17,6 @@ import { WebsocketModule } from '../websocket/websocket.module';
       Reservation,
       Seat,
       Payment,
-      User,
     ]),
     WebsocketModule,
   ],

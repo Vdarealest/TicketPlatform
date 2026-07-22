@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useTranslation } from '../../lib/i18n';
+import { useTranslation, translateCategory } from '../../lib/i18n';
 import { resolveImageUrl } from '../../lib/image';
 import { effectiveSaleStatus } from '../../lib/eventStatus';
 
@@ -21,7 +21,7 @@ export default function EventCard({ event }: EventCardProps) {
       })
     : null;
 
-  const category = event.category || event.type || t.event;
+  const category = translateCategory(event.category || event.type, lang) || t.event;
 
   const minPrice = Array.isArray(event.tickets) && event.tickets.length > 0
     ? Math.min(...event.tickets.map((t: { price: number }) => t.price))

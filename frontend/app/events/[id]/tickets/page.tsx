@@ -37,8 +37,16 @@ export default function TicketSelectionPage() {
   const [holdError, setHoldError] = useState<string | null>(null);
   const [sessionDeadline] = useState(() => Date.now() + SESSION_DURATION * 1000);
   const [sessionRemaining, setSessionRemaining] = useState(SESSION_DURATION);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [guestEmail, setGuestEmail] = useState('');
+  const [guestEmailError, setGuestEmailError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setIsLoggedIn(!!localStorage.getItem('access_token'));
+  }, []);
 
   const reservationIdsRef = useRef<number[]>([]);
+  const guestTokenRef = useRef<string | undefined>(undefined);
   const skipCancelRef = useRef(false);
 
   useEffect(() => { reservationIdsRef.current = reservationIds; }, [reservationIds]);
@@ -119,14 +127,14 @@ export default function TicketSelectionPage() {
   useEffect(() => {
     return () => {
       if (!skipCancelRef.current && reservationIdsRef.current.length) {
-        api.post('/reservations/bulk/cancel', { ids: reservationIdsRef.current }).catch(() => {});
+        api.post('/reservations/bulk/cancel', { ids: reservationIdsRef.current, guestToken: guestTokenRef.current }).catch(() => {});
       }
     };
   }, []);
 
   const cancelAllHolds = async () => {
     if (!reservationIdsRef.current.length) return;
-    try { await api.post('/reservations/bulk/cancel', { ids: reservationIdsRef.current }); } catch {}
+    try { await api.post('/reservations/bulk/cancel', { ids: reservationIdsRef.current, guestToken: guestTokenRef.current }); } catch {}
   };
 
   const handleSelectSeat = (ticket: Ticket, seat: Seat) => {
@@ -143,9 +151,6 @@ export default function TicketSelectionPage() {
       setHoldError(`Tối đa ${MAX_SEATS} ghế cho mỗi lần đặt.`);
       return;
     }
-
-    const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
-    if (!token) { setHoldError('Bạn cần đăng nhập để chọn ghế.'); return; }
 
     // Must be same ticket type
     if (selectedTicket && selectedTicket.id !== ticket.id && selectedSeats.length > 0) {
@@ -168,16 +173,30 @@ export default function TicketSelectionPage() {
   const handleProceedCheckout = async () => {
     if (!selectedTicket || selectedSeats.length === 0) return;
 
+    if (!isLoggedIn) {
+      const email = guestEmail.trim();
+      if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        setGuestEmailError('Vui lòng nhập email hợp lệ để nhận vé.');
+        return;
+      }
+      setGuestEmailError(null);
+    }
+
     setHoldLoading(true);
     setHoldError(null);
 
     try {
       const seatIds = selectedSeats.map((s) => s.id);
-      const res = await api.post(`/reservations/${selectedTicket.id}/bulk`, { seatIds });
+      const body: { seatIds: number[]; guestEmail?: string } = { seatIds };
+      if (!isLoggedIn) body.guestEmail = guestEmail.trim();
+      const res = await api.post(`/reservations/${selectedTicket.id}/bulk`, body);
       const ids: number[] = res.data.reservationIds;
+      const guestToken: string | undefined = res.data.guestToken;
       setReservationIds(ids);
+      guestTokenRef.current = guestToken;
       skipCancelRef.current = true;
-      router.push(`/checkout/bulk?ids=${ids.join(',')}&deadline=${sessionDeadline}`);
+      const guestParam = guestToken ? `&guestToken=${encodeURIComponent(guestToken)}` : '';
+      router.push(`/checkout/bulk?ids=${ids.join(',')}&deadline=${sessionDeadline}${guestParam}`);
     } catch (err) {
       const axiosErr = err as AxiosError<{ message?: string }>;
       setHoldError(axiosErr.response?.data?.message || 'Không thể giữ ghế, vui lòng thử lại.');
@@ -347,6 +366,24 @@ export default function TicketSelectionPage() {
 
               {selectedTicket && selectedSeats.length === 0 && (
                 <p className="tsp-summary__hint">Chọn ghế còn trống trên sơ đồ để tiếp tục (tối đa {MAX_SEATS} ghế).</p>
+              )}
+
+              {!isLoggedIn && selectedSeats.length > 0 && (
+                <div className="tsp-guest-box">
+                  <p className="tsp-guest-box__title">Mua vé không cần đăng nhập</p>
+                  <p className="tsp-guest-box__note">Vé và mã xác nhận sẽ được gửi đến email này.</p>
+                  <input
+                    type="email"
+                    className="tsp-guest-box__input"
+                    placeholder="email@example.com"
+                    value={guestEmail}
+                    onChange={(e) => { setGuestEmail(e.target.value); setGuestEmailError(null); }}
+                  />
+                  {guestEmailError && <p className="tsp-guest-box__error">{guestEmailError}</p>}
+                  <Link href="/login" className="tsp-guest-box__login-link">
+                    Hoặc đăng nhập để lưu lịch sử mua vé →
+                  </Link>
+                </div>
               )}
 
               {holdError && <div className="tsp-alert tsp-alert--error">{holdError}</div>}

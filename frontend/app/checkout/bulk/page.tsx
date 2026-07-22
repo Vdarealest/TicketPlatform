@@ -30,8 +30,9 @@ interface ReservationItem {
 }
 
 type PayState = 'idle' | 'loading' | 'success' | 'error';
-type PayMethod = 'vnpay' | 'momo';
+type PayMethod = 'vnpay' | 'momo' | 'vietqr';
 type MomoMethod = 'captureWallet' | 'payWithATM';
+interface QrData { qrUrl: string; orderId: string; amount: number; bankId: string; accountNo: string; accountName: string; }
 
 const formatMMSS = (s: number) => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
 
@@ -39,6 +40,7 @@ export default function BulkCheckoutPage() {
   const searchParams = useSearchParams();
   const idsParam = searchParams.get('ids') || '';
   const deadlineParam = searchParams.get('deadline');
+  const guestToken = searchParams.get('guestToken') || undefined;
 
   const [reservations, setReservations] = useState<ReservationItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -48,6 +50,8 @@ export default function BulkCheckoutPage() {
   const [payError, setPayError] = useState<string | null>(null);
   const [payMethod, setPayMethod] = useState<PayMethod>('vnpay');
   const [momoMethod, setMomoMethod] = useState<MomoMethod>('captureWallet');
+  const [qr, setQr] = useState<QrData | null>(null);
+  const [confirming, setConfirming] = useState(false);
 
   const ids = idsParam.split(',').map(Number).filter(Boolean);
 
@@ -55,7 +59,7 @@ export default function BulkCheckoutPage() {
     if (!ids.length) { setLoadError('Không có đơn đặt vé nào.'); setLoading(false); return; }
     let active = true;
     setLoading(true);
-    api.post('/reservations/bulk/details', { ids })
+    api.post('/reservations/bulk/details', { ids, guestToken })
       .then((res) => { if (active) setReservations(res.data); })
       .catch(() => { if (active) setLoadError('Không thể tải thông tin đặt vé.'); })
       .finally(() => { if (active) setLoading(false); });
@@ -81,12 +85,20 @@ export default function BulkCheckoutPage() {
     setPayState('loading');
     setPayError(null);
     try {
+      // VietQR: no redirect — fetch the QR and show it inline.
+      if (payMethod === 'vietqr') {
+        const res = await api.post('/payments/vietqr/create', { reservationIds: ids, guestToken });
+        setQr(res.data);
+        setPayState('idle');
+        return;
+      }
+
       const endpoint = payMethod === 'momo'
         ? '/payments/momo/create-url'
         : '/payments/vnpay/create-url';
       const payload = payMethod === 'momo'
-        ? { reservationIds: ids, requestType: momoMethod }
-        : { reservationIds: ids };
+        ? { reservationIds: ids, requestType: momoMethod, guestToken }
+        : { reservationIds: ids, guestToken };
       const res = await api.post(endpoint, payload);
       const { paymentUrl } = res.data;
       if (paymentUrl) {
@@ -97,6 +109,25 @@ export default function BulkCheckoutPage() {
     } catch (err: any) {
       setPayState('error');
       setPayError(err.response?.data?.message || 'Không thể tạo liên kết thanh toán.');
+    }
+  };
+
+  // Manual confirm for VietQR (test flow — no bank webhook).
+  const handleConfirmVietQR = async () => {
+    if (!qr) return;
+    setConfirming(true);
+    setPayError(null);
+    try {
+      const res = await api.post('/payments/vietqr/confirm', { orderId: qr.orderId, guestToken });
+      if (res.data?.success) {
+        setPayState('success');
+      } else {
+        throw new Error(res.data?.message || 'Xác nhận thất bại.');
+      }
+    } catch (err: any) {
+      setPayError(err.response?.data?.message || 'Không thể xác nhận thanh toán.');
+    } finally {
+      setConfirming(false);
     }
   };
 
@@ -163,10 +194,17 @@ export default function BulkCheckoutPage() {
               <p style={{ fontSize: 14, color: 'var(--text-tertiary)', marginBottom: 20 }}>
                 {reservations.length} vé {ticketType} — {seatLabels}
               </p>
+              {guestToken && (
+                <p style={{ fontSize: 13, color: 'var(--text-tertiary)', marginBottom: 16 }}>
+                  📧 Vé và mã xác nhận đã được gửi đến email bạn đăng ký.
+                </p>
+              )}
               <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
-                <Link href="/my-tickets" style={{ padding: '10px 20px', borderRadius: 10, background: '#111', color: '#fff', fontSize: 14, fontWeight: 600, textDecoration: 'none' }}>
-                  Xem vé của tôi
-                </Link>
+                {!guestToken && (
+                  <Link href="/my-tickets" style={{ padding: '10px 20px', borderRadius: 10, background: '#111', color: '#fff', fontSize: 14, fontWeight: 600, textDecoration: 'none' }}>
+                    Xem vé của tôi
+                  </Link>
+                )}
                 <Link href={`/events/${event.id}`} style={{ padding: '10px 20px', borderRadius: 10, border: '1px solid var(--border-input)', background: 'var(--surface-primary)', color: 'var(--text-secondary)', fontSize: 14, fontWeight: 600, textDecoration: 'none' }}>
                   Về sự kiện
                 </Link>
@@ -221,14 +259,57 @@ export default function BulkCheckoutPage() {
                 </p>
               )}
 
+              {/* VietQR: mã QR hiện ngay, xác nhận thủ công (luồng test nhanh) */}
+              {qr ? (
+                <div style={{ marginTop: 18, textAlign: 'center' }}>
+                  <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-secondary)', margin: '0 0 12px' }}>
+                    Quét mã VietQR để thanh toán
+                  </p>
+                  <div style={{ display: 'inline-block', padding: 12, background: '#fff', borderRadius: 16, border: '1px solid var(--border-input)' }}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={qr.qrUrl} alt="VietQR" style={{ width: 240, height: 240, display: 'block' }} />
+                  </div>
+                  <div style={{ margin: '14px 0 4px', fontSize: 13, color: 'var(--text-secondary)' }}>
+                    <div>Số tiền: <strong style={{ color: 'var(--text-primary)' }}>{formatCurrencyVND(qr.amount)}</strong></div>
+                    <div>Nội dung: <strong style={{ color: 'var(--text-primary)', fontFamily: 'monospace' }}>{qr.orderId}</strong></div>
+                  </div>
+
+                  {payError && <div className="tsp-alert tsp-alert--error" style={{ marginTop: 12 }}>{payError}</div>}
+
+                  <button
+                    type="button"
+                    onClick={handleConfirmVietQR}
+                    disabled={confirming}
+                    className="tsp-reserve-btn"
+                    style={{ background: '#0a8a5f', marginTop: 14 }}
+                  >
+                    {confirming
+                      ? <><span className="tsp-btn-spinner" /> Đang xác nhận...</>
+                      : 'Tôi đã thanh toán'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setQr(null); setPayError(null); }}
+                    disabled={confirming}
+                    style={{ marginTop: 10, background: 'none', border: 'none', color: 'var(--text-tertiary)', fontSize: 13, cursor: 'pointer', textDecoration: 'underline' }}
+                  >
+                    Chọn phương thức khác
+                  </button>
+                  <p className="tsp-summary__note" style={{ marginTop: 10 }}>
+                    Chế độ test — bấm &quot;Tôi đã thanh toán&quot; để xác nhận ngay (không cần chuyển khoản thật).
+                  </p>
+                </div>
+              ) : (
+              <>
               {/* Chọn phương thức thanh toán */}
               <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-secondary)', margin: '18px 0 10px' }}>
                 Phương thức thanh toán
               </p>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
                 {([
-                  { key: 'vnpay' as const, label: 'VNPay', desc: 'ATM, Visa, QR', logoBg: '#0a5cb8', logoText: 'VN' },
+                  { key: 'vnpay' as const, label: 'VNPay', desc: 'ATM, Visa', logoBg: '#0a5cb8', logoText: 'VN' },
                   { key: 'momo' as const, label: 'MoMo', desc: 'Ví MoMo', logoBg: '#a50064', logoText: 'M' },
+                  { key: 'vietqr' as const, label: 'VietQR', desc: 'Test nhanh', logoBg: '#0a8a5f', logoText: 'QR' },
                 ]).map((m) => {
                   const active = payMethod === m.key;
                   return (
@@ -306,25 +387,37 @@ export default function BulkCheckoutPage() {
 
               {payError && <div className="tsp-alert tsp-alert--error" style={{ marginTop: 14 }}>{payError}</div>}
 
-              <button
-                type="button"
-                onClick={handlePay}
-                disabled={payState === 'loading'}
-                className="tsp-reserve-btn"
-                style={{ background: payMethod === 'momo' ? '#a50064' : '#0a5cb8', marginTop: 16 }}
-              >
-                {payState === 'loading'
-                  ? <><span className="tsp-btn-spinner" /> Đang chuyển đến {payMethod === 'momo' ? 'MoMo' : 'VNPay'}...</>
-                  : `Thanh toán qua ${payMethod === 'momo' ? 'MoMo' : 'VNPay'} — ${formatCurrencyVND(totalPrice)}`}
-              </button>
+              {(() => {
+                const label = payMethod === 'momo' ? 'MoMo' : payMethod === 'vietqr' ? 'VietQR' : 'VNPay';
+                const bg = payMethod === 'momo' ? '#a50064' : payMethod === 'vietqr' ? '#0a8a5f' : '#0a5cb8';
+                return (
+                  <button
+                    type="button"
+                    onClick={handlePay}
+                    disabled={payState === 'loading'}
+                    className="tsp-reserve-btn"
+                    style={{ background: bg, marginTop: 16 }}
+                  >
+                    {payState === 'loading'
+                      ? <><span className="tsp-btn-spinner" /> Đang xử lý...</>
+                      : payMethod === 'vietqr'
+                        ? `Tạo mã VietQR — ${formatCurrencyVND(totalPrice)}`
+                        : `Thanh toán qua ${label} — ${formatCurrencyVND(totalPrice)}`}
+                  </button>
+                );
+              })()}
 
               <p className="tsp-summary__note">
                 {payMethod === 'momo'
                   ? (momoMethod === 'payWithATM'
                       ? 'Thanh toán qua thẻ ATM nội địa — cổng MoMo'
                       : 'Quét QR bằng app MoMo để thanh toán bằng ví')
-                  : 'Thanh toán bảo mật qua VNPay — Hỗ trợ ATM, Visa, MasterCard, QR Pay'}
+                  : payMethod === 'vietqr'
+                    ? 'VietQR — chế độ test, xác nhận thủ công ngay trên trang, không cần chuyển khoản thật.'
+                    : 'Thanh toán bảo mật qua VNPay — Hỗ trợ ATM, Visa, MasterCard, QR Pay'}
               </p>
+              </>
+              )}
             </>
           )}
         </div>

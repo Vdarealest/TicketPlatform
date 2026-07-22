@@ -15,8 +15,23 @@ export class Reservation {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @ManyToOne(() => User)
-  user: User;
+  // Null for guest checkouts — ownership is then proven by guestToken instead.
+  @ManyToOne(() => User, { nullable: true })
+  user: User | null;
+
+  // Guest-only fields. Set together, only when `user` is null.
+  // type: 'varchar' is explicit because TypeORM's reflect-metadata can't
+  // infer a column type from a `string | null` union (it reports "Object").
+  @Column({ type: 'varchar', nullable: true })
+  guestEmail: string | null;
+
+  // Random, unguessable secret (crypto.randomBytes) shared by every
+  // reservation in one guest checkout batch — this is what proves ownership
+  // of a guest order instead of a user id, since there's no account to check
+  // against. Never derived from anything predictable (not the id, not a hash
+  // of the email).
+  @Column({ type: 'varchar', nullable: true })
+  guestToken: string | null;
 
   @ManyToOne(() => Ticket)
   ticket: Ticket;

@@ -16,12 +16,16 @@ import {
 
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
+import * as crypto from 'crypto';
 
 import { Reservation } from './entities/reservation.entity';
 import { Ticket } from '../tickets/entities/ticket.entity';
 import { Seat } from '../tickets/entities/seat.entity';
 import { TicketGateway } from '../websocket/gateways/ticket.gateway';
 import { effectiveSaleStatus } from '../events/event-status.util';
+import { Requester, ownsReservation } from './reservation-ownership.util';
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 @Injectable()
 export class ReservationsService {
@@ -39,11 +43,25 @@ export class ReservationsService {
 
   async reserveMultipleSeats(
     ticketId: number,
-    userId: number,
     seatIds: number[],
+    requester: { userId?: number; guestEmail?: string },
   ) {
     if (!seatIds.length || seatIds.length > 10) {
       throw new BadRequestException('Chọn từ 1 đến 10 ghế.');
+    }
+
+    const userId = requester.userId;
+    let guestEmail: string | null = null;
+    let guestToken: string | null = null;
+    if (!userId) {
+      const email = requester.guestEmail?.trim();
+      if (!email || !EMAIL_RE.test(email)) {
+        throw new BadRequestException('Vui lòng nhập email hợp lệ để đặt vé không cần đăng nhập.');
+      }
+      guestEmail = email;
+      // Unguessable, single checkout batch worth of authority — this is the
+      // only thing that lets the guest come back to pay/cancel/view later.
+      guestToken = crypto.randomBytes(32).toString('hex');
     }
 
     const queryRunner = this.dataSource.createQueryRunner();
@@ -89,7 +107,9 @@ export class ReservationsService {
         );
 
         const reservation = this.reservationRepository.create({
-          user: { id: userId } as any,
+          user: userId ? ({ id: userId } as any) : null,
+          guestEmail,
+          guestToken,
           ticket: { id: ticketId } as any,
           seat: { id: seat.id } as any,
           expiresAt: new Date(Date.now() + 5 * 60 * 1000),
@@ -119,6 +139,9 @@ export class ReservationsService {
         message: `Đã giữ ${seatIds.length} ghế.`,
         reservationIds: reservations.map((r) => r.id),
         expiresAt: reservations[0]?.expiresAt,
+        // Only present for guest checkouts — the frontend must hold onto this
+        // to prove ownership on every later call (details/pay/cancel).
+        guestToken: guestToken ?? undefined,
       };
     } catch (error) {
       await queryRunner.rollbackTransaction();
@@ -128,23 +151,23 @@ export class ReservationsService {
     }
   }
 
-  async getMultipleReservations(ids: number[], userId: number) {
+  async getMultipleReservations(ids: number[], requester: Requester) {
     const reservations = await this.reservationRepository.find({
       where: ids.map((id) => ({ id })),
       relations: ['ticket', 'ticket.event', 'seat', 'user'],
     });
 
     for (const r of reservations) {
-      if (r.user.id !== userId) throw new ForbiddenException('Not your reservation');
+      if (!ownsReservation(r, requester)) throw new ForbiddenException('Not your reservation');
     }
 
-    return reservations.map(({ user, ...rest }) => rest);
+    return reservations.map(({ user, guestToken, ...rest }) => rest);
   }
 
-  async cancelMultipleReservations(ids: number[], userId: number) {
+  async cancelMultipleReservations(ids: number[], requester: Requester) {
     const results: any[] = [];
     for (const id of ids) {
-      results.push(await this.cancelReservation(id, userId));
+      results.push(await this.cancelReservation(id, requester));
     }
     return results;
   }
@@ -175,7 +198,7 @@ export class ReservationsService {
 
   async getReservation(
     reservationId: number,
-    userId: number,
+    requester: Requester,
   ) {
     const reservation = await this.reservationRepository.findOne({
       where: { id: reservationId },
@@ -186,17 +209,17 @@ export class ReservationsService {
       throw new NotFoundException('Reservation not found');
     }
 
-    if (reservation.user.id !== userId) {
+    if (!ownsReservation(reservation, requester)) {
       throw new ForbiddenException('Not your reservation');
     }
 
-    const { user, ...rest } = reservation;
+    const { user, guestToken, ...rest } = reservation;
     return rest;
   }
 
   async cancelReservation(
     reservationId: number,
-    userId: number,
+    requester: Requester,
   ) {
     const queryRunner = this.dataSource.createQueryRunner();
 
@@ -213,13 +236,13 @@ export class ReservationsService {
         throw new NotFoundException('Reservation not found');
       }
 
-      if (reservation.user.id !== userId) {
+      if (!ownsReservation(reservation, requester)) {
         throw new ForbiddenException('Not your reservation');
       }
 
       if (reservation.status !== 'HOLD') {
         await queryRunner.commitTransaction();
-        const { user, ...rest } = reservation;
+        const { user, guestToken, ...rest } = reservation;
         return { message: 'Reservation already processed', reservation: rest };
       }
 
@@ -249,7 +272,7 @@ export class ReservationsService {
 
       await queryRunner.commitTransaction();
 
-      const { user, ...rest } = reservation;
+      const { user, guestToken, ...rest } = reservation;
       return { message: 'Reservation cancelled', reservation: rest };
     } catch (error) {
       await queryRunner.rollbackTransaction();

@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { ConfigService } from '@nestjs/config';
 import { Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
+import * as crypto from 'crypto';
 import * as nodemailer from 'nodemailer';
 
 import { User } from '../users/entities/user.entity';
@@ -16,11 +17,18 @@ interface OtpRecord {
 }
 
 const MAX_OTP_ATTEMPTS = 5;
+const OAUTH_CODE_TTL_MS = 60 * 1000; // one-time code, dies in 60s
 
 @Injectable()
 export class AuthService {
   // In-memory OTP store: email → record (TTL 5 min)
   private readonly otpStore = new Map<string, OtpRecord>();
+
+  // In-memory single-use exchange codes for the Google OAuth redirect. The
+  // JWT itself never touches the URL/browser history/Referer/server logs —
+  // only this short-lived, one-time code does, and it's useless once used
+  // or expired.
+  private readonly oauthCodeStore = new Map<string, { token: string; expiresAt: number }>();
 
   private readonly transporter: nodemailer.Transporter;
 
@@ -240,5 +248,23 @@ export class AuthService {
 
   private signToken(user: User) {
     return this.jwtService.sign({ sub: user.id, email: user.email });
+  }
+
+  // ─── OAuth one-time exchange code ────────────────────────────────────────
+
+  createOAuthCode(token: string): string {
+    const code = crypto.randomBytes(24).toString('hex');
+    this.oauthCodeStore.set(code, { token, expiresAt: Date.now() + OAUTH_CODE_TTL_MS });
+    return code;
+  }
+
+  exchangeOAuthCode(code: string): { access_token: string } {
+    const record = this.oauthCodeStore.get(code);
+    // Single-use: delete immediately regardless of outcome.
+    this.oauthCodeStore.delete(code);
+    if (!record || Date.now() > record.expiresAt) {
+      throw new BadRequestException('Mã đăng nhập không hợp lệ hoặc đã hết hạn.');
+    }
+    return { access_token: record.token };
   }
 }

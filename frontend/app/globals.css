@@ -1,9 +1,10 @@
-@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600;700&display=swap');
 @import "tailwindcss";
 
+/* Fonts are self-hosted via next/font (see app/layout.tsx) — no render-blocking
+   Google Fonts @import. Be Vietnam Pro carries the full Vietnamese subset. */
 @theme {
-  --font-bebas: 'Bebas Neue', sans-serif;
-  --font-dm: 'DM Sans', sans-serif;
+  --font-bebas: var(--font-bebas-neue), 'Bebas Neue', sans-serif;
+  --font-dm: var(--font-be-vietnam), 'Be Vietnam Pro', sans-serif;
 }
 
 /* Vietix Design System - Color Variables */
@@ -43,9 +44,10 @@
   --color-light-surface: #f6f7f9;
   --color-blue-tint-surface: #e8f4ff;
 
-  /* Typography */
-  --font-primary: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont,
+  /* Typography — --font-be-vietnam is injected by next/font in layout.tsx */
+  --font-sans: var(--font-be-vietnam), -apple-system, BlinkMacSystemFont,
     "Segoe UI", Roboto, sans-serif;
+  --font-primary: var(--font-sans);
   --font-fallback: -apple-system, BlinkMacSystemFont, "Segoe UI",
     "Helvetica Neue", sans-serif;
   --font-mono: "Courier New", monospace;
