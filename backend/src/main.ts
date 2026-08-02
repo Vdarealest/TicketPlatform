@@ -39,8 +39,8 @@ async function bootstrap() {
 
   await app.listen(port);
 
-  console.log(`🚀 Server running on http://localhost:${port}`);
-  console.log(`🔌 WebSocket CORS origin: ${frontendUrl}`);
+  console.log(`Server running on http://localhost:${port}`);
+  console.log(`WebSocket CORS origin: ${frontendUrl}`);
 }
 
 bootstrap();
