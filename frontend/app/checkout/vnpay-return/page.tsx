@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 
@@ -16,7 +16,7 @@ interface ReturnResult {
   responseCode?: string;
 }
 
-export default function VnpayReturnPage() {
+function VnpayReturnContent() {
   const searchParams = useSearchParams();
   const [result, setResult] = useState<ReturnResult | null>(null);
   const [loading, setLoading] = useState(true);
@@ -185,5 +185,15 @@ export default function VnpayReturnPage() {
         </p>
       </div>
     </main>
+  );
+}
+
+// useSearchParams() opts the tree into client-side rendering, so Next requires
+// a Suspense boundary above it or the production build fails at prerender.
+export default function VnpayReturnPage() {
+  return (
+    <Suspense fallback={null}>
+      <VnpayReturnContent />
+    </Suspense>
   );
 }

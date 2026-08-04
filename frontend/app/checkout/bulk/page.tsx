@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 
@@ -36,7 +36,7 @@ interface QrData { qrUrl: string; orderId: string; amount: number; bankId: strin
 
 const formatMMSS = (s: number) => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
 
-export default function BulkCheckoutPage() {
+function BulkCheckoutContent() {
   const searchParams = useSearchParams();
   const idsParam = searchParams.get('ids') || '';
   const deadlineParam = searchParams.get('deadline');
@@ -423,5 +423,15 @@ export default function BulkCheckoutPage() {
         </div>
       </div>
     </main>
+  );
+}
+
+// useSearchParams() opts the tree into client-side rendering, so Next requires
+// a Suspense boundary above it or the production build fails at prerender.
+export default function BulkCheckoutPage() {
+  return (
+    <Suspense fallback={null}>
+      <BulkCheckoutContent />
+    </Suspense>
   );
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import api from '@/lib/api';
 import { useTranslation, translateCategory } from '@/lib/i18n';
@@ -57,7 +57,7 @@ const labelStyle: React.CSSProperties = {
   display: 'block',
 };
 
-export default function EventsPage() {
+function EventsContent() {
   const { t, lang } = useTranslation();
   const searchParams = useSearchParams();
   const [events, setEvents] = useState<any[]>([]);
@@ -337,5 +337,15 @@ export default function EventsPage() {
         </div>
       )}
     </main>
+  );
+}
+
+// useSearchParams() opts the tree into client-side rendering, so Next requires
+// a Suspense boundary above it or the production build fails at prerender.
+export default function EventsPage() {
+  return (
+    <Suspense fallback={null}>
+      <EventsContent />
+    </Suspense>
   );
 }

@@ -36,14 +36,31 @@ import { join } from 'path';
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 120 }]),
     TypeOrmModule.forRoot({
       type: 'postgres',
-      host: process.env.DB_HOST,
-      port: Number(process.env.DB_PORT),
-      username: process.env.DB_USER,
-      password: process.env.DB_PASSWORD,
-      database: process.env.DB_NAME,
+      // Managed Postgres (Render, Neon, Supabase…) exposes one connection URL;
+      // the discrete DB_* vars stay for local development.
+      ...(process.env.DATABASE_URL
+        ? { url: process.env.DATABASE_URL }
+        : {
+            host: process.env.DB_HOST,
+            port: Number(process.env.DB_PORT),
+            username: process.env.DB_USER,
+            password: process.env.DB_PASSWORD,
+            database: process.env.DB_NAME,
+          }),
+      // Hosted Postgres requires TLS, but issues certs from a private CA that
+      // isn't in the container's trust store, hence rejectUnauthorized: false.
+      ...(process.env.DB_SSL === 'true'
+        ? { ssl: { rejectUnauthorized: false } }
+        : {}),
       autoLoadEntities: true,
-      // Auto-syncing the schema can silently drop/alter columns — never in prod.
-      synchronize: process.env.NODE_ENV !== 'production',
+      // Auto-syncing can silently drop/alter columns, so it stays off in
+      // production unless DB_SYNCHRONIZE is explicitly set. This project has no
+      // migrations, so a fresh production database needs one boot with
+      // DB_SYNCHRONIZE=true to create the schema — turn it back off afterwards.
+      synchronize:
+        process.env.DB_SYNCHRONIZE === 'true' ||
+        (process.env.NODE_ENV !== 'production' &&
+          process.env.DB_SYNCHRONIZE !== 'false'),
     }),
     QueueModule,
     UsersModule,
