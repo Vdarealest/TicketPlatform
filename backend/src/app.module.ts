@@ -12,7 +12,6 @@ import { ReservationsModule } from './reservations/reservations.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import { WebsocketModule } from './websocket/websocket.module';
 import { QueueModule } from './queue/queue.module';
-import { DatabaseModule } from './database/database.module';
 import { HealthController } from './health/health.controller';
 import { PaymentsModule } from './payments/payments.module';
 import { AdminModule } from './admin/admin.module';
@@ -69,7 +68,6 @@ import { join } from 'path';
     TicketsModule,
     ReservationsModule,
     WebsocketModule,
-    DatabaseModule,
     PaymentsModule,
     AdminModule,
     UploadModule,
