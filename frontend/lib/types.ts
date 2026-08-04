@@ -29,6 +29,7 @@ export interface LayoutSection {
   id: string;
   ticketId?: number | null;
   label: string;
+  type?: 'rect' | 'arc';
   x: number;
   y: number;
   w?: number;
@@ -38,6 +39,15 @@ export interface LayoutSection {
   rotation: number;
   curve: number;
   curveDir?: 'down' | 'up' | 'left' | 'right';
+  // Arc/wedge geometry (only when type === 'arc') — a ring segment around
+  // (centerX, centerY), spanning startAngle..endAngle degrees (0°=+X axis,
+  // clockwise, since SVG y grows downward) between innerRadius..outerRadius.
+  centerX?: number;
+  centerY?: number;
+  innerRadius?: number;
+  outerRadius?: number;
+  startAngle?: number;
+  endAngle?: number;
   startLabel: string;
   color: string;
 }

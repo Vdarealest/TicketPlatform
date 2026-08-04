@@ -10,10 +10,11 @@ import { Ticket } from '../tickets/entities/ticket.entity';
 import { Seat } from '../tickets/entities/seat.entity';
 import { Reservation } from '../reservations/entities/reservation.entity';
 import { Venue } from '../venues/venue.entity';
+import { Review } from '../reviews/entities/review.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, Event, Ticket, Seat, Reservation, Venue]),
+    TypeOrmModule.forFeature([User, Event, Ticket, Seat, Reservation, Venue, Review]),
   ],
   controllers: [AdminController],
   providers: [AdminService],

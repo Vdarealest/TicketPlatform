@@ -391,10 +391,13 @@
    ───────────────────────────────────────────── */
 .ec2-link {
   display: block;
+  /* Stretch to the grid row so cards with 1-line and 2-line titles still end
+     at the same bottom edge instead of coming out ragged. */
+  height: 100%;
   text-decoration: none !important;
   color: inherit;
 }
- 
+
 .ec2-card {
   background: #fff;
   border-radius: 14px;
@@ -403,6 +406,9 @@
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
   transition: transform 0.25s ease, box-shadow 0.25s ease;
   cursor: pointer;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
 }
 .ec2-card:hover {
   transform: translateY(-4px);
@@ -418,10 +424,26 @@
   background: #f5f5f5;
 }
 
-.ec2-img {
+/* Banners arrive in wildly different aspect ratios (wide concert banners vs
+   near-square posters). Cropping them to fill the frame chopped text off the
+   edges, so the real banner is shown whole (contain) on top of a blurred,
+   zoomed copy of itself that fills the leftover space. */
+.ec2-img-backdrop {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
+  filter: blur(18px) brightness(0.9);
+  transform: scale(1.15);
+  display: block;
+}
+
+.ec2-img {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
   display: block;
   transition: transform 0.4s ease;
 }
@@ -450,6 +472,7 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
+  flex: 1;
 }
  
 /* Badge */
@@ -489,6 +512,9 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
+  /* Pin to the bottom so date/location line up across cards regardless of
+     whether the title above wrapped to one line or two. */
+  margin-top: auto;
 }
 
 .ec2-meta-row {

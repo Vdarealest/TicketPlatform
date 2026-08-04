@@ -4,6 +4,16 @@ import { useMemo, useState } from 'react';
 import { Seat, Ticket, SeatLayout, LayoutSection } from '@/lib/types';
 import { formatCurrencyVND } from '@/lib/format';
 import { useTranslation } from '@/lib/i18n';
+import {
+  getSectionWH as getWH,
+  seatLocalPos,
+  seatDotRadius,
+  readableGrid,
+  arcWedgePath,
+  sectionBBox,
+  isArcSection,
+  ARC_SECTION_DEFAULTS,
+} from '@/lib/seatGeometry';
 
 interface VenueSeatMapProps {
   layout: SeatLayout;
@@ -13,64 +23,6 @@ interface VenueSeatMapProps {
   onZoneFocus?: (ticket: Ticket) => void;
   busy?: boolean;
   maxSeats?: number;
-}
-
-const CELL = 28;
-
-function getWH(sec: LayoutSection) {
-  return {
-    w: sec.w ?? sec.seatsPerRow * CELL,
-    h: sec.h ?? sec.rows * CELL,
-  };
-}
-
-/** Local (cx, cy) of seat r/c inside a section box, same arc formula as the admin designer. */
-function seatLocalPos(sec: LayoutSection, r: number, c: number) {
-  const { w, h } = getWH(sec);
-  const cellW = w / sec.seatsPerRow;
-  const cellH = h / sec.rows;
-  const dir = sec.curveDir ?? 'down';
-  const halfAngle = ((sec.curve || 0) / 100) * (Math.PI * 0.48);
-
-  const baseCy = cellH * r + cellH / 2;
-  const baseCx = cellW * c + cellW / 2;
-  let cx = baseCx;
-  let cy = baseCy;
-  if (halfAngle > 0.001) {
-    if (dir === 'down' || dir === 'up') {
-      if (sec.seatsPerRow > 1) {
-        const t = (c / (sec.seatsPerRow - 1)) * 2 - 1;
-        const angle = t * halfAngle;
-        const arcR = (w / 2) / Math.sin(halfAngle);
-        cx = w / 2 + arcR * Math.sin(angle);
-        const bow = arcR * (1 - Math.cos(angle));
-        cy = dir === 'down' ? baseCy + bow : baseCy - bow;
-      }
-    } else {
-      if (sec.rows > 1) {
-        const t = (r / (sec.rows - 1)) * 2 - 1;
-        const angle = t * halfAngle;
-        const arcR = (h / 2) / Math.sin(halfAngle);
-        cy = h / 2 + arcR * Math.sin(angle);
-        const bow = arcR * (1 - Math.cos(angle));
-        cx = dir === 'right' ? baseCx + bow : baseCx - bow;
-      }
-    }
-  }
-  return { cx, cy };
-}
-
-/** Axis-aligned bounding box of a section after rotation. */
-function sectionBBox(sec: LayoutSection) {
-  const { w, h } = getWH(sec);
-  const cx = sec.x + w / 2;
-  const cy = sec.y + h / 2;
-  const rad = ((sec.rotation || 0) * Math.PI) / 180;
-  const cos = Math.abs(Math.cos(rad));
-  const sin = Math.abs(Math.sin(rad));
-  const bw = w * cos + h * sin;
-  const bh = w * sin + h * cos;
-  return { x: cx - bw / 2, y: cy - bh / 2, w: bw, h: bh, cx, cy };
 }
 
 interface PlacedSeat {
@@ -153,16 +105,36 @@ export default function VenueSeatMap({ layout, tickets, selectedSeats, onSelectS
 
   const zoomed = placed.find((p) => p.sec.id === zoomId) ?? null;
 
-  // Zoom transform: frame the (rotated) section bbox at the viewBox centre.
-  let transform = 'translate(0px, 0px) scale(1)';
-  if (zoomed) {
-    const bb = sectionBBox(zoomed.sec);
-    const PAD = 40;
-    const s = Math.min(view.w / (bb.w + PAD * 2), view.h / (bb.h + PAD * 2), 8);
-    const tx = view.cx - s * bb.cx;
-    const ty = view.cy - s * bb.cy;
-    transform = `translate(${tx}px, ${ty}px) scale(${s})`;
-  }
+  // Zooming drives the SVG viewBox itself rather than CSS-transforming the
+  // world. The canvas is `height: auto`, so its rendered height follows the
+  // viewBox aspect: scaling the world kept the *whole venue's* aspect, which
+  // squashed a single zone into a short wide strip with unclickably small
+  // seats. Framing the viewBox on the zone makes the canvas take the zone's
+  // own proportions instead.
+  const activeView = useMemo(() => {
+    if (!zoomed) return view;
+    const bb = sectionBBox(readableGrid(zoomed.sec));
+    const pad = Math.max(24, Math.min(bb.w, bb.h) * 0.08);
+    let x = bb.x - pad;
+    let y = bb.y - pad;
+    let w = bb.w + pad * 2;
+    let h = bb.h + pad * 2;
+    // Keep the frame roughly landscape so a long thin zone (e.g. a shallow
+    // arc band) still gets a usable amount of vertical room.
+    const MIN_AR = 1.1;
+    const MAX_AR = 1.9;
+    const ar = w / h;
+    if (ar > MAX_AR) {
+      const nh = w / MAX_AR;
+      y -= (nh - h) / 2;
+      h = nh;
+    } else if (ar < MIN_AR) {
+      const nw = h * MIN_AR;
+      x -= (nw - w) / 2;
+      w = nw;
+    }
+    return { x, y, w, h, cx: x + w / 2, cy: y + h / 2 };
+  }, [zoomed, view]);
 
   const totalSeats = placed.reduce((a, p) => a + p.seats.length, 0);
 
@@ -203,13 +175,22 @@ export default function VenueSeatMap({ layout, tickets, selectedSeats, onSelectS
       </div>
 
       <div className="vsm-canvas-wrap">
-        <svg className="vsm-canvas" viewBox={`${view.x} ${view.y} ${view.w} ${view.h}`} role="img">
+        {/* Remount on zoom change so the fade-in animation replays, standing in
+            for the transform transition the viewBox approach can't tween. */}
+        <svg
+          key={zoomId ?? '__overview__'}
+          className="vsm-canvas vsm-canvas--fade"
+          viewBox={`${activeView.x} ${activeView.y} ${activeView.w} ${activeView.h}`}
+          role="img"
+        >
           {/* Backdrop — click to zoom out */}
-          <rect x={view.x} y={view.y} width={view.w} height={view.h} fill="transparent" onClick={() => setZoomId(null)} />
+          <rect x={activeView.x} y={activeView.y} width={activeView.w} height={activeView.h} fill="transparent" onClick={() => setZoomId(null)} />
 
-          <g className="vsm-world" style={{ transform, transition: 'transform 0.45s cubic-bezier(0.25, 0.8, 0.35, 1)' }}>
-            {/* Stage */}
-            {stage && (
+          <g className="vsm-world">
+            {/* Stage — hidden while zoomed: the zoomed zone is re-laid on a
+                regular grid, so everything else is in a different coordinate
+                space and would just overlap it. */}
+            {stage && !zoomId && (
               <g style={{ pointerEvents: 'none' }}>
                 <rect x={stage.x} y={stage.y} width={stage.w} height={stage.h} rx={6} fill="#555" opacity={0.65} />
                 <text x={stage.x + stage.w / 2} y={stage.y + stage.h * 0.67} textAnchor="middle" fill="#fff" fontSize={12} fontWeight={600} style={{ userSelect: 'none' }}>
@@ -219,16 +200,181 @@ export default function VenueSeatMap({ layout, tickets, selectedSeats, onSelectS
             )}
 
             {placed.map(({ sec, ticket, seats, available }) => {
-              const { w, h } = getWH(sec);
-              const cx = sec.x + w / 2;
-              const cy = sec.y + h / 2;
+              // Only the focused zone is drawn while zoomed — see the stage note.
+              if (zoomId && sec.id !== zoomId) return null;
+
+              if (isArcSection(sec)) {
+                const isZoomedHere = zoomId === sec.id;
+                // Same regular-grid treatment as rect zones: while zoomed the
+                // band is widened so each row gets readable spacing. Must be
+                // used for the wedge path too, or the drawn arc no longer
+                // matches the frame computed from it.
+                const dsec = isZoomedHere ? readableGrid(sec) : sec;
+                const soldOut = ticket !== null && seats.length > 0 && available === 0;
+                const noTicket = !ticket;
+                const dotR = seatDotRadius(dsec);
+                const ccx = dsec.centerX ?? ARC_SECTION_DEFAULTS.centerX;
+                const ccy = dsec.centerY ?? ARC_SECTION_DEFAULTS.centerY;
+                const inner = dsec.innerRadius ?? ARC_SECTION_DEFAULTS.innerRadius;
+                const outer = dsec.outerRadius ?? ARC_SECTION_DEFAULTS.outerRadius;
+                const startA = dsec.startAngle ?? ARC_SECTION_DEFAULTS.startAngle;
+                const endA = dsec.endAngle ?? ARC_SECTION_DEFAULTS.endAngle;
+                const midA = ((startA + endA) / 2) * (Math.PI / 180);
+                const midR = (inner + outer) / 2;
+                const rowChar = (r: number) => String.fromCharCode((sec.startLabel || 'A').charCodeAt(0) + r);
+                const seatAt = (rr: number, cc: number) => seats.find(s => s.r === rr && s.c === cc);
+                const letterOf = (p?: PlacedSeat) => p?.seat.label.match(/^[A-Za-z]+/)?.[0];
+                const numberOf = (seat: Seat, fallback: number) => seat.label.match(/\d+/)?.[0] ?? String(fallback);
+
+                const ghostDots: { cx: number; cy: number }[] = [];
+                if (seats.length === 0) {
+                  for (let r = 0; r < dsec.rows; r++) {
+                    for (let c = 0; c < dsec.seatsPerRow; c++) {
+                      ghostDots.push(seatLocalPos(dsec, r, c));
+                    }
+                  }
+                }
+
+                // Radial offset direction at a given angle (points away from center)
+                const radialOffset = (angleDeg: number, r: number) => {
+                  const a = (angleDeg * Math.PI) / 180;
+                  return { dx: Math.cos(a) * r, dy: Math.sin(a) * r };
+                };
+
+                return (
+                  <g key={sec.id}>
+                    <path
+                      d={arcWedgePath(dsec)}
+                      fill={sec.color}
+                      fillOpacity={noTicket ? 0.06 : isZoomedHere ? 0.1 : 0.15}
+                      stroke={sec.color}
+                      strokeWidth={1.4}
+                      strokeOpacity={noTicket ? 0.35 : 0.75}
+                      vectorEffect="non-scaling-stroke"
+                      style={{ cursor: 'pointer' }}
+                      onClick={(e) => { e.stopPropagation(); focusZone(sec.id, ticket); }}
+                    >
+                      <title>{sec.label}{ticket ? ` — ${formatCurrencyVND(ticket.price)} · ${available}/${seats.length} ${lang === 'en' ? 'available' : 'trống'}` : (lang === 'en' ? ' — not on sale' : ' — chưa mở bán')}</title>
+                    </path>
+
+                    {/* Ghost preview dots (no DB seats yet) */}
+                    {ghostDots.map((g, i) => (
+                      <circle key={i} cx={g.cx} cy={g.cy} r={dotR} fill={sec.color} opacity={0.25} style={{ pointerEvents: 'none' }} />
+                    ))}
+
+                    {/* Side markers (zoomed only): band letters at the two angular
+                        ends of each row; seat numbers at the inner/outer radial
+                        ends of each column. */}
+                    {isZoomedHere && seats.length > 0 && Array.from({ length: sec.rows }, (_, r) => {
+                      const startPt = seatLocalPos(dsec, r, 0);
+                      const endPt = seatLocalPos(dsec, r, dsec.seatsPerRow - 1);
+                      const off1 = radialOffset(startA, dotR * 0.15);
+                      const off2 = radialOffset(endA, dotR * 0.15);
+                      const mark = letterOf(seatAt(r, 0)) ?? rowChar(r);
+                      return (
+                        <g key={`rl-${r}`} style={{ pointerEvents: 'none' }}>
+                          <text x={startPt.cx - off1.dx} y={startPt.cy - off1.dy} textAnchor="middle" dominantBaseline="central"
+                            fontSize={dotR * 0.95} fontWeight={700} fill="rgba(255,255,255,0.45)" style={{ userSelect: 'none' }}>
+                            {mark}
+                          </text>
+                          <text x={endPt.cx + off2.dx} y={endPt.cy + off2.dy} textAnchor="middle" dominantBaseline="central"
+                            fontSize={dotR * 0.95} fontWeight={700} fill="rgba(255,255,255,0.45)" style={{ userSelect: 'none' }}>
+                            {mark}
+                          </text>
+                        </g>
+                      );
+                    })}
+
+                    {/* Real seats */}
+                    {seats.map(({ seat, r, c }) => {
+                      // Recomputed from dsec so dots sit on the widened band.
+                      const { cx: sx, cy: sy } = seatLocalPos(dsec, r, c);
+                      const isSelected = selectedIds.has(seat.id);
+                      const isBooked = seat.status === 'BOOKED';
+                      const isHeld = seat.status === 'HELD' && !isSelected;
+                      const clickable = isZoomedHere && !isBooked && !isHeld && !busy && (!atMax || isSelected);
+                      const dimmedByMax = atMax && !isSelected && !isBooked && !isHeld && isZoomedHere;
+
+                      let fill: string, fillOp: number, stroke: string, strokeOp: number, textFill: string;
+                      if (isBooked) {
+                        fill = '#26262f'; fillOp = 1; stroke = '#3c3c48'; strokeOp = 1; textFill = 'rgba(255,255,255,0.22)';
+                      } else if (isHeld) {
+                        fill = '#52525b'; fillOp = 0.3; stroke = '#71717a'; strokeOp = 0.8; textFill = 'rgba(255,255,255,0.35)';
+                      } else if (isSelected) {
+                        fill = sec.color; fillOp = 1; stroke = '#fff'; strokeOp = 1; textFill = '#fff';
+                      } else {
+                        fill = sec.color; fillOp = isZoomedHere ? 0.16 : 0.9; stroke = sec.color; strokeOp = 1; textFill = 'rgba(255,255,255,0.95)';
+                      }
+
+                      return (
+                        <g key={seat.id} opacity={dimmedByMax ? 0.35 : 1}>
+                          <circle
+                            cx={sx} cy={sy} r={isSelected ? dotR * 1.06 : dotR}
+                            fill={fill}
+                            fillOpacity={fillOp}
+                            stroke={isZoomedHere ? stroke : 'none'}
+                            strokeOpacity={strokeOp}
+                            strokeWidth={isZoomedHere ? dotR * (isSelected ? 0.2 : 0.15) : 0}
+                            style={{
+                              cursor: clickable ? 'pointer' : isZoomedHere ? 'not-allowed' : 'default',
+                              pointerEvents: isZoomedHere ? 'auto' : 'none',
+                              transition: 'fill 0.15s, fill-opacity 0.15s, stroke 0.15s',
+                            }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (clickable && ticket) onSelectSeat(ticket, seat);
+                            }}
+                          >
+                            <title>{seat.label}{ticket ? ` — ${ticket.type}` : ''}{isBooked ? (lang === 'en' ? ' (sold)' : ' (đã bán)') : isHeld ? (lang === 'en' ? ' (held)' : ' (đang giữ)') : ''}</title>
+                          </circle>
+                          {isZoomedHere && (
+                            <text
+                              x={sx} y={sy}
+                              textAnchor="middle" dominantBaseline="central"
+                              fontSize={dotR * 0.9}
+                              fontWeight={700}
+                              fill={textFill}
+                              style={{ pointerEvents: 'none', userSelect: 'none' }}
+                            >
+                              {numberOf(seat, c + 1)}
+                            </text>
+                          )}
+                        </g>
+                      );
+                    })}
+
+                    {/* Zone label — hidden when zoomed into this zone */}
+                    {!isZoomedHere && (
+                      <text
+                        x={ccx + midR * Math.cos(midA)} y={ccy + midR * Math.sin(midA)}
+                        textAnchor="middle" dominantBaseline="central"
+                        fill="#fff" fontSize={12} fontWeight={700}
+                        style={{ pointerEvents: 'none', userSelect: 'none', paintOrder: 'stroke' }}
+                        stroke="rgba(0,0,0,0.55)" strokeWidth={3}
+                      >
+                        {sec.label}{soldOut ? (lang === 'en' ? ' · SOLD OUT' : ' · HẾT VÉ') : ''}
+                      </text>
+                    )}
+                  </g>
+                );
+              }
+
               const isZoomedHere = zoomId === sec.id;
+              // Overview keeps the box exactly as the admin drew it, but a box
+              // can be drawn far too small for its seat count (e.g. 20 seats
+              // across a 110-unit-wide box leaves 5.5 units per seat), which
+              // makes the dots unclickable however far you zoom. So once zoomed
+              // in to actually pick seats, re-lay them on a regular grid.
+              const dsec = isZoomedHere ? readableGrid(sec) : sec;
+              const { w, h } = getWH(dsec);
+              const cx = dsec.x + w / 2;
+              const cy = dsec.y + h / 2;
               const soldOut = ticket !== null && seats.length > 0 && available === 0;
               const noTicket = !ticket;
-              const cellW = w / sec.seatsPerRow;
-              const cellH = h / sec.rows;
-              const dotR = Math.min(cellW, cellH) * 0.38;
-              const rot = sec.rotation || 0;
+              const cellW = w / dsec.seatsPerRow;
+              const cellH = h / dsec.rows;
+              const dotR = seatDotRadius(dsec);
+              const rot = dsec.rotation || 0;
               // Counter-rotate text so it stays upright inside rotated sections
               const upright = (x: number, y: number) => (rot ? `rotate(${-rot} ${x} ${y})` : undefined);
               // Does the row axis run horizontally on screen (rotation near 0/180)
@@ -245,9 +391,9 @@ export default function VenueSeatMap({ layout, tickets, selectedSeats, onSelectS
               // Ghost dots: layout preview when DB seats don't exist yet
               const ghostDots: { cx: number; cy: number }[] = [];
               if (seats.length === 0) {
-                for (let r = 0; r < sec.rows; r++) {
-                  for (let c = 0; c < sec.seatsPerRow; c++) {
-                    ghostDots.push(seatLocalPos(sec, r, c));
+                for (let r = 0; r < dsec.rows; r++) {
+                  for (let c = 0; c < dsec.seatsPerRow; c++) {
+                    ghostDots.push(seatLocalPos(dsec, r, c));
                   }
                 }
               }
@@ -256,7 +402,7 @@ export default function VenueSeatMap({ layout, tickets, selectedSeats, onSelectS
                 <g key={sec.id} transform={`rotate(${rot},${cx},${cy})`}>
                   {/* Zone box: always zoomable */}
                   <rect
-                    x={sec.x} y={sec.y} width={w} height={h} rx={4}
+                    x={dsec.x} y={dsec.y} width={w} height={h} rx={4}
                     fill={sec.color}
                     fillOpacity={noTicket ? 0.06 : isZoomedHere ? 0.1 : 0.15}
                     stroke={sec.color}
@@ -269,7 +415,7 @@ export default function VenueSeatMap({ layout, tickets, selectedSeats, onSelectS
                     <title>{sec.label}{ticket ? ` — ${formatCurrencyVND(ticket.price)} · ${available}/${seats.length} ${lang === 'en' ? 'available' : 'trống'}` : (lang === 'en' ? ' — not on sale' : ' — chưa mở bán')}</title>
                   </rect>
 
-                  <g transform={`translate(${sec.x}, ${sec.y})`}>
+                  <g transform={`translate(${dsec.x}, ${dsec.y})`}>
                     {/* Ghost preview dots (no DB seats yet) */}
                     {ghostDots.map((g, i) => (
                       <circle key={i} cx={g.cx} cy={g.cy} r={dotR} fill={sec.color} opacity={0.25} style={{ pointerEvents: 'none' }} />
@@ -280,9 +426,9 @@ export default function VenueSeatMap({ layout, tickets, selectedSeats, onSelectS
                         → seat numbers at the column ends, which land on the
                         screen's left/right after rotation. */}
                     {isZoomedHere && seats.length > 0 && (rowsAreHorizontal
-                      ? Array.from({ length: sec.rows }, (_, r) => {
-                          const left = seatLocalPos(sec, r, 0);
-                          const right = seatLocalPos(sec, r, sec.seatsPerRow - 1);
+                      ? Array.from({ length: dsec.rows }, (_, r) => {
+                          const left = seatLocalPos(dsec, r, 0);
+                          const right = seatLocalPos(dsec, r, dsec.seatsPerRow - 1);
                           const lx = left.cx - cellW * 0.95;
                           const rx = right.cx + cellW * 0.95;
                           const mark = letterOf(seatAt(r, 0)) ?? rowChar(r);
@@ -299,9 +445,9 @@ export default function VenueSeatMap({ layout, tickets, selectedSeats, onSelectS
                             </g>
                           );
                         })
-                      : Array.from({ length: sec.seatsPerRow }, (_, c) => {
-                          const top = seatLocalPos(sec, 0, c);
-                          const bot = seatLocalPos(sec, sec.rows - 1, c);
+                      : Array.from({ length: dsec.seatsPerRow }, (_, c) => {
+                          const top = seatLocalPos(dsec, 0, c);
+                          const bot = seatLocalPos(dsec, dsec.rows - 1, c);
                           const ty = top.cy - cellH * 0.95;
                           const by = bot.cy + cellH * 0.95;
                           const mark = letterOf(seatAt(0, c)) ?? rowChar(c);
@@ -321,7 +467,10 @@ export default function VenueSeatMap({ layout, tickets, selectedSeats, onSelectS
                     )}
 
                     {/* Real seats */}
-                    {seats.map(({ seat, cx: sx, cy: sy, r, c }) => {
+                    {seats.map(({ seat, r, c }) => {
+                      // Recomputed from dsec so the zoomed-in regular grid and
+                      // the to-scale overview each place seats correctly.
+                      const { cx: sx, cy: sy } = seatLocalPos(dsec, r, c);
                       const isSelected = selectedIds.has(seat.id);
                       const isBooked = seat.status === 'BOOKED';
                       const isHeld = seat.status === 'HELD' && !isSelected;

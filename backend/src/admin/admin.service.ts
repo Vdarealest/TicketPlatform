@@ -9,6 +9,7 @@ import { Ticket } from '../tickets/entities/ticket.entity';
 import { Seat } from '../tickets/entities/seat.entity';
 import { Reservation } from '../reservations/entities/reservation.entity';
 import { Venue } from '../venues/venue.entity';
+import { Review } from '../reviews/entities/review.entity';
 
 @Injectable()
 export class AdminService {
@@ -19,6 +20,7 @@ export class AdminService {
     @InjectRepository(Seat) private seatsRepo: Repository<Seat>,
     @InjectRepository(Reservation) private reservationsRepo: Repository<Reservation>,
     @InjectRepository(Venue) private venuesRepo: Repository<Venue>,
+    @InjectRepository(Review) private reviewsRepo: Repository<Review>,
   ) {}
 
   // ─── Dashboard Stats ─────────────────────────────────────────────────────
@@ -260,6 +262,11 @@ export class AdminService {
     if (event.tickets?.length) {
       await this.ticketsRepo.remove(event.tickets);
     }
+    await this.reviewsRepo
+      .createQueryBuilder()
+      .delete()
+      .where('eventId = :id', { id })
+      .execute();
     await this.eventsRepo.remove(event);
 
     return { message: 'Đã xóa sự kiện.' };

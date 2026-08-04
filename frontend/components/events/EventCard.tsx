@@ -35,11 +35,19 @@ export default function EventCard({ event }: EventCardProps) {
     <Link href={`/events/${event.id}`} className="ec2-link">
       <div className="ec2-card">
         <div className="ec2-img-wrap">
+          {/* Blurred fill behind the banner so any aspect ratio can be shown
+              whole without leaving empty bars. Decorative only. */}
+          <img
+            src={resolveImageUrl(event.bannerUrl)}
+            alt=""
+            aria-hidden="true"
+            className="ec2-img-backdrop"
+            style={{ objectPosition: `${event.bannerFocusX ?? 50}% ${event.bannerFocusY ?? 50}%` }}
+          />
           <img
             src={resolveImageUrl(event.bannerUrl)}
             alt={event.title}
             className="ec2-img"
-            style={{ objectPosition: `${event.bannerFocusX ?? 50}% ${event.bannerFocusY ?? 50}%` }}
           />
           {formattedPrice && (
             <span className="ec2-price">{t.events_from} {formattedPrice}</span>
