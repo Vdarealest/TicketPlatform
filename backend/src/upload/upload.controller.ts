@@ -7,18 +7,12 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { diskStorage } from 'multer';
-import { extname, join } from 'path';
-import { existsSync, mkdirSync } from 'fs';
+import { memoryStorage } from 'multer';
+import { extname } from 'path';
+import { v2 as cloudinary } from 'cloudinary';
 
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AdminGuard } from '../auth/guards/admin.guard';
-
-const UPLOAD_DIR = join(process.cwd(), 'uploads');
-
-if (!existsSync(UPLOAD_DIR)) {
-  mkdirSync(UPLOAD_DIR, { recursive: true });
-}
 
 @Controller('upload')
 @UseGuards(JwtAuthGuard, AdminGuard)
@@ -26,31 +20,45 @@ export class UploadController {
   @Post('image')
   @UseInterceptors(
     FileInterceptor('file', {
-      storage: diskStorage({
-        destination: UPLOAD_DIR,
-        filename: (_req, file, cb) => {
-          const unique = Date.now() + '-' + Math.round(Math.random() * 1e6);
-          const ext = extname(file.originalname).toLowerCase();
-          cb(null, `${unique}${ext}`);
-        },
-      }),
+      // Giữ file trong RAM thay vì ghi ra đĩa (đĩa Render là ephemeral).
+      storage: memoryStorage(),
       fileFilter: (_req, file, cb) => {
         // SVG intentionally excluded: it can carry <script> and become stored
-        // XSS when served from /uploads and opened directly.
+        // XSS when served directly.
         const allowed = /\.(jpg|jpeg|png|gif|webp)$/i;
         if (!allowed.test(extname(file.originalname))) {
-          return cb(new BadRequestException('Chỉ cho phép tải lên hình ảnh (jpg, png, gif, webp).'), false);
+          return cb(
+            new BadRequestException(
+              'Chỉ cho phép tải lên hình ảnh (jpg, png, gif, webp).',
+            ),
+            false,
+          );
         }
         cb(null, true);
       },
       limits: { fileSize: 5 * 1024 * 1024 },
     }),
   )
-  uploadImage(@UploadedFile() file: Express.Multer.File) {
+  async uploadImage(@UploadedFile() file: Express.Multer.File) {
     if (!file) throw new BadRequestException('Không có file nào được tải lên.');
+
+    // Stream buffer từ memory thẳng lên Cloudinary.
+    const result = await new Promise<{ secure_url: string; public_id: string }>(
+      (resolve, reject) => {
+        const uploadStream = cloudinary.uploader.upload_stream(
+          { folder: 'vietix' },
+          (error, uploaded) => {
+            if (error) return reject(error);
+            resolve(uploaded as { secure_url: string; public_id: string });
+          },
+        );
+        uploadStream.end(file.buffer);
+      },
+    );
+
     return {
-      url: `/uploads/${file.filename}`,
-      filename: file.filename,
+      url: result.secure_url, // URL vĩnh viễn của Cloudinary
+      filename: result.public_id,
       size: file.size,
     };
   }
