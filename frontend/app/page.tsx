@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import api from '../lib/api';
 import { useTranslation } from '../lib/i18n';
 import { resolveImageUrl } from '../lib/image';
@@ -11,6 +12,7 @@ import EventCard from '../components/events/EventCard';
 const AUTO_MS = 5000;
 
 export default function Home() {
+  const router = useRouter();
   const { t, lang } = useTranslation();
   const [events, setEvents] = useState<any[]>([]);
   const [featured, setFeatured] = useState<any[]>([]);
@@ -93,7 +95,12 @@ export default function Home() {
                 const price = slidePrice(ev);
                 const upcoming = effectiveSaleStatus(ev) === 'UPCOMING';
                 return (
-                  <div className="home-hero__slide" key={`${ev.id}-${i}`}>
+                  <div
+                    className="home-hero__slide"
+                    key={`${ev.id}-${i}`}
+                    onClick={() => router.push(`/events/${ev.id}`)}
+                    style={{ cursor: 'pointer' }}
+                  >
                     <img
                       src={resolveImageUrl(ev.bannerUrl)}
                       alt={ev.title}
@@ -128,12 +135,12 @@ export default function Home() {
                         )}
                       </div>
                       <div className="home-hero__actions">
-                        <Link href={`/events/${ev.id}`} className="home-hero__cta">
+                        <button type="button" className="home-hero__cta" onClick={(e) => { e.stopPropagation(); router.push(`/events/${ev.id}`); }}>
                           {upcoming ? (lang === 'en' ? 'View details' : 'Xem chi tiết') : t.home_buy_now}
                           <svg width="14" height="14" viewBox="0 0 12 12" fill="none">
                             <path d="M2 6h8M6.5 2.5L10 6l-3.5 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                           </svg>
-                        </Link>
+                        </button>
                         {price && (
                           <span className="home-hero__price">{t.home_price_from} <strong>{price}</strong></span>
                         )}
