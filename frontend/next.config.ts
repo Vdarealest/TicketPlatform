@@ -21,7 +21,7 @@ const csp = [
   "style-src 'self' 'unsafe-inline'",
   // Event banners are admin-uploaded from the backend, plus Google avatar
   // images and the VietQR image service.
-  `img-src 'self' data: ${apiUrl} https://lh3.googleusercontent.com https://img.vietqr.io`,
+  `img-src 'self' data: ${apiUrl} https://lh3.googleusercontent.com https://img.vietqr.io https://res.cloudinary.com`,
   "font-src 'self' data:",
   // The real exfiltration choke point: fetch/XHR/WebSocket can only reach
   // our own API and socket origin, nowhere an injected script could send

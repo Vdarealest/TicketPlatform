@@ -69,3 +69,4 @@ coverage/
 # Claude AI Assistant
 .claude/
 .claude-*vietix_data.sql
+vietix_data.sql
