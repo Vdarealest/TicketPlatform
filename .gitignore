@@ -68,4 +68,4 @@ coverage/
 *.pid.lock
 # Claude AI Assistant
 .claude/
-.claude-*
+.claude-*vietix_data.sql
