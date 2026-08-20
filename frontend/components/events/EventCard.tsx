@@ -55,6 +55,9 @@ export default function EventCard({ event }: EventCardProps) {
           {effectiveSaleStatus(event) === 'UPCOMING' && (
             <span className="ec2-upcoming">{lang === 'en' ? 'Coming soon' : 'Sắp mở bán'}</span>
           )}
+          {effectiveSaleStatus(event) === 'ENDED' && (
+            <span className="ec2-upcoming">{lang === 'en' ? 'Ended' : 'Đã kết thúc'}</span>
+          )}
         </div>
         <div className="ec2-body">
           <span className="ec2-badge">{category}</span>

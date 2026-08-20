@@ -77,9 +77,13 @@ export class ReservationsService {
         .getOne();
 
       if (!ticket) throw new BadRequestException('Ticket not found');
-      // Refuse to sell if the event isn't actually on sale (draft / upcoming).
+      // Refuse to sell if the event isn't actually on sale (draft / upcoming / ended).
       // Authoritative check — the frontend also hides the button, but never trust it.
-      if (effectiveSaleStatus(ticket.event) !== 'ON_SALE') {
+      const saleStatus = effectiveSaleStatus(ticket.event);
+      if (saleStatus === 'ENDED') {
+        throw new BadRequestException('Sự kiện này đã kết thúc.');
+      }
+      if (saleStatus !== 'ON_SALE') {
         throw new BadRequestException('Sự kiện này chưa mở bán.');
       }
       if (ticket.quantity < seatIds.length) {

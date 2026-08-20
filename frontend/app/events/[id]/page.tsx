@@ -7,7 +7,7 @@ import Link from 'next/link';
 import api from '@/lib/api';
 import { useTranslation, translateCategory } from '@/lib/i18n';
 import { resolveImageUrl } from '@/lib/image';
-import { isOnSale, upcomingLabel } from '@/lib/eventStatus';
+import { upcomingLabel, effectiveSaleStatus } from '@/lib/eventStatus';
 import { EventDetail } from '@/lib/types';
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
@@ -163,7 +163,7 @@ function ReviewSection({ eventId, eventEndTime }: { eventId: number; eventEndTim
   return (
     <section className="edp-reviews">
       <div className="edp-reviews__header">
-        <h2 className="edp-reviews__title">{t.edp_reviews_title}</h2>
+        <h2 className="edp-reviews__title edp-section-title">{t.edp_reviews_title}</h2>
         {total > 0 && (
           <div className="edp-reviews__summary">
             <span className="edp-reviews__avg">{avgRating}</span>
@@ -293,6 +293,63 @@ function ReviewSection({ eventId, eventEndTime }: { eventId: number; eventEndTim
   );
 }
 
+// ─── buy button ───────────────────────────────────────────────────────────────
+
+/**
+ * The buy CTA plus its status note. Rendered twice — once in the hero card
+ * ('hero') and once in the sticky sidebar ('box') — so the three sale states
+ * are described in a single place.
+ */
+function SaleAction({ event, variant }: { event: EventDetail; variant: 'hero' | 'box' }) {
+  const { t, lang } = useTranslation();
+  const hero = variant === 'hero';
+  const status = effectiveSaleStatus(event);
+
+  const onCls = hero ? 'edp-stage__cta' : 'edp-cta-button';
+  const offCls = hero ? 'edp-stage__cta edp-stage__cta--off' : 'edp-cta-button edp-cta-button--disabled';
+  const noteCls = hero ? 'edp-stage__note' : 'edp-ticket-box__note';
+
+  if (status === 'ON_SALE') {
+    return (
+      <>
+        <Link href={`/events/${event.id}/tickets`} className={onCls}>
+          {t.edp_select_ticket}
+          {hero && (
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M5 12h14M13 6l6 6-6 6" />
+            </svg>
+          )}
+        </Link>
+        <p className={noteCls}>🔒 {t.edp_secure_note}</p>
+      </>
+    );
+  }
+
+  if (status === 'ENDED') {
+    return (
+      <>
+        <button className={offCls} disabled>
+          {lang === 'en' ? 'Sale ended' : 'Đã kết thúc'}
+        </button>
+        <p className={noteCls}>
+          🏁 {lang === 'en' ? 'This event has ended.' : 'Sự kiện này đã kết thúc.'}
+        </p>
+      </>
+    );
+  }
+
+  return (
+    <>
+      <button className={offCls} disabled>
+        {lang === 'en' ? 'Not on sale yet' : 'Chưa mở bán'}
+      </button>
+      <p className={noteCls}>
+        ⏳ {upcomingLabel(event.saleOpenAt, lang === 'en' ? 'en' : 'vi')}
+      </p>
+    </>
+  );
+}
+
 // ─── page ─────────────────────────────────────────────────────────────────────
 
 export default function EventDetailPage() {
@@ -325,6 +382,23 @@ export default function EventDetailPage() {
       })
     : null;
 
+  const startClock = event.startTime
+    ? new Date(event.startTime).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })
+    : null;
+
+  // Full date + time, for the detail panel (end time isn't shown anywhere else)
+  const fmtFull = (value?: string | null) =>
+    value
+      ? new Date(value).toLocaleString(locale, {
+          weekday: 'long',
+          day: 'numeric',
+          month: 'long',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+        })
+      : null;
+
   const minPrice = tickets.length
     ? Math.min(...tickets.map((t) => t.price))
     : null;
@@ -340,53 +414,105 @@ export default function EventDetailPage() {
   return (
     <main className="edp-root">
 
-      {/* Hero */}
-      <div className="edp-hero">
-        <img
-          src={resolveImageUrl(event.bannerUrl)}
-          alt={event.title}
-          className="edp-hero__img"
-          style={{ objectPosition: `${event.bannerFocusX ?? 50}% ${event.bannerFocusY ?? 50}%` }}
-        />
-        <div className="edp-hero__scrim" />
-        <div className="edp-hero__title-wrap">
-          {event.category && (
-            <span className="edp-hero__badge">{translateCategory(event.category, lang)}</span>
-          )}
-          <h1 className="edp-hero__title">{event.title}</h1>
+      {/* Hero stage — poster shown whole over a blurred copy of itself */}
+      <section className="edp-stage">
+        <div className="edp-stage__bg" aria-hidden="true">
+          <img src={resolveImageUrl(event.bannerUrl)} alt="" />
         </div>
-      </div>
+
+        <div className="edp-stage__inner">
+          <figure className="edp-stage__poster">
+            <img src={resolveImageUrl(event.bannerUrl)} alt={event.title} />
+          </figure>
+
+          <div className="edp-stage__card">
+            {event.category && (
+              <span className="edp-stage__badge">{translateCategory(event.category, lang)}</span>
+            )}
+            <h1 className="edp-stage__title">{event.title}</h1>
+
+            <div className="edp-stage__facts">
+              {formattedDate && (
+                <div className="edp-stage__fact">
+                  <svg width="18" height="18" viewBox="0 0 16 16" fill="none">
+                    <rect x="1" y="2" width="14" height="13" rx="2" stroke="currentColor" strokeWidth="1.4"/>
+                    <path d="M1 6h14" stroke="currentColor" strokeWidth="1.4"/>
+                    <path d="M5 1v2M11 1v2" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+                  </svg>
+                  <div>
+                    <span className="edp-stage__fact-key">{lang === 'en' ? 'Date' : 'Thời gian'}</span>
+                    <span className="edp-stage__fact-val">
+                      {formattedDate}{startClock ? ` · ${startClock}` : ''}
+                    </span>
+                  </div>
+                </div>
+              )}
+              {event.location && (
+                <div className="edp-stage__fact">
+                  <svg width="18" height="18" viewBox="0 0 16 16" fill="none">
+                    <path d="M8 1C5.24 1 3 3.24 3 6c0 3.75 5 9 5 9s5-5.25 5-9c0-2.76-2.24-5-5-5z" stroke="currentColor" strokeWidth="1.4"/>
+                    <circle cx="8" cy="6" r="1.5" fill="currentColor"/>
+                  </svg>
+                  <div>
+                    <span className="edp-stage__fact-key">{lang === 'en' ? 'Venue' : 'Địa điểm'}</span>
+                    <span className="edp-stage__fact-val">{event.location}</span>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="edp-stage__divider" />
+
+            {formattedMinPrice && (
+              <div className="edp-stage__price">
+                <span className="edp-stage__price-key">{t.edp_price_from}</span>
+                <span className="edp-stage__price-val">{formattedMinPrice}</span>
+              </div>
+            )}
+
+            <SaleAction event={event} variant="hero" />
+          </div>
+        </div>
+      </section>
 
       {/* Content */}
       <div className="edp-content">
 
         {/* Left: Info */}
         <div className="edp-info">
-          <div className="edp-meta">
-            {formattedDate && (
-              <div className="edp-meta__item">
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                  <rect x="1" y="2" width="14" height="13" rx="2" stroke="currentColor" strokeWidth="1.4"/>
-                  <path d="M1 6h14" stroke="currentColor" strokeWidth="1.4"/>
-                  <path d="M5 1v2M11 1v2" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
-                </svg>
-                <span>{formattedDate}</span>
+          <h2 className="edp-section-title">
+            {lang === 'en' ? 'Event details' : 'Thông tin sự kiện'}
+          </h2>
+          <div className="edp-factlist">
+            {fmtFull(event.startTime) && (
+              <div className="edp-factlist__row">
+                <span className="edp-factlist__key">{lang === 'en' ? 'Starts' : 'Bắt đầu'}</span>
+                <span className="edp-factlist__val">{fmtFull(event.startTime)}</span>
+              </div>
+            )}
+            {fmtFull(event.endTime) && (
+              <div className="edp-factlist__row">
+                <span className="edp-factlist__key">{lang === 'en' ? 'Ends' : 'Kết thúc'}</span>
+                <span className="edp-factlist__val">{fmtFull(event.endTime)}</span>
               </div>
             )}
             {event.location && (
-              <div className="edp-meta__item">
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                  <path d="M8 1C5.24 1 3 3.24 3 6c0 3.75 5 9 5 9s5-5.25 5-9c0-2.76-2.24-5-5-5z" stroke="currentColor" strokeWidth="1.4"/>
-                  <circle cx="8" cy="6" r="1.5" fill="currentColor"/>
-                </svg>
-                <span>{event.location}</span>
+              <div className="edp-factlist__row">
+                <span className="edp-factlist__key">{lang === 'en' ? 'Venue' : 'Địa điểm'}</span>
+                <span className="edp-factlist__val">{event.location}</span>
+              </div>
+            )}
+            {event.category && (
+              <div className="edp-factlist__row">
+                <span className="edp-factlist__key">{lang === 'en' ? 'Category' : 'Thể loại'}</span>
+                <span className="edp-factlist__val">{translateCategory(event.category, lang)}</span>
               </div>
             )}
           </div>
 
           {event.description && (
             <div className="edp-desc">
-              <h2 className="edp-desc__title">{t.edp_about}</h2>
+              <h2 className="edp-section-title">{t.edp_about}</h2>
               <p className="edp-desc__text">{event.description}</p>
             </div>
           )}
@@ -421,25 +547,7 @@ export default function EventDetailPage() {
               <p className="edp-ticket-box__note">{t.edp_coming_soon}</p>
             )}
 
-            {isOnSale(event) ? (
-              <>
-                <Link href={`/events/${event.id}/tickets`} className="edp-cta-button">
-                  {t.edp_select_ticket}
-                </Link>
-                <p className="edp-ticket-box__note">
-                  🔒 {t.edp_secure_note}
-                </p>
-              </>
-            ) : (
-              <>
-                <button className="edp-cta-button edp-cta-button--disabled" disabled>
-                  {lang === 'en' ? 'Not on sale yet' : 'Chưa mở bán'}
-                </button>
-                <p className="edp-ticket-box__note" style={{ textAlign: 'center', fontWeight: 600, color: '#b45309' }}>
-                  ⏳ {upcomingLabel(event.saleOpenAt, lang === 'en' ? 'en' : 'vi')}
-                </p>
-              </>
-            )}
+            <SaleAction event={event} variant="box" />
           </div>
         </div>
 

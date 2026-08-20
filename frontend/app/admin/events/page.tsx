@@ -313,6 +313,13 @@ export default function AdminEvents() {
             {/* ── Banner Upload + Focal Point ── */}
             <div className="admin-form-group">
               <label className="admin-form-label">Hình ảnh banner</label>
+              <p style={{ fontSize: 11, lineHeight: 1.6, color: 'var(--text-quaternary)', margin: '0 0 8px' }}>
+                Khuyến nghị <strong style={{ color: 'var(--text-secondary)' }}>1920 × 760 px</strong> (tỉ lệ ~2,5:1).
+                Muốn nét trên màn hình lớn thì dùng 2560 × 1000 px.
+                <br />
+                Banner hiển thị tràn ngang màn hình nên khung ảnh co giãn theo từng cỡ màn hình —
+                hãy để chữ và logo trong vùng giữa, chừa mép khoảng 12% mỗi phía để không bị cắt mất.
+              </p>
 
               {form.bannerUrl ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -354,15 +361,19 @@ export default function AdminEvents() {
 
                   {/* Preview strips */}
                   <div style={{ display: 'flex', gap: 8 }}>
+                    {/* Thẻ sự kiện dùng object-fit: contain trên nền ảnh mờ — ảnh
+                        luôn hiện trọn vẹn, điểm focus không ảnh hưởng ở đây. */}
                     <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-quaternary)', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Event Card (16:10)</div>
-                      <div style={{ borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border-input)', aspectRatio: '16/10' }}>
-                        <img src={resolveImageUrl(form.bannerUrl)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `${form.bannerFocusX}% ${form.bannerFocusY}%`, display: 'block' }} />
+                      <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-quaternary)', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Thẻ sự kiện — không cắt</div>
+                      <div style={{ position: 'relative', borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border-input)', aspectRatio: '16/10' }}>
+                        <img src={resolveImageUrl(form.bannerUrl)} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', filter: 'blur(18px) brightness(0.9)', transform: 'scale(1.15)', display: 'block' }} />
+                        <img src={resolveImageUrl(form.bannerUrl)} alt="" style={{ position: 'relative', width: '100%', height: '100%', objectFit: 'contain', display: 'block' }} />
                       </div>
                     </div>
+                    {/* Banner trang chủ + trang chi tiết dùng cùng một khung cover */}
                     <div style={{ flex: 1.2 }}>
-                      <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-quaternary)', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Banner Detail (21:9)</div>
-                      <div style={{ borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border-input)', aspectRatio: '21/9' }}>
+                      <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-quaternary)', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Banner lớn (2,5:1) — bị cắt</div>
+                      <div style={{ borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border-input)', aspectRatio: '2.5/1' }}>
                         <img src={resolveImageUrl(form.bannerUrl)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `${form.bannerFocusX}% ${form.bannerFocusY}%`, display: 'block' }} />
                       </div>
                     </div>
