@@ -61,6 +61,11 @@ export class AdminController {
     return this.adminService.addTicketToEvent(Number(eventId), body);
   }
 
+  @Put('tickets/:ticketId')
+  updateTicket(@Param('ticketId') ticketId: string, @Body() body: any) {
+    return this.adminService.updateTicket(Number(ticketId), body);
+  }
+
   @Delete('tickets/:ticketId')
   deleteTicket(@Param('ticketId') ticketId: string) {
     return this.adminService.deleteTicket(Number(ticketId));

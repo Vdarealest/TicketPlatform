@@ -17,6 +17,8 @@ interface EventItem {
 }
 interface VenueOption { id: number; name: string; }
 interface TicketInput { type: string; price: string; quantity: string; }
+// An already-saved tier, held as strings so it can be typed into directly.
+interface ExistingTicketInput { id: number; type: string; price: string; quantity: string; }
 
 const CATEGORIES = ['Âm nhạc', 'Thể thao', 'Sân khấu', 'Hội thảo', 'Triển lãm', 'Ẩm thực', 'Khác'];
 
@@ -39,11 +41,14 @@ export default function AdminEvents() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState(EMPTY_FORM);
   const [ticketInputs, setTicketInputs] = useState<TicketInput[]>([]);
-  const [existingTickets, setExistingTickets] = useState<Ticket[]>([]);
+  const [existingTickets, setExistingTickets] = useState<ExistingTicketInput[]>([]);
   const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const focusRef = useRef<HTMLDivElement>(null);
+  // Values as loaded, so only the tiers actually changed get sent on save.
+  const originalTickets = useRef<Record<number, Ticket>>({});
 
   const load = () => {
     Promise.all([
@@ -57,14 +62,15 @@ export default function AdminEvents() {
   useEffect(load, []);
 
   const openCreate = () => {
-    setEditingId(null); setForm(EMPTY_FORM);
+    setEditingId(null); setForm(EMPTY_FORM); setFormError(null);
     setTicketInputs([{ type: 'Standard', price: '', quantity: '' }]);
     setExistingTickets([]);
+    originalTickets.current = {};
     setShowModal(true);
   };
 
   const openEdit = (ev: EventItem) => {
-    setEditingId(ev.id);
+    setEditingId(ev.id); setFormError(null);
     setForm({
       title: ev.title, description: ev.description, location: ev.location,
       category: ev.category || 'Khác',
@@ -77,7 +83,11 @@ export default function AdminEvents() {
       saleOpenAt: ev.saleOpenAt ? ev.saleOpenAt.slice(0, 16) : '',
     });
     setTicketInputs([]);
-    setExistingTickets(ev.tickets || []);
+    const saved = ev.tickets || [];
+    setExistingTickets(saved.map((t) => ({
+      id: t.id, type: t.type, price: String(t.price), quantity: String(t.quantity),
+    })));
+    originalTickets.current = Object.fromEntries(saved.map((t) => [t.id, t]));
     setShowModal(true);
   };
 
@@ -104,12 +114,27 @@ export default function AdminEvents() {
   const handleSubmit = async () => {
     if (!form.title || !form.location || !form.startTime || !form.endTime) return;
     setSaving(true);
+    setFormError(null);
     try {
       const venueId = form.venueId ? Number(form.venueId) : null;
       const newTickets = ticketInputs.filter((t) => t.type && t.price && t.quantity)
         .map((t) => ({ type: t.type, price: Number(t.price), quantity: Number(t.quantity) }));
       if (editingId) {
         await api.put(`/admin/events/${editingId}`, { ...form, venueId });
+
+        // Only send tiers whose values actually changed
+        for (const t of existingTickets) {
+          const before = originalTickets.current[t.id];
+          if (!before) continue;
+          const patch: Record<string, string | number> = {};
+          if (t.type !== before.type) patch.type = t.type;
+          if (Number(t.price) !== before.price) patch.price = Number(t.price);
+          if (Number(t.quantity) !== before.quantity) patch.quantity = Number(t.quantity);
+          if (Object.keys(patch).length) {
+            await api.put(`/admin/tickets/${t.id}`, patch);
+          }
+        }
+
         for (const t of newTickets) {
           await api.post(`/admin/events/${editingId}/tickets`, t);
         }
@@ -117,7 +142,11 @@ export default function AdminEvents() {
         await api.post('/admin/events', { ...form, venueId, tickets: newTickets });
       }
       setShowModal(false); load();
-    } catch {} finally { setSaving(false); }
+    } catch (err: any) {
+      // Surfaced because the ticket rules can legitimately reject a save
+      // (e.g. reducing a tier below the number of seats already sold).
+      setFormError(err?.response?.data?.message || 'Không lưu được. Vui lòng thử lại.');
+    } finally { setSaving(false); }
   };
 
   const handleDelete = async (id: number) => {
@@ -141,6 +170,9 @@ export default function AdminEvents() {
     const copy = [...ticketInputs]; copy[idx] = { ...copy[idx], [field]: val }; setTicketInputs(copy);
   };
   const removeTicketInput = (idx: number) => setTicketInputs(ticketInputs.filter((_, i) => i !== idx));
+
+  const updateExistingTicket = (id: number, field: 'type' | 'price' | 'quantity', val: string) =>
+    setExistingTickets((list) => list.map((t) => (t.id === id ? { ...t, [field]: val } : t)));
 
   if (loading) return <div className="admin-loading"><div className="edp-spinner" /></div>;
 
@@ -440,15 +472,41 @@ export default function AdminEvents() {
             <div className="admin-form-group">
               <label className="admin-form-label">Loại vé</label>
               {existingTickets.length > 0 && (
-                <div className="admin-ticket-list" style={{ marginBottom: 8 }}>
-                  {existingTickets.map((t) => (
-                    <div className="admin-ticket-row" key={t.id} style={{ opacity: 0.75 }}>
-                      <input className="admin-form-input" value={t.type} disabled style={{ flex: 1 }} />
-                      <input className="admin-form-input" value={t.price.toLocaleString('vi-VN') + ' đ'} disabled style={{ width: 110 }} />
-                      <input className="admin-form-input" value={t.quantity} disabled style={{ width: 70 }} />
-                    </div>
-                  ))}
-                </div>
+                <>
+                  <div className="admin-ticket-list" style={{ marginBottom: 6 }}>
+                    {existingTickets.map((t) => (
+                      <div className="admin-ticket-row" key={t.id}>
+                        <input
+                          className="admin-form-input"
+                          value={t.type}
+                          onChange={(e) => updateExistingTicket(t.id, 'type', e.target.value)}
+                          placeholder="Loại (VD: VIP)"
+                          style={{ flex: 1 }}
+                        />
+                        <input
+                          className="admin-form-input"
+                          type="number"
+                          value={t.price}
+                          onChange={(e) => updateExistingTicket(t.id, 'price', e.target.value)}
+                          placeholder="Giá"
+                          style={{ width: 110 }}
+                        />
+                        <input
+                          className="admin-form-input"
+                          type="number"
+                          value={t.quantity}
+                          onChange={(e) => updateExistingTicket(t.id, 'quantity', e.target.value)}
+                          placeholder="SL"
+                          style={{ width: 70 }}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                  <p style={{ fontSize: 11, lineHeight: 1.6, color: 'var(--text-quaternary)', margin: '0 0 10px' }}>
+                    Sửa trực tiếp các hạng vé đã có. Giảm số lượng chỉ bỏ được những ghế còn trống —
+                    ghế đang giữ hoặc đã bán luôn được giữ nguyên.
+                  </p>
+                </>
               )}
               <div className="admin-ticket-list">
                 {ticketInputs.map((t, i) => (
@@ -465,6 +523,16 @@ export default function AdminEvents() {
                 <p style={{ fontSize: 12, color: '#b45309', marginTop: 6 }}>Sự kiện này chưa có loại vé — thêm ít nhất một loại để gán vào sơ đồ ghế.</p>
               )}
             </div>
+
+            {formError && (
+              <p style={{
+                margin: '4px 0 0', padding: '10px 12px', borderRadius: 8,
+                background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)',
+                color: '#ef4444', fontSize: 13, fontWeight: 600, lineHeight: 1.5,
+              }}>
+                {formError}
+              </p>
+            )}
 
             <div className="admin-form-actions">
               <button className="admin-btn admin-btn--ghost" onClick={() => setShowModal(false)}>Hủy</button>

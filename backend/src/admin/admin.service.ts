@@ -312,6 +312,90 @@ export class AdminService {
     return this.getEvent(eventId);
   }
 
+  /**
+   * Edit an existing ticket tier. Renaming and re-pricing are always safe;
+   * changing the quantity has to reconcile the Seat rows behind it, and must
+   * never touch a seat somebody already holds or bought.
+   */
+  async updateTicket(
+    ticketId: number,
+    data: Partial<{ type: string; price: number; quantity: number }>,
+  ) {
+    const ticket = await this.ticketsRepo.findOne({
+      where: { id: ticketId },
+      relations: ['seats', 'event', 'event.venue'],
+    });
+    if (!ticket) throw new NotFoundException('Loại vé không tồn tại.');
+
+    const patch: Partial<Ticket> = {};
+
+    if (data.type !== undefined) {
+      const type = String(data.type).trim();
+      if (!type) throw new BadRequestException('Tên loại vé không được để trống.');
+      patch.type = type;
+    }
+
+    if (data.price !== undefined) {
+      const price = Number(data.price);
+      if (!Number.isFinite(price) || price < 0) {
+        throw new BadRequestException('Giá vé không hợp lệ.');
+      }
+      patch.price = price;
+    }
+
+    if (data.quantity !== undefined) {
+      const quantity = Number(data.quantity);
+      if (!Number.isInteger(quantity) || quantity < 0) {
+        throw new BadRequestException('Số lượng vé phải là số nguyên không âm.');
+      }
+
+      const seats = ticket.seats || [];
+      const taken = seats.filter((s) => s.status !== 'AVAILABLE');
+      if (quantity < taken.length) {
+        throw new BadRequestException(
+          `Không thể giảm xuống ${quantity} vé — đã có ${taken.length} ghế đang giữ hoặc đã bán.`,
+        );
+      }
+
+      // Seats of a layout-based event are drawn in the designer, so a grid
+      // generated here wouldn't line up with it. Only the number changes; the
+      // admin rebuilds seats with "Tạo ghế".
+      const usesLayout =
+        !!ticket.event?.seatLayout?.sections?.length ||
+        !!ticket.event?.venue?.layout?.sections?.length;
+
+      const delta = quantity - seats.length;
+
+      if (!usesLayout && delta > 0) {
+        const maxRow = await this.seatsRepo
+          .createQueryBuilder('s')
+          .innerJoin('s.ticket', 't')
+          .where('t.eventId = :eventId', { eventId: ticket.event.id })
+          .select('MAX(s.row)', 'max')
+          .getRawOne();
+        await this.generateSeats(
+          { ...ticket, type: patch.type ?? ticket.type, quantity: delta } as Ticket,
+          Number(maxRow?.max || 0),
+        );
+      } else if (!usesLayout && delta < 0) {
+        // Drop free seats only, from the far end of the grid inwards, so the
+        // low-numbered seats people expect to keep are the last to go.
+        const free = seats
+          .filter((s) => s.status === 'AVAILABLE')
+          .sort((a, b) => b.row - a.row || b.col - a.col);
+        await this.seatsRepo.remove(free.slice(0, -delta));
+      }
+
+      patch.quantity = quantity;
+    }
+
+    if (Object.keys(patch).length) {
+      await this.ticketsRepo.update(ticketId, patch);
+    }
+
+    return this.getEvent(ticket.event.id);
+  }
+
   async deleteTicket(ticketId: number) {
     const ticket = await this.ticketsRepo.findOne({
       where: { id: ticketId },
