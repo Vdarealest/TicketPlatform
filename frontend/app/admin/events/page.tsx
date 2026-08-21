@@ -33,6 +33,28 @@ const EMPTY_FORM = {
   saleOpenAt: '' as string,
 };
 
+// <input type="datetime-local"> has no timezone: it reads and writes a bare
+// wall-clock string. Converting explicitly at both ends keeps the stored
+// instant from depending on whichever timezone the server happens to run in —
+// a naive "2026-09-27T19:00" means 12:00Z on a +7 box but 19:00Z on a UTC one.
+const pad2 = (n: number) => String(n).padStart(2, '0');
+
+/** Stored UTC instant → the admin's local wall clock, for the input. */
+function toLocalInput(iso?: string | null): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`
+    + `T${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+}
+
+/** The admin's local wall clock → an absolute instant the API can't misread. */
+function fromLocalInput(value: string): string | null {
+  if (!value) return null;
+  const d = new Date(value); // browsers parse a zone-less value as local time
+  return Number.isNaN(d.getTime()) ? null : d.toISOString();
+}
+
 export default function AdminEvents() {
   const [events, setEvents] = useState<EventItem[]>([]);
   const [venues, setVenues] = useState<VenueOption[]>([]);
@@ -75,12 +97,12 @@ export default function AdminEvents() {
       title: ev.title, description: ev.description, location: ev.location,
       category: ev.category || 'Khác',
       bannerUrl: ev.bannerUrl, bannerFocusX: ev.bannerFocusX ?? 50, bannerFocusY: ev.bannerFocusY ?? 50,
-      startTime: ev.startTime.slice(0, 16), endTime: ev.endTime.slice(0, 16),
+      startTime: toLocalInput(ev.startTime), endTime: toLocalInput(ev.endTime),
       venueId: ev.venueId ? String(ev.venueId) : '',
       featured: ev.featured ?? false,
       featuredOrder: ev.featuredOrder ?? 0,
       status: ev.status ?? 'ON_SALE',
-      saleOpenAt: ev.saleOpenAt ? ev.saleOpenAt.slice(0, 16) : '',
+      saleOpenAt: toLocalInput(ev.saleOpenAt),
     });
     setTicketInputs([]);
     const saved = ev.tickets || [];
@@ -119,8 +141,18 @@ export default function AdminEvents() {
       const venueId = form.venueId ? Number(form.venueId) : null;
       const newTickets = ticketInputs.filter((t) => t.type && t.price && t.quantity)
         .map((t) => ({ type: t.type, price: Number(t.price), quantity: Number(t.quantity) }));
+
+      // Send absolute instants, never the bare wall-clock the inputs hold
+      const payload = {
+        ...form,
+        venueId,
+        startTime: fromLocalInput(form.startTime),
+        endTime: fromLocalInput(form.endTime),
+        saleOpenAt: fromLocalInput(form.saleOpenAt),
+      };
+
       if (editingId) {
-        await api.put(`/admin/events/${editingId}`, { ...form, venueId });
+        await api.put(`/admin/events/${editingId}`, payload);
 
         // Only send tiers whose values actually changed
         for (const t of existingTickets) {
@@ -139,7 +171,7 @@ export default function AdminEvents() {
           await api.post(`/admin/events/${editingId}/tickets`, t);
         }
       } else {
-        await api.post('/admin/events', { ...form, venueId, tickets: newTickets });
+        await api.post('/admin/events', { ...payload, tickets: newTickets });
       }
       setShowModal(false); load();
     } catch (err: any) {

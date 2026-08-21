@@ -169,8 +169,8 @@ export class AdminService {
       venueId: data.venueId || (null as any),
       bannerFocusX: data.bannerFocusX ?? 50,
       bannerFocusY: data.bannerFocusY ?? 50,
-      startTime: new Date(data.startTime),
-      endTime: new Date(data.endTime),
+      startTime: this.parseDate(data.startTime, 'Thời gian bắt đầu'),
+      endTime: this.parseDate(data.endTime, 'Thời gian kết thúc'),
       featured: data.featured ?? false,
       featuredOrder: data.featuredOrder ?? 0,
       status: data.status ?? 'ON_SALE',
@@ -239,8 +239,12 @@ export class AdminService {
     if (data.bannerUrl !== undefined) event.bannerUrl = data.bannerUrl;
     if (data.bannerFocusX !== undefined) event.bannerFocusX = data.bannerFocusX;
     if (data.bannerFocusY !== undefined) event.bannerFocusY = data.bannerFocusY;
-    if (data.startTime !== undefined) event.startTime = new Date(data.startTime);
-    if (data.endTime !== undefined) event.endTime = new Date(data.endTime);
+    if (data.startTime !== undefined) {
+      event.startTime = this.parseDate(data.startTime, 'Thời gian bắt đầu');
+    }
+    if (data.endTime !== undefined) {
+      event.endTime = this.parseDate(data.endTime, 'Thời gian kết thúc');
+    }
     if ('venueId' in data) event.venueId = data.venueId as any;
     if (data.featured !== undefined) event.featured = data.featured;
     if (data.featuredOrder !== undefined) event.featuredOrder = data.featuredOrder;
@@ -741,6 +745,19 @@ export class AdminService {
   }
 
   // ─── Helpers ──────────────────────────────────────────────────────────────
+
+  /**
+   * Parse a date the client sent. The admin UI sends full ISO instants, so a
+   * value that doesn't parse is a bug worth surfacing — `new Date(null)` would
+   * otherwise store 1970 without a word.
+   */
+  private parseDate(value: unknown, field: string): Date {
+    const d = new Date(value as string);
+    if (!value || Number.isNaN(d.getTime())) {
+      throw new BadRequestException(`${field} không hợp lệ.`);
+    }
+    return d;
+  }
 
   /**
    * Row name for a 0-based row index: A…Z, then AA, AB, … Doing this with a

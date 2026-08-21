@@ -36,6 +36,10 @@ interface QrData { qrUrl: string; orderId: string; amount: number; bankId: strin
 
 const formatMMSS = (s: number) => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
 
+// MoMo is hidden from checkout for now. The backend routes, the return page and
+// all the wiring stay in place — flip this to true to bring the option back.
+const SHOW_MOMO = false;
+
 function BulkCheckoutContent() {
   const searchParams = useSearchParams();
   const idsParam = searchParams.get('ids') || '';
@@ -156,6 +160,14 @@ function BulkCheckoutContent() {
     : null;
 
   const bannerSrc = resolveImageUrl(event.bannerUrl);
+
+  const payMethods: { key: PayMethod; label: string; desc?: string; logoBg: string; logoText: string }[] = [
+    { key: 'vnpay', label: 'VNPay', desc: 'ATM, Visa', logoBg: '#0a5cb8', logoText: 'VN' },
+    ...(SHOW_MOMO
+      ? [{ key: 'momo' as PayMethod, label: 'MoMo', desc: 'Ví MoMo', logoBg: '#a50064', logoText: 'M' }]
+      : []),
+    { key: 'vietqr', label: 'VietQR', logoBg: '#0a8a5f', logoText: 'QR' },
+  ];
 
   return (
     <main className="tsp-root">
@@ -305,12 +317,8 @@ function BulkCheckoutContent() {
               <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-secondary)', margin: '18px 0 10px' }}>
                 Phương thức thanh toán
               </p>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
-                {([
-                  { key: 'vnpay' as const, label: 'VNPay', desc: 'ATM, Visa', logoBg: '#0a5cb8', logoText: 'VN' },
-                  { key: 'momo' as const, label: 'MoMo', desc: 'Ví MoMo', logoBg: '#a50064', logoText: 'M' },
-                  { key: 'vietqr' as const, label: 'VietQR', desc: 'Test nhanh', logoBg: '#0a8a5f', logoText: 'QR' },
-                ]).map((m) => {
+              <div style={{ display: 'grid', gridTemplateColumns: `repeat(${payMethods.length}, 1fr)`, gap: 10 }}>
+                {payMethods.map((m) => {
                   const active = payMethod === m.key;
                   return (
                     <button
