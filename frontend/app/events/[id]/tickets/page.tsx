@@ -415,7 +415,7 @@ export default function TicketSelectionPage() {
                   />
                   {guestEmailError && <p className="tsp-guest-box__error">{guestEmailError}</p>}
                   <Link href="/login" className="tsp-guest-box__login-link">
-                    Hoặc đăng nhập để lưu lịch sử mua vé →
+                    Hoặc đăng nhập để lưu lịch sử mua vé
                   </Link>
                 </div>
               )}

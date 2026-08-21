@@ -17,7 +17,7 @@ const translations = {
     home_buy_now: 'Mua vé ngay',
     home_price_from: 'Giá từ',
     home_featured: 'Sự kiện nổi bật',
-    home_view_all: 'Xem tất cả →',
+    home_view_all: 'Xem tất cả',
     home_on_sale_section: 'Đang mở bán',
 
     // Events page
@@ -46,7 +46,7 @@ const translations = {
     edp_price_from: 'Giá từ',
     edp_select_ticket: 'Chọn vé',
     edp_coming_soon: 'Vé sẽ được mở bán sớm.',
-    edp_secure_note: 'Thanh toán bảo mật · Hoàn tiền trong 24h',
+    edp_secure_note: 'Thanh toán bảo mật - Hoàn tiền trong 24h',
     edp_reviews_title: 'Đánh giá & Bình luận',
     edp_reviews_count: 'đánh giá',
     edp_review_share: 'Chia sẻ trải nghiệm của bạn',
@@ -216,7 +216,7 @@ const translations = {
     home_buy_now: 'Buy Tickets',
     home_price_from: 'From',
     home_featured: 'Featured Events',
-    home_view_all: 'View all →',
+    home_view_all: 'View all',
     home_on_sale_section: 'On Sale',
 
     // Events page
