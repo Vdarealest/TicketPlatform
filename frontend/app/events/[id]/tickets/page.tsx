@@ -225,13 +225,40 @@ export default function TicketSelectionPage() {
   // otherwise (stale seats from before a redesign) fall back to the plain grid.
   const layout: SeatLayout | null = (() => {
     if (!rawLayout) return null;
-    const capacity = new Map<number, number>();
-    for (const s of rawLayout.sections) {
-      if (s.ticketId) capacity.set(s.ticketId, (capacity.get(s.ticketId) ?? 0) + s.rows * s.seatsPerRow);
+
+    // Walk the sections exactly the way VenueSeatMap does — same seat order,
+    // same slice per section — and check each seat's stored label agrees with
+    // the slot the map will draw it in. Comparing totals alone isn't enough:
+    // 25 rows of 16 and 20 rows of 20 are both 400 seats, yet the second draws
+    // "B1" in the middle of row A, which is what made the map look scrambled.
+    const pools = new Map<number, typeof tickets[number]['seats']>();
+    for (const t of tickets) {
+      pools.set(t.id, [...(t.seats ?? [])].sort((a, b) => a.id - b.id));
     }
-    for (const [tid, cap] of capacity) {
-      const count = tickets.find((t) => t.id === tid)?.seats?.length ?? 0;
-      if (count > 0 && count !== cap) return null;
+    const cursor = new Map<number, number>();
+
+    for (const sec of rawLayout.sections) {
+      if (!sec.ticketId) continue;
+      const pool = pools.get(sec.ticketId) ?? [];
+      if (pool.length === 0) continue; // tier has no seats yet — nothing to check
+
+      const start = cursor.get(sec.ticketId) ?? 0;
+      const count = sec.rows * sec.seatsPerRow;
+      const slice = pool.slice(start, start + count);
+      cursor.set(sec.ticketId, start + slice.length);
+      if (slice.length !== count) return null;
+
+      // A section drawn sideways has its lettered rows running down the
+      // columns, so the seat number comes from the row instead.
+      const transposed = ((Math.round((sec.rotation || 0) / 90) % 4) + 4) % 4 % 2 === 1;
+
+      for (let i = 0; i < slice.length; i++) {
+        const expected = transposed
+          ? Math.floor(i / sec.seatsPerRow) + 1
+          : (i % sec.seatsPerRow) + 1;
+        const actual = Number(slice[i].label.match(/\d+/)?.[0]);
+        if (actual !== expected) return null;
+      }
     }
     return rawLayout;
   })();
@@ -289,7 +316,14 @@ export default function TicketSelectionPage() {
               {tickets.length === 0 ? <p className="tsp-empty-text">Hiện chưa có vé nào được mở bán.</p> : (
                 <div className="tsp-ticket-list">
                   {tickets.map((ticket, i) => (
-                    <TicketTypeCard key={ticket.id} ticket={ticket} index={i} selected={selectedTicket?.id === ticket.id} onSelect={handleSelectTicket} />
+                    <TicketTypeCard
+                      key={ticket.id}
+                      ticket={ticket}
+                      index={i}
+                      color={layout?.sections.find((s) => s.ticketId === ticket.id)?.color}
+                      selected={selectedTicket?.id === ticket.id}
+                      onSelect={handleSelectTicket}
+                    />
                   ))}
                 </div>
               )}
@@ -340,25 +374,24 @@ export default function TicketSelectionPage() {
                       {selectedSeats.length > 0 ? selectedSeats.map((s) => s.label).join(', ') : 'Chưa chọn'}
                     </strong>
                   </div>
-                  <div className="tsp-summary__divider" />
                   <div className="tsp-summary__row">
                     <span>Đơn giá</span>
                     <strong>{formatCurrencyVND(selectedTicket.price)}</strong>
                   </div>
-                  <div className="tsp-summary__divider" />
                   <div className="tsp-summary__row">
                     <span>Số lượng</span>
                     <strong>{selectedSeats.length} vé</strong>
                   </div>
-                  <div className="tsp-summary__divider" />
-                  <div className="tsp-summary__row">
-                    <span>Tổng tiền</span>
-                    <strong className="tsp-summary__price">{formatCurrencyVND(totalPrice)}</strong>
-                  </div>
-                  <div className="tsp-summary__divider" />
                   <div className="tsp-summary__row">
                     <span>Còn lại</span>
                     <strong>{selectedTicket.quantity} vé</strong>
+                  </div>
+
+                  {/* One rule, right before the number that matters */}
+                  <div className="tsp-summary__divider" />
+                  <div className="tsp-summary__row tsp-summary__row--total">
+                    <span>Tổng tiền</span>
+                    <strong className="tsp-summary__price">{formatCurrencyVND(totalPrice)}</strong>
                   </div>
                 </div>
               ) : (

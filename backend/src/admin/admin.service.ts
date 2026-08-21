@@ -179,6 +179,18 @@ export class AdminService {
     const savedEvent = await this.eventsRepo.save(event);
 
     if (data.tickets?.length) {
+      // If the chosen venue already has a drawn layout, seats must come from it
+      // via "Tạo ghế" in the designer. Generating a plain grid here would leave
+      // labels (16 per row) that disagree with the drawing, and the seat map
+      // reads its numbers straight off those labels.
+      let usesLayout = false;
+      if (savedEvent.venueId) {
+        const venue = await this.venuesRepo.findOne({
+          where: { id: savedEvent.venueId },
+        });
+        usesLayout = !!venue?.layout?.sections?.length;
+      }
+
       let rowOffset = 0;
       for (const t of data.tickets) {
         const ticket = this.ticketsRepo.create({
@@ -188,8 +200,10 @@ export class AdminService {
           event: savedEvent,
         });
         const savedTicket = await this.ticketsRepo.save(ticket);
-        const rowsGenerated = await this.generateSeats(savedTicket, rowOffset);
-        rowOffset += rowsGenerated;
+        if (!usesLayout) {
+          const rowsGenerated = await this.generateSeats(savedTicket, rowOffset);
+          rowOffset += rowsGenerated;
+        }
       }
     }
 
@@ -665,6 +679,10 @@ export class AdminService {
     // ── SVG sections-based layout ──────────────────────────────────────────
 
     const seatCountPerTicket = new Map<number, number>();
+    // Next free lettered row per ticket. Without this, two sections of the same
+    // tier both started at "A" and produced two different seats both named
+    // "A5" — a buyer couldn't tell which block their seat was in.
+    const nextRowIndex = new Map<number, number>();
     let totalCreated = 0;
 
     for (const section of matchedSections) {
@@ -673,7 +691,7 @@ export class AdminService {
       const seats: Seat[] = [];
       const rowCount = section.rows || 1;
       const colCount = section.seatsPerRow || 10;
-      const startLabel = section.startLabel || 'A';
+      const startLabel = (section.startLabel || 'A').toUpperCase();
 
       // Sections rotated ~90°/270° appear sideways on screen: their lettered
       // rows run vertically. Transpose the labels so on-screen horizontal
@@ -681,11 +699,18 @@ export class AdminService {
       const rot = section.rotation || 0;
       const transposed = ((Math.round(rot / 90) % 4) + 4) % 4 % 2 === 1;
 
+      // Honour the designer's start letter, but push past it when it would
+      // collide with rows another section of this tier already claimed.
+      const letteredCount = transposed ? colCount : rowCount;
+      const requested = Math.max(0, startLabel.charCodeAt(0) - 65);
+      const base = Math.max(requested, nextRowIndex.get(ticket.id) ?? 0);
+      nextRowIndex.set(ticket.id, base + letteredCount);
+
       for (let r = 0; r < rowCount; r++) {
         for (let c = 0; c < colCount; c++) {
           const label = transposed
-            ? `${String.fromCharCode(startLabel.charCodeAt(0) + c)}${r + 1}`
-            : `${String.fromCharCode(startLabel.charCodeAt(0) + r)}${c + 1}`;
+            ? `${this.rowName(base + c)}${r + 1}`
+            : `${this.rowName(base + r)}${c + 1}`;
           seats.push(this.seatsRepo.create({
             row: r,
             col: c,
@@ -717,6 +742,21 @@ export class AdminService {
 
   // ─── Helpers ──────────────────────────────────────────────────────────────
 
+  /**
+   * Row name for a 0-based row index: A…Z, then AA, AB, … Doing this with a
+   * bare `String.fromCharCode(65 + i)` broke past row 26 and emitted junk like
+   * "|1" or "~3", because the code point ran off the end of the alphabet.
+   */
+  private rowName(index: number): string {
+    let n = Math.max(0, index);
+    let out = '';
+    do {
+      out = String.fromCharCode(65 + (n % 26)) + out;
+      n = Math.floor(n / 26) - 1;
+    } while (n >= 0);
+    return out;
+  }
+
   private async generateSeats(ticket: Ticket, rowOffset = 0): Promise<number> {
     const qty = ticket.quantity;
     if (qty <= 0) return 0;
@@ -741,7 +781,7 @@ export class AdminService {
         seats.push(this.seatsRepo.create({
           row: globalRow,
           col: c,
-          label: `${String.fromCharCode(64 + globalRow)}${c}`,
+          label: `${this.rowName(globalRow - 1)}${c}`,
           status: 'AVAILABLE',
           ticket: { id: ticket.id } as Ticket,
         }));

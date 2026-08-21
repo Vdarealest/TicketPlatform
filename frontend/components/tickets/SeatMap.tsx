@@ -21,7 +21,17 @@ export const ZONE_COLORS: Record<string, { color: string; colorBg: string }> = {
 };
 
 const FALLBACK_COLORS = Object.values(ZONE_COLORS);
-const ROW_LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+// Row name for a 0-based index: A…Z, then AA, AB, … A plain 26-letter table
+// ran out on big zones and fell back to bare numbers ("26", "27").
+function rowName(index: number): string {
+  let n = Math.max(0, index);
+  let out = '';
+  do {
+    out = String.fromCharCode(65 + (n % 26)) + out;
+    n = Math.floor(n / 26) - 1;
+  } while (n >= 0);
+  return out;
+}
 
 export function getZoneColor(type: string, index = 0) {
   return ZONE_COLORS[type.toLowerCase()] ?? FALLBACK_COLORS[index % FALLBACK_COLORS.length];
@@ -110,7 +120,7 @@ export default function SeatMap({ tickets, selectedSeats, onSelectSeat, busy, ma
       {/* Seat grid with perspective */}
       <div className="seatmap-grid">
         {renderRows.map((rr, rowIdx) => {
-          const rowLetter = ROW_LETTERS[rowIdx] ?? String(rowIdx + 1);
+          const rowLetter = rowName(rowIdx);
           const perspectiveScale = 1 - (rowIdx / totalRows) * 0.08;
           const padCols = globalMaxCols - rr.seats.length;
           const padLeft = Math.floor(padCols / 2);

@@ -8,13 +8,16 @@ interface TicketTypeCardProps {
   ticket: Ticket;
   selected: boolean;
   index: number;
+  /** Colour of this tier's zone on the seat map, so both agree. Falls back to
+   *  the generated palette for events drawn without a layout. */
+  color?: string;
   onSelect: (ticket: Ticket) => void;
 }
 
-export default function TicketTypeCard({ ticket, selected, index, onSelect }: TicketTypeCardProps) {
+export default function TicketTypeCard({ ticket, selected, index, color: zoneColor, onSelect }: TicketTypeCardProps) {
   const soldOut = ticket.quantity <= 0;
   const lowStock = !soldOut && ticket.quantity <= 10;
-  const { color, colorBg } = getZoneColor(ticket.type, index);
+  const color = zoneColor ?? getZoneColor(ticket.type, index).color;
 
   return (
     <button
@@ -22,67 +25,38 @@ export default function TicketTypeCard({ ticket, selected, index, onSelect }: Ti
       onClick={() => !soldOut && onSelect(ticket)}
       disabled={soldOut}
       aria-pressed={selected}
-      style={{
-        // Selected state keeps its light pastel tint in both themes, so text
-        // inside must stay dark; unselected follows the theme variables.
-        borderColor: selected ? color : 'var(--border-input)',
-        background: selected ? colorBg : 'var(--surface-primary)',
-        boxShadow: selected ? `0 4px 16px ${color}33` : undefined,
-      }}
-      className={`flex w-full items-center gap-4 rounded-2xl border-2 px-5 py-4 text-left transition-all duration-200 sm:px-6
-        ${selected ? '' : 'hover:shadow-md'}
-        ${soldOut ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}
+      className={`ttc ${selected ? 'ttc--selected' : ''} ${soldOut ? 'ttc--disabled' : ''}`}
+      style={
+        // Only the zone colour is dynamic; the surface stays theme-driven so a
+        // selected row reads the same in light and dark mode.
+        selected
+          ? { borderColor: color, boxShadow: `0 0 0 4px ${color}1f` }
+          : undefined
+      }
     >
-      <span
-        className="h-2.5 w-2.5 shrink-0 rounded-full"
-        style={{ background: color }}
-      />
+      <span className="ttc__dot" style={{ background: color }} />
 
-      <div className="flex flex-1 flex-col">
-        <span
-          className="text-base font-bold sm:text-lg"
-          style={{ color: selected ? '#111' : 'var(--text-primary)' }}
-        >
-          {ticket.type}
-        </span>
-        <span
-          className="text-xs font-medium sm:text-sm"
-          style={{
-            color: soldOut
-              ? 'var(--text-quaternary)'
-              : lowStock
-                ? '#d97706'
-                : selected ? '#6b7280' : 'var(--text-tertiary)',
-          }}
-        >
+      <span className="ttc__text">
+        <span className="ttc__name">{ticket.type}</span>
+        <span className={`ttc__qty ${lowStock ? 'ttc__qty--low' : ''} ${soldOut ? 'ttc__qty--out' : ''}`}>
           {soldOut ? 'Hết vé' : lowStock ? `Sắp hết · còn ${ticket.quantity} vé` : `Còn ${ticket.quantity} vé`}
         </span>
-      </div>
+      </span>
 
-      <div className="flex items-center gap-3 sm:gap-4">
-        <span className="text-base font-extrabold sm:text-lg" style={{ color }}>
-          {formatCurrencyVND(ticket.price)}
-        </span>
-        <span
-          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 transition-colors"
-          style={{
-            borderColor: selected ? color : 'var(--border-input)',
-            background: selected ? color : 'var(--input-bg)',
-          }}
-        >
-          {selected && (
-            <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-              <path
-                d="M2 6l3 3 5-6"
-                stroke="white"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          )}
-        </span>
-      </div>
+      <span className="ttc__price" style={selected ? { color } : undefined}>
+        {formatCurrencyVND(ticket.price)}
+      </span>
+
+      <span
+        className="ttc__radio"
+        style={selected ? { borderColor: color, background: color } : undefined}
+      >
+        {selected && (
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+            <path d="M2 6l3 3 5-6" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        )}
+      </span>
     </button>
   );
 }

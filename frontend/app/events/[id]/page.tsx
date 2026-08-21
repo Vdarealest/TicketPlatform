@@ -296,31 +296,23 @@ function ReviewSection({ eventId, eventEndTime }: { eventId: number; eventEndTim
 // ─── buy button ───────────────────────────────────────────────────────────────
 
 /**
- * The buy CTA plus its status note. Rendered twice — once in the hero card
- * ('hero') and once in the sticky sidebar ('box') — so the three sale states
- * are described in a single place.
+ * The single buy CTA in the hero card, plus the note under it. Keeps the three
+ * sale states (on sale / ended / not open yet) described in one place.
  */
-function SaleAction({ event, variant }: { event: EventDetail; variant: 'hero' | 'box' }) {
+function SaleAction({ event }: { event: EventDetail }) {
   const { t, lang } = useTranslation();
-  const hero = variant === 'hero';
   const status = effectiveSaleStatus(event);
-
-  const onCls = hero ? 'edp-stage__cta' : 'edp-cta-button';
-  const offCls = hero ? 'edp-stage__cta edp-stage__cta--off' : 'edp-cta-button edp-cta-button--disabled';
-  const noteCls = hero ? 'edp-stage__note' : 'edp-ticket-box__note';
 
   if (status === 'ON_SALE') {
     return (
       <>
-        <Link href={`/events/${event.id}/tickets`} className={onCls}>
+        <Link href={`/events/${event.id}/tickets`} className="edp-stage__cta">
           {t.edp_select_ticket}
-          {hero && (
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M5 12h14M13 6l6 6-6 6" />
-            </svg>
-          )}
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M5 12h14M13 6l6 6-6 6" />
+          </svg>
         </Link>
-        <p className={noteCls}>🔒 {t.edp_secure_note}</p>
+        <p className="edp-stage__note">🔒 {t.edp_secure_note}</p>
       </>
     );
   }
@@ -328,10 +320,10 @@ function SaleAction({ event, variant }: { event: EventDetail; variant: 'hero' | 
   if (status === 'ENDED') {
     return (
       <>
-        <button className={offCls} disabled>
+        <button className="edp-stage__cta edp-stage__cta--off" disabled>
           {lang === 'en' ? 'Sale ended' : 'Đã kết thúc'}
         </button>
-        <p className={noteCls}>
+        <p className="edp-stage__note">
           🏁 {lang === 'en' ? 'This event has ended.' : 'Sự kiện này đã kết thúc.'}
         </p>
       </>
@@ -340,10 +332,10 @@ function SaleAction({ event, variant }: { event: EventDetail; variant: 'hero' | 
 
   return (
     <>
-      <button className={offCls} disabled>
+      <button className="edp-stage__cta edp-stage__cta--off" disabled>
         {lang === 'en' ? 'Not on sale yet' : 'Chưa mở bán'}
       </button>
-      <p className={noteCls}>
+      <p className="edp-stage__note">
         ⏳ {upcomingLabel(event.saleOpenAt, lang === 'en' ? 'en' : 'vi')}
       </p>
     </>
@@ -470,7 +462,7 @@ export default function EventDetailPage() {
               </div>
             )}
 
-            <SaleAction event={event} variant="hero" />
+            <SaleAction event={event} />
           </div>
         </div>
       </section>
@@ -518,36 +510,24 @@ export default function EventDetailPage() {
           )}
         </div>
 
-        {/* Right: Ticket Box */}
+        {/* Right: ticket tiers. The buy button and the "from" price live in the
+            hero card — this panel only breaks the price down per tier. */}
         <div className="edp-ticket-box">
           <div className="edp-ticket-box__inner">
             <p className="edp-ticket-box__label">{t.edp_ticket_info}</p>
 
             {tickets.length > 0 ? (
-              <>
-                <div className="edp-ticket-row">
-                  <span className="edp-ticket-row__key">{t.edp_price_from}</span>
-                  <span className="edp-ticket-row__price">{formattedMinPrice}</span>
-                </div>
-
-                <div className="edp-ticket-divider" />
-
-                <ul className="edp-ticket-types">
-                  {tickets.map((ticket) => (
-                    <li key={ticket.id} className="edp-ticket-types__row">
-                      <span className="edp-ticket-types__name">{ticket.type}</span>
-                      <span className="edp-ticket-types__price">{formatPrice(ticket.price)}</span>
-                    </li>
-                  ))}
-                </ul>
-
-                <div className="edp-ticket-divider" />
-              </>
+              <ul className="edp-ticket-types">
+                {tickets.map((ticket) => (
+                  <li key={ticket.id} className="edp-ticket-types__row">
+                    <span className="edp-ticket-types__name">{ticket.type}</span>
+                    <span className="edp-ticket-types__price">{formatPrice(ticket.price)}</span>
+                  </li>
+                ))}
+              </ul>
             ) : (
               <p className="edp-ticket-box__note">{t.edp_coming_soon}</p>
             )}
-
-            <SaleAction event={event} variant="box" />
           </div>
         </div>
 
