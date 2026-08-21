@@ -171,15 +171,36 @@ export class VnpayService {
     return ip;
   }
 
+  /**
+   * yyyyMMddHHmmss in GMT+7, which is what VNPay's spec requires.
+   *
+   * This used to read the raw local clock (getHours() and friends). That works
+   * on a machine set to Vietnam time but on a UTC host every timestamp came out
+   * 7 hours behind, so vnp_ExpireDate was already in the past when the request
+   * was signed and the gateway answered "giao dịch đã quá thời gian chờ".
+   */
   private formatDate(date: Date): string {
-    const pad = (n: number) => String(n).padStart(2, '0');
+    const parts = new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Asia/Ho_Chi_Minh',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hourCycle: 'h23',
+    }).formatToParts(date);
+
+    const get = (type: string) =>
+      parts.find((p) => p.type === type)?.value ?? '00';
+
     return (
-      date.getFullYear().toString() +
-      pad(date.getMonth() + 1) +
-      pad(date.getDate()) +
-      pad(date.getHours()) +
-      pad(date.getMinutes()) +
-      pad(date.getSeconds())
+      get('year') +
+      get('month') +
+      get('day') +
+      get('hour') +
+      get('minute') +
+      get('second')
     );
   }
 }
