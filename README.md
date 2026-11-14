@@ -326,6 +326,10 @@ Backend tests are implemented using Jest.
 
 ### Unit Tests
 
+No database needed. They cover seat holds (locking, stock, rollback), sale
+status, reservation ownership, VNPay signing/verification, payment callbacks
+(signature, amount, idempotency), the VietQR flag and the auth/OTP flows.
+
 ```bash
 cd backend
 npm test
@@ -333,9 +337,27 @@ npm test
 
 ### End-to-End Tests
 
+E2E boots the whole app against a real Postgres and Redis and writes data, so
+it refuses to run unless the database name contains `test`:
+
 ```bash
-npm run test:e2e
+# once: create an empty database called vietix_test, then
+DB_NAME=vietix_test npm run migration:run
+DB_NAME=vietix_test npm run test:e2e
 ```
+
+(PowerShell: `$env:DB_NAME="vietix_test"; npm run test:e2e`)
+
+### Continuous Integration
+
+`.github/workflows/ci.yml` runs on every push to `main` and every pull request:
+
+* **backend** — build, unit tests, migrations on an empty Postgres (plus
+  revert and re-apply), a check that entities and migrations match, and E2E.
+* **frontend** — type check and production build.
+
+If CI says entities and migrations differ, you changed an entity without
+generating a migration (`npm run migration:generate -- src/migrations/Name`).
 
 The frontend currently does not have an automated test suite.
 
