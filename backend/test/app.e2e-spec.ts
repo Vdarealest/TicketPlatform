@@ -134,6 +134,111 @@ describe('Vietix API (e2e)', () => {
     });
   });
 
+  // Each payload below is built the way the frontend builds it (same keys,
+  // same null / "" values). forbidNonWhitelisted turns any key a DTO forgot
+  // into a 400, so this is what keeps the DTOs and the UI in step.
+  describe('DTOs accept what the frontend sends', () => {
+    const auth = () => ({ Authorization: `Bearer ${token}` });
+    let eventId: number;
+
+    beforeAll(async () => {
+      await db.query(`UPDATE "user" SET role = 'ADMIN' WHERE email = $1`, [email]);
+    });
+    afterAll(async () => {
+      await db.query(`UPDATE "user" SET role = 'USER' WHERE email = $1`, [email]);
+    });
+
+    it('admin: create event (admin/events/page.tsx handleSubmit)', async () => {
+      const res = await api().post('/admin/events').set(auth()).send({
+        title: 'DTO Show', description: '', location: 'HCM', category: 'Âm nhạc', bannerUrl: '',
+        bannerFocusX: 50, bannerFocusY: 50,
+        startTime: new Date(Date.now() + 86_400_000).toISOString(),
+        endTime: new Date(Date.now() + 2 * 86_400_000).toISOString(),
+        venueId: null, featured: false, featuredOrder: 0, status: 'ON_SALE', saleOpenAt: null,
+        tickets: [
+          { type: 'Standard', price: 300000, quantity: 20, seating: 'SEATED' },
+          { type: 'GA', price: 200000, quantity: 50, seating: 'GENERAL' },
+        ],
+      }).expect(201);
+      eventId = res.body.id;
+      expect(res.body.tickets).toHaveLength(2);
+    });
+
+    it('admin: toggle featured, edit a tier, add a tier', async () => {
+      await api().put(`/admin/events/${eventId}`).set(auth()).send({ featured: true }).expect(200);
+      const ev = await api().get(`/admin/events/${eventId}`).set(auth()).expect(200);
+      const tier = ev.body.tickets.find((t: { type: string }) => t.type === 'Standard');
+      await api().put(`/admin/tickets/${tier.id}`).set(auth()).send({ price: 350000, quantity: 25 }).expect(200);
+      await api().post(`/admin/events/${eventId}/tickets`).set(auth())
+        .send({ type: 'VIP', price: 900000, quantity: 10, seating: 'SEATED' }).expect(201);
+    });
+
+    it('admin: rejects unknown fields and bad types', async () => {
+      await api().put(`/admin/events/${eventId}`).set(auth()).send({ featured: true, hacked: 1 }).expect(400);
+      await api().post(`/admin/events/${eventId}/tickets`).set(auth())
+        .send({ type: 'X', price: '100', quantity: 1 }).expect(400);
+      await api().post('/admin/events').set(auth()).send({ title: 'missing the rest' }).expect(400);
+    });
+
+    it('admin: venues (admin/venues/page.tsx)', async () => {
+      const v = await api().post('/admin/venues').set(auth()).send({ name: 'Hall', address: undefined, capacity: 500 }).expect(201);
+      await api().put(`/admin/venues/${v.body.id}`).set(auth()).send({ name: 'Hall 2', capacity: undefined }).expect(200);
+    });
+
+    it('admin: users (admin/users/page.tsx)', async () => {
+      const u = await api().post('/admin/users').set(auth())
+        .send({ email: `admin2-${email}`, password: 'secret123', phone: undefined, role: 'ADMIN', adminPassword: password })
+        .expect(201);
+      await api().put(`/admin/users/${u.body.id}`).set(auth()).send({ phone: '0900000001', adminPassword: password }).expect(200);
+      await api().put(`/admin/users/${u.body.id}`).set(auth()).send({ role: 'OWNER', adminPassword: password }).expect(400);
+      await api().delete(`/admin/users/${u.body.id}`).set(auth()).send({ adminPassword: password }).expect(200);
+    });
+
+    it('profile: update and change password (profile/page.tsx)', async () => {
+      await api().patch('/users/profile').set(auth()).send({ name: 'E2E', phone: '', avatarUrl: '' }).expect(200);
+      // Mass assignment: a user must not be able to promote themselves.
+      await api().patch('/users/profile').set(auth()).send({ name: 'E2E', role: 'ADMIN' }).expect(400);
+      await api().patch('/users/change-password').set(auth()).send({ currentPassword: password, newPassword: password }).expect(200);
+    });
+
+    it('reviews (events/[id]/page.tsx)', async () => {
+      await api().post(`/reviews/event/${eventId}`).set(auth()).send({ rating: 6, comment: 'x' }).expect(400);
+      // A valid body gets past the DTO to the business rule (event not over yet).
+      const res = await api().post(`/reviews/event/${eventId}`).set(auth()).send({ rating: 5, comment: 'Tuyệt vời' }).expect(400);
+      expect(res.body.message).toBe('Chỉ có thể đánh giá sau khi sự kiện kết thúc.');
+    });
+
+    it('contact form (contact/page.tsx)', async () => {
+      await api().post('/contact').send({ name: 'A', email: 'a@example.com', subject: 'Hi', message: 'Hello' }).expect(201);
+      await api().post('/contact').send({ name: 'A', email: 'not-an-email', subject: 'Hi', message: 'Hello' }).expect(400);
+    });
+
+    it('password reset (forgot-password/page.tsx)', async () => {
+      await api().post('/auth/forgot-password').send({ identifier: 'nobody@example.com' }).expect(400);
+      await api().post('/auth/verify-otp').send({ email, otp: '12' }).expect(400);
+    });
+
+    it('standing tickets + payment for a logged-in user (guestToken null)', async () => {
+      const ev = await api().get(`/admin/events/${eventId}`).set(auth()).expect(200);
+      const ga = ev.body.tickets.find((t: { seating: string }) => t.seating === 'GENERAL');
+      const hold = await api().post(`/reservations/${ga.id}/general`).set(auth()).send({ quantity: 2 }).expect(201);
+      const ids = hold.body.reservationIds;
+
+      await api().post('/reservations/bulk/details').set(auth()).send({ ids, guestToken: null }).expect(201);
+      const pay = await api().post('/payments/vnpay/create-url').set(auth()).send({ reservationIds: ids, guestToken: null }).expect(201);
+      expect(pay.body.paymentUrl).toContain('vnp_Amount=40000000');
+      await api().post('/payments/momo/create-url').set(auth())
+        .send({ reservationIds: ids, requestType: 'bogus', guestToken: null }).expect(400);
+      await api().post('/reservations/bulk/cancel').set(auth()).send({ ids, guestToken: null }).expect(201);
+    });
+
+    it('rejects more than 10 seats with the Vietnamese message', async () => {
+      const res = await api().post(`/reservations/${ticketId}/bulk`).set(auth())
+        .send({ seatIds: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11] }).expect(400);
+      expect(JSON.stringify(res.body.message)).toContain('Chọn từ 1 đến 10 ghế.');
+    });
+  });
+
   describe('seat holds', () => {
     let guestToken: string;
     let heldIds: number[];

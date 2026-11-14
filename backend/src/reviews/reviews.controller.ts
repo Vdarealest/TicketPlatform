@@ -11,6 +11,7 @@ import {
 
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ReviewsService } from './reviews.service';
+import { CreateReviewDto } from './dto/create-review.dto';
 
 @Controller('reviews')
 export class ReviewsController {
@@ -26,7 +27,7 @@ export class ReviewsController {
   create(
     @Param('eventId') eventId: string,
     @Req() req: any,
-    @Body() body: { rating: number; comment: string },
+    @Body() body: CreateReviewDto,
   ) {
     return this.reviewsService.create(
       req.user.userId,

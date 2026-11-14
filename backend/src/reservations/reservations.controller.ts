@@ -11,6 +11,7 @@ import {
 import { ReservationsService } from './reservations.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
+import { GuestTokenDto, ReservationIdsDto, ReserveGeneralDto, ReserveSeatsDto } from './dto/reservation.dto';
 
 @Controller('reservations')
 export class ReservationsController {
@@ -53,7 +54,7 @@ export class ReservationsController {
   @UseGuards(OptionalJwtAuthGuard)
   reserveBulk(
     @Param('ticketId') ticketId: string,
-    @Body() body: { seatIds: number[]; guestEmail?: string },
+    @Body() body: ReserveSeatsDto,
     @Request() req,
   ) {
     return this.reservationsService.reserveMultipleSeats(
@@ -67,7 +68,7 @@ export class ReservationsController {
   @UseGuards(OptionalJwtAuthGuard)
   reserveGeneral(
     @Param('ticketId') ticketId: string,
-    @Body() body: { quantity: number; guestEmail?: string },
+    @Body() body: ReserveGeneralDto,
     @Request() req,
   ) {
     return this.reservationsService.reserveGeneralAdmission(
@@ -80,7 +81,7 @@ export class ReservationsController {
   @Post('bulk/details')
   @UseGuards(OptionalJwtAuthGuard)
   getMultiple(
-    @Body() body: { ids: number[]; guestToken?: string },
+    @Body() body: ReservationIdsDto,
     @Request() req,
   ) {
     return this.reservationsService.getMultipleReservations(
@@ -92,7 +93,7 @@ export class ReservationsController {
   @Post('bulk/cancel')
   @UseGuards(OptionalJwtAuthGuard)
   cancelMultiple(
-    @Body() body: { ids: number[]; guestToken?: string },
+    @Body() body: ReservationIdsDto,
     @Request() req,
   ) {
     return this.reservationsService.cancelMultipleReservations(
@@ -105,7 +106,7 @@ export class ReservationsController {
   @UseGuards(OptionalJwtAuthGuard)
   cancel(
     @Param('id') id: string,
-    @Body() body: { guestToken?: string },
+    @Body() body: GuestTokenDto,
     @Request() req,
   ) {
     return this.reservationsService.cancelReservation(

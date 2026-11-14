@@ -2,13 +2,14 @@ import { Controller, Get, Post, Patch, Param, Body, UseGuards } from '@nestjs/co
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AdminGuard } from '../auth/guards/admin.guard';
 import { ContactService } from './contact.service';
+import { CreateContactDto, ReplyContactDto } from './dto/contact.dto';
 
 @Controller('contact')
 export class ContactController {
   constructor(private contactService: ContactService) {}
 
   @Post()
-  create(@Body() body: { name: string; email: string; subject: string; message: string }) {
+  create(@Body() body: CreateContactDto) {
     return this.contactService.create(body);
   }
 
@@ -26,7 +27,7 @@ export class ContactController {
 
   @Post(':id/reply')
   @UseGuards(JwtAuthGuard, AdminGuard)
-  reply(@Param('id') id: string, @Body() body: { message: string }) {
+  reply(@Param('id') id: string, @Body() body: ReplyContactDto) {
     return this.contactService.reply(Number(id), body.message);
   }
 }

@@ -14,6 +14,17 @@ import {
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AdminGuard } from '../auth/guards/admin.guard';
 import { AdminService } from './admin.service';
+import {
+  CreateEventDto,
+  CreateTicketDto,
+  CreateUserDto,
+  CreateVenueDto,
+  RequiredAdminPasswordDto,
+  UpdateEventDto,
+  UpdateTicketDto,
+  UpdateUserDto,
+  UpdateVenueDto,
+} from './dto/admin.dto';
 
 @Controller('admin')
 @UseGuards(JwtAuthGuard, AdminGuard)
@@ -40,12 +51,12 @@ export class AdminController {
   }
 
   @Post('events')
-  createEvent(@Body() body: any) {
+  createEvent(@Body() body: CreateEventDto) {
     return this.adminService.createEvent(body);
   }
 
   @Put('events/:id')
-  updateEvent(@Param('id') id: string, @Body() body: any) {
+  updateEvent(@Param('id') id: string, @Body() body: UpdateEventDto) {
     return this.adminService.updateEvent(Number(id), body);
   }
 
@@ -57,12 +68,12 @@ export class AdminController {
   // ─── Tickets ──────────────────────────────────────────────────────────────
 
   @Post('events/:eventId/tickets')
-  addTicket(@Param('eventId') eventId: string, @Body() body: any) {
+  addTicket(@Param('eventId') eventId: string, @Body() body: CreateTicketDto) {
     return this.adminService.addTicketToEvent(Number(eventId), body);
   }
 
   @Put('tickets/:ticketId')
-  updateTicket(@Param('ticketId') ticketId: string, @Body() body: any) {
+  updateTicket(@Param('ticketId') ticketId: string, @Body() body: UpdateTicketDto) {
     return this.adminService.updateTicket(Number(ticketId), body);
   }
 
@@ -79,6 +90,8 @@ export class AdminController {
   }
 
   @Put('events/:id/seat-layout')
+  // The designer's layout JSON (sections, shapes, seat positions) is stored
+  // as-is in a jsonb column; AdminService validates what it reads from it.
   saveSeatLayout(@Param('id') id: string, @Body() body: any) {
     return this.adminService.saveSeatLayout(Number(id), body);
   }
@@ -101,12 +114,12 @@ export class AdminController {
   }
 
   @Post('venues')
-  createVenue(@Body() body: { name: string; address?: string; capacity?: number }) {
+  createVenue(@Body() body: CreateVenueDto) {
     return this.adminService.createVenue(body);
   }
 
   @Put('venues/:id')
-  updateVenue(@Param('id') id: string, @Body() body: any) {
+  updateVenue(@Param('id') id: string, @Body() body: UpdateVenueDto) {
     return this.adminService.updateVenue(Number(id), body);
   }
 
@@ -133,14 +146,14 @@ export class AdminController {
   }
 
   @Post('users')
-  createUser(@Body() body: { email: string; password: string; phone?: string; role: string; adminPassword?: string }, @Req() req: any) {
+  createUser(@Body() body: CreateUserDto, @Req() req: any) {
     return this.adminService.createUser(body, req.user.userId);
   }
 
   @Put('users/:id')
   updateUser(
     @Param('id') id: string,
-    @Body() body: { email?: string; phone?: string; role?: string; password?: string; adminPassword?: string },
+    @Body() body: UpdateUserDto,
     @Req() req: any,
   ) {
     return this.adminService.updateUser(Number(id), body, req.user.userId, body.adminPassword);
@@ -149,7 +162,7 @@ export class AdminController {
   @Delete('users/:id')
   deleteUser(
     @Param('id') id: string,
-    @Body() body: { adminPassword: string },
+    @Body() body: RequiredAdminPasswordDto,
     @Req() req: any,
   ) {
     return this.adminService.deleteUser(Number(id), req.user.userId, body.adminPassword);

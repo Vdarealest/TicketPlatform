@@ -9,6 +9,7 @@ import { ConfigService } from '@nestjs/config';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
+import { ForgotPasswordDto, OAuthExchangeDto, ResetPasswordDto, VerifyOtpDto } from './dto/password-reset.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 
 @Controller('auth')
@@ -34,19 +35,19 @@ export class AuthController {
 
   @Throttle({ default: { limit: 3, ttl: 60_000 } })
   @Post('forgot-password')
-  forgotPassword(@Body() body: { identifier: string }) {
+  forgotPassword(@Body() body: ForgotPasswordDto) {
     return this.authService.forgotPassword(body.identifier);
   }
 
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @Post('verify-otp')
-  verifyOtp(@Body() body: { email: string; otp: string }) {
+  verifyOtp(@Body() body: VerifyOtpDto) {
     return this.authService.verifyOtp(body.email, body.otp);
   }
 
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @Post('reset-password')
-  resetPassword(@Body() body: { email: string; otp: string; newPassword: string }) {
+  resetPassword(@Body() body: ResetPasswordDto) {
     return this.authService.resetPassword(body.email, body.otp, body.newPassword);
   }
 
@@ -72,7 +73,7 @@ export class AuthController {
 
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @Post('oauth/exchange')
-  exchangeOAuthCode(@Body() body: { code: string }) {
+  exchangeOAuthCode(@Body() body: OAuthExchangeDto) {
     return this.authService.exchangeOAuthCode(body.code);
   }
 

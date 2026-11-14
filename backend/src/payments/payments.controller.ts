@@ -11,6 +11,7 @@ import {
 
 import { PaymentsService } from './payments.service';
 import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
+import { ConfirmVietQRDto, CreateMomoPaymentDto, CreatePaymentDto } from './dto/payment.dto';
 
 @Controller('payments')
 export class PaymentsController {
@@ -27,7 +28,7 @@ export class PaymentsController {
   @Post('vnpay/create-url')
   @UseGuards(OptionalJwtAuthGuard)
   createVnpayUrl(
-    @Body() body: { reservationIds: number[]; guestToken?: string },
+    @Body() body: CreatePaymentDto,
     @Request() req: any,
     @Ip() ip: string,
   ) {
@@ -57,7 +58,7 @@ export class PaymentsController {
   @Post('momo/create-url')
   @UseGuards(OptionalJwtAuthGuard)
   createMomoUrl(
-    @Body() body: { reservationIds: number[]; requestType?: string; guestToken?: string },
+    @Body() body: CreateMomoPaymentDto,
     @Request() req: any,
   ) {
     return this.paymentsService.createMomoPaymentUrl(
@@ -89,7 +90,7 @@ export class PaymentsController {
 
   @Post('vietqr/create')
   @UseGuards(OptionalJwtAuthGuard)
-  createVietQR(@Body() body: { reservationIds: number[]; guestToken?: string }, @Request() req: any) {
+  createVietQR(@Body() body: CreatePaymentDto, @Request() req: any) {
     return this.paymentsService.createVietQR(
       body.reservationIds,
       { userId: req.user?.userId, guestToken: body.guestToken },
@@ -98,7 +99,7 @@ export class PaymentsController {
 
   @Post('vietqr/confirm')
   @UseGuards(OptionalJwtAuthGuard)
-  confirmVietQR(@Body() body: { orderId: string; guestToken?: string }, @Request() req: any) {
+  confirmVietQR(@Body() body: ConfirmVietQRDto, @Request() req: any) {
     return this.paymentsService.confirmVietQR(
       body.orderId,
       { userId: req.user?.userId, guestToken: body.guestToken },
