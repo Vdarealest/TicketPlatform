@@ -6,7 +6,7 @@ import Link from 'next/link';
 
 import api from '@/lib/api';
 import { useTranslation, translateCategory } from '@/lib/i18n';
-import { resolveImageUrl } from '@/lib/image';
+import { cdnImage, cdnSrcSet, BLUR_BACKDROP_WIDTH } from '@/lib/image';
 import { upcomingLabel, effectiveSaleStatus } from '@/lib/eventStatus';
 import { EventDetail } from '@/lib/types';
 
@@ -406,12 +406,17 @@ export default function EventDetailPage() {
       {/* Hero stage — poster shown whole over a blurred copy of itself */}
       <section className="edp-stage">
         <div className="edp-stage__bg" aria-hidden="true">
-          <img src={resolveImageUrl(event.bannerUrl)} alt="" />
+          <img src={cdnImage(event.bannerUrl, BLUR_BACKDROP_WIDTH)} alt="" />
         </div>
 
         <div className="edp-stage__inner">
           <figure className="edp-stage__poster">
-            <img src={resolveImageUrl(event.bannerUrl)} alt={event.title} />
+            <img
+              src={cdnImage(event.bannerUrl, 1600)}
+              srcSet={cdnSrcSet(event.bannerUrl, [640, 1100, 1600, 2200])}
+              sizes="(max-width: 1100px) 100vw, 1100px"
+              alt={event.title}
+            />
           </figure>
 
           <div className="edp-stage__card">

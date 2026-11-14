@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import api from '../lib/api';
 import { useTranslation } from '../lib/i18n';
-import { resolveImageUrl } from '../lib/image';
+import { cdnImage, cdnSrcSet } from '../lib/image';
 import { effectiveSaleStatus } from '../lib/eventStatus';
 import EventCard from '../components/events/EventCard';
 import FeaturedEventCard from '../components/events/FeaturedEventCard';
@@ -91,7 +91,9 @@ export default function Home() {
                         onClick={() => router.push(`/events/${ev.id}`)}
                       >
                         <img
-                          src={resolveImageUrl(ev.bannerUrl)}
+                          src={cdnImage(ev.bannerUrl, 1920)}
+                          srcSet={cdnSrcSet(ev.bannerUrl, [640, 1024, 1600, 1920, 2560])}
+                          sizes="100vw"
                           alt={ev.title}
                           className="home-hero__img"
                           style={{ objectPosition: `${ev.bannerFocusX ?? 50}% ${ev.bannerFocusY ?? 50}%` }}

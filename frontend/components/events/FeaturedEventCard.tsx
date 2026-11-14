@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useTranslation, translateCategory } from '../../lib/i18n';
-import { resolveImageUrl } from '../../lib/image';
+import { cdnImage, cdnSrcSet } from '../../lib/image';
 
 interface FeaturedEventCardProps {
   event: any;
@@ -29,7 +29,15 @@ export default function FeaturedEventCard({ event, index }: FeaturedEventCardPro
     <Link href={`/events/${event.id}`} className="fec-link">
       <article className="fec-card">
         <div className="fec-img-wrap">
-          <img src={resolveImageUrl(event.bannerUrl)} alt={event.title} className="fec-img" />
+          <img
+            src={cdnImage(event.bannerUrl, 640)}
+            srcSet={cdnSrcSet(event.bannerUrl, [400, 640, 960])}
+            sizes="(max-width: 560px) 100vw, (max-width: 980px) 50vw, 33vw"
+            alt={event.title}
+            className="fec-img"
+            loading="lazy"
+            decoding="async"
+          />
           {category && (
             <span className="fec-badge" style={{ background: accent }}>{category}</span>
           )}

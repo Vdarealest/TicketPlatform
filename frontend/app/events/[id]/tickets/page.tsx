@@ -9,7 +9,7 @@ import api from '@/lib/api';
 import { socket } from '@/lib/socket';
 import { EventDetail, Seat, SeatLayout, Ticket } from '@/lib/types';
 import { formatCurrencyVND } from '@/lib/format';
-import { resolveImageUrl } from '@/lib/image';
+import { cdnImage } from '@/lib/image';
 import { isOnSale, upcomingLabel, effectiveSaleStatus } from '@/lib/eventStatus';
 import TicketTypeCard from '@/components/tickets/TicketTypeCard';
 import SeatMap, { getZoneColor } from '@/components/tickets/SeatMap';
@@ -306,7 +306,7 @@ export default function TicketSelectionPage() {
           </Link>
           <div className="tsp-header__main">
             <img
-              src={resolveImageUrl(event.bannerUrl)}
+              src={cdnImage(event.bannerUrl, 200)}
               alt={event.title} className="tsp-header__img"
               style={{ objectPosition: `${event.bannerFocusX ?? 50}% ${event.bannerFocusY ?? 50}%` }}
             />

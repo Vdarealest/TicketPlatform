@@ -2,7 +2,11 @@
 
 import Link from 'next/link';
 import { useTranslation, translateCategory } from '../../lib/i18n';
-import { resolveImageUrl } from '../../lib/image';
+import { cdnImage, cdnSrcSet, BLUR_BACKDROP_WIDTH } from '../../lib/image';
+
+// Grid is 4 / 3 / 2 / 1 columns (see .home-grid), so a card is at most ~half
+// the viewport wide on tablets and a quarter on desktop.
+const CARD_SIZES = '(max-width: 560px) 100vw, (max-width: 980px) 50vw, 25vw';
 import { effectiveSaleStatus } from '../../lib/eventStatus';
 
 interface EventCardProps {
@@ -39,16 +43,22 @@ export default function EventCard({ event }: EventCardProps) {
           {/* Blurred fill behind the banner so any aspect ratio can be shown
               whole without leaving empty bars. Decorative only. */}
           <img
-            src={resolveImageUrl(event.bannerUrl)}
+            src={cdnImage(event.bannerUrl, BLUR_BACKDROP_WIDTH)}
             alt=""
             aria-hidden="true"
             className="ec2-img-backdrop"
+            loading="lazy"
+            decoding="async"
             style={{ objectPosition: `${event.bannerFocusX ?? 50}% ${event.bannerFocusY ?? 50}%` }}
           />
           <img
-            src={resolveImageUrl(event.bannerUrl)}
+            src={cdnImage(event.bannerUrl, 640)}
+            srcSet={cdnSrcSet(event.bannerUrl, [400, 640, 960])}
+            sizes={CARD_SIZES}
             alt={event.title}
             className="ec2-img"
+            loading="lazy"
+            decoding="async"
           />
           {status === 'UPCOMING' && (
             <span className="ec2-status ec2-status--upcoming">{lang === 'en' ? 'Coming soon' : 'Sắp mở bán'}</span>

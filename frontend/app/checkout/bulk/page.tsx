@@ -6,7 +6,7 @@ import Link from 'next/link';
 
 import api from '@/lib/api';
 import { formatCurrencyVND } from '@/lib/format';
-import { resolveImageUrl } from '@/lib/image';
+import { cdnImage } from '@/lib/image';
 
 interface ReservationItem {
   id: number;
@@ -168,7 +168,8 @@ function BulkCheckoutContent() {
     ? new Date(event.startTime).toLocaleDateString('vi-VN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
     : null;
 
-  const bannerSrc = resolveImageUrl(event.bannerUrl);
+  // Shown as an 88px thumbnail; 200px stays sharp on 2x screens.
+  const bannerSrc = cdnImage(event.bannerUrl, 200);
 
   const payMethods: { key: PayMethod; label: string; desc?: string; logoBg: string; logoText: string }[] = [
     { key: 'vnpay', label: 'VNPay', desc: 'ATM, Visa', logoBg: '#0a5cb8', logoText: 'VN' },
