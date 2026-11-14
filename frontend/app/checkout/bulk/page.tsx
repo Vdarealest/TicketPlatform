@@ -17,6 +17,7 @@ interface ReservationItem {
     id: number;
     type: string;
     price: number;
+    seating?: 'SEATED' | 'GENERAL';
     event: {
       id: number;
       title: string;
@@ -204,7 +205,7 @@ function BulkCheckoutContent() {
               </div>
               <h2 style={{ fontSize: 20, fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 6px' }}>Thanh toán thành công!</h2>
               <p style={{ fontSize: 14, color: 'var(--text-tertiary)', marginBottom: 20 }}>
-                {reservations.length} vé {ticketType} — {seatLabels}
+                {reservations.length} vé {ticketType}{seatLabels ? ` — ${seatLabels}` : ''}
               </p>
               {guestToken && (
                 <p style={{ fontSize: 13, color: 'var(--text-tertiary)', marginBottom: 16 }}>
@@ -224,9 +225,11 @@ function BulkCheckoutContent() {
             </div>
           ) : expired ? (
             <div className="tsp-alert tsp-alert--error" style={{ textAlign: 'center', padding: '24px 16px' }}>
-              <p style={{ fontWeight: 700, marginBottom: 6 }}>Hết thời gian giữ ghế</p>
-              <p>Vui lòng quay lại chọn ghế và thử lại.</p>
-              <Link href={`/events/${event.id}/tickets`} className="tsp-alert__link">Chọn ghế lại</Link>
+              <p style={{ fontWeight: 700, marginBottom: 6 }}>Hết thời gian giữ chỗ</p>
+              <p>Vui lòng quay lại {firstRes.ticket.seating === 'GENERAL' ? 'chọn số lượng' : 'chọn ghế'} và thử lại.</p>
+              <Link href={`/events/${event.id}/tickets`} className="tsp-alert__link">
+                {firstRes.ticket.seating === 'GENERAL' ? 'Chọn lại' : 'Chọn ghế lại'}
+              </Link>
             </div>
           ) : (
             <>
@@ -243,7 +246,7 @@ function BulkCheckoutContent() {
                   }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#10b981', flexShrink: 0 }} />
-                      <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>Ghế {r.seat?.label || '—'}</span>
+                      <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>{r.seat?.label ? `Ghế ${r.seat.label}` : `Vé #${i + 1}`}</span>
                       <span style={{ fontSize: 12, color: 'var(--text-quaternary)' }}>{ticketType}</span>
                     </div>
                     <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>{formatCurrencyVND(unitPrice)}</span>
@@ -267,7 +270,7 @@ function BulkCheckoutContent() {
 
               {remaining !== null && allHold && (
                 <p className="tsp-summary__timer">
-                  Ghế đang được giữ — còn <strong>{formatMMSS(remaining)}</strong>
+                  {firstRes.ticket.seating === 'GENERAL' ? 'Vé đang được giữ' : 'Ghế đang được giữ'} — còn <strong>{formatMMSS(remaining)}</strong>
                 </p>
               )}
 

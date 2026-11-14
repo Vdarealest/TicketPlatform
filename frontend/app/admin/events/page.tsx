@@ -6,7 +6,7 @@ import api from '../../../lib/api';
 import { formatCurrencyVND } from '../../../lib/format';
 import { resolveImageUrl } from '../../../lib/image';
 
-interface Ticket { id: number; type: string; price: number; quantity: number; }
+interface Ticket { id: number; type: string; price: number; quantity: number; seating?: 'SEATED' | 'GENERAL'; }
 interface EventItem {
   id: number; title: string; location: string; category: string; bannerUrl: string;
   bannerFocusX: number; bannerFocusY: number;
@@ -16,9 +16,12 @@ interface EventItem {
   status?: 'DRAFT' | 'UPCOMING' | 'ON_SALE'; saleOpenAt?: string | null;
 }
 interface VenueOption { id: number; name: string; }
-interface TicketInput { type: string; price: string; quantity: string; }
+interface TicketInput { type: string; price: string; quantity: string; seating: 'SEATED' | 'GENERAL'; }
 // An already-saved tier, held as strings so it can be typed into directly.
-interface ExistingTicketInput { id: number; type: string; price: string; quantity: string; }
+// seating is read-only here — switching a tier between SEATED and GENERAL
+// after seats (or GA holds) already exist would orphan data, so it's fixed
+// at creation and just displayed, not editable.
+interface ExistingTicketInput { id: number; type: string; price: string; quantity: string; seating?: 'SEATED' | 'GENERAL'; }
 
 const CATEGORIES = ['Âm nhạc', 'Thể thao', 'Sân khấu', 'Hội thảo', 'Triển lãm', 'Ẩm thực', 'Khác'];
 
@@ -85,7 +88,7 @@ export default function AdminEvents() {
 
   const openCreate = () => {
     setEditingId(null); setForm(EMPTY_FORM); setFormError(null);
-    setTicketInputs([{ type: 'Standard', price: '', quantity: '' }]);
+    setTicketInputs([{ type: 'Standard', price: '', quantity: '', seating: 'SEATED' }]);
     setExistingTickets([]);
     originalTickets.current = {};
     setShowModal(true);
@@ -107,7 +110,7 @@ export default function AdminEvents() {
     setTicketInputs([]);
     const saved = ev.tickets || [];
     setExistingTickets(saved.map((t) => ({
-      id: t.id, type: t.type, price: String(t.price), quantity: String(t.quantity),
+      id: t.id, type: t.type, price: String(t.price), quantity: String(t.quantity), seating: t.seating,
     })));
     originalTickets.current = Object.fromEntries(saved.map((t) => [t.id, t]));
     setShowModal(true);
@@ -140,7 +143,7 @@ export default function AdminEvents() {
     try {
       const venueId = form.venueId ? Number(form.venueId) : null;
       const newTickets = ticketInputs.filter((t) => t.type && t.price && t.quantity)
-        .map((t) => ({ type: t.type, price: Number(t.price), quantity: Number(t.quantity) }));
+        .map((t) => ({ type: t.type, price: Number(t.price), quantity: Number(t.quantity), seating: t.seating }));
 
       // Send absolute instants, never the bare wall-clock the inputs hold
       const payload = {
@@ -197,7 +200,7 @@ export default function AdminEvents() {
     }
   };
 
-  const addTicketInput = () => setTicketInputs([...ticketInputs, { type: '', price: '', quantity: '' }]);
+  const addTicketInput = () => setTicketInputs([...ticketInputs, { type: '', price: '', quantity: '', seating: 'SEATED' }]);
   const updateTicketInput = (idx: number, field: keyof TicketInput, val: string) => {
     const copy = [...ticketInputs]; copy[idx] = { ...copy[idx], [field]: val }; setTicketInputs(copy);
   };
@@ -255,7 +258,7 @@ export default function AdminEvents() {
                     <div>{ev.location}</div>
                     {ev.venue && <span style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>{ev.venue.name}</span>}
                   </td>
-                  <td><span style={{ fontSize: 11, background: 'rgba(15, 53, 255, 0.1)', color: '#0F35FF', borderRadius: 6, padding: '2px 8px', fontWeight: 600 }}>{ev.category || 'Khác'}</span></td>
+                  <td><span style={{ fontSize: 11, background: 'rgba(224, 32, 32, 0.08)', color: '#e02020', borderRadius: 6, padding: '2px 8px', fontWeight: 600 }}>{ev.category || 'Khác'}</span></td>
                   <td style={{ fontSize: 12, color: '#9ea5ad' }}>{new Date(ev.startTime).toLocaleDateString('vi-VN')}</td>
                   <td style={{ fontSize: 12, color: '#9ea5ad' }}>{ev.createdAt ? new Date(ev.createdAt).toLocaleDateString('vi-VN') : '—'}</td>
                   <td>{ev.tickets?.map((t) => (
@@ -531,6 +534,19 @@ export default function AdminEvents() {
                           placeholder="SL"
                           style={{ width: 70 }}
                         />
+                        {/* Fixed at creation — see the ExistingTicketInput comment for why
+                            this isn't editable. */}
+                        <span
+                          title={t.seating === 'GENERAL' ? 'Vé đứng — không chọn ghế' : 'Có chọn chỗ ngồi'}
+                          style={{
+                            fontSize: 10.5, fontWeight: 700, padding: '4px 8px', borderRadius: 6,
+                            whiteSpace: 'nowrap', flexShrink: 0,
+                            background: t.seating === 'GENERAL' ? 'rgba(224,32,32,0.08)' : 'var(--surface-tertiary)',
+                            color: t.seating === 'GENERAL' ? '#e02020' : 'var(--text-tertiary)',
+                          }}
+                        >
+                          {t.seating === 'GENERAL' ? 'Đứng' : 'Có chỗ'}
+                        </span>
                       </div>
                     ))}
                   </div>
@@ -546,6 +562,16 @@ export default function AdminEvents() {
                     <input className="admin-form-input" value={t.type} onChange={(e) => updateTicketInput(i, 'type', e.target.value)} placeholder="Loại (VD: VIP)" style={{ flex: 1 }} />
                     <input className="admin-form-input" type="number" value={t.price} onChange={(e) => updateTicketInput(i, 'price', e.target.value)} placeholder="Giá" style={{ width: 110 }} />
                     <input className="admin-form-input" type="number" value={t.quantity} onChange={(e) => updateTicketInput(i, 'quantity', e.target.value)} placeholder="SL" style={{ width: 70 }} />
+                    <select
+                      className="admin-form-input"
+                      value={t.seating}
+                      onChange={(e) => updateTicketInput(i, 'seating', e.target.value)}
+                      style={{ width: 110, flexShrink: 0 }}
+                      title="Vé có chỗ ngồi gắn vào sơ đồ ghế; vé đứng chỉ bán theo số lượng, không chọn chỗ."
+                    >
+                      <option value="SEATED">Có chỗ ngồi</option>
+                      <option value="GENERAL">Vé đứng</option>
+                    </select>
                     <button className="admin-btn admin-btn--danger admin-btn--sm" onClick={() => removeTicketInput(i)} type="button">×</button>
                   </div>
                 ))}

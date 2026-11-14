@@ -6,14 +6,15 @@ import { useRouter } from 'next/navigation';
 import api from '../lib/api';
 import { useTranslation } from '../lib/i18n';
 import { resolveImageUrl } from '../lib/image';
-import { effectiveSaleStatus, upcomingLabel } from '../lib/eventStatus';
+import { effectiveSaleStatus } from '../lib/eventStatus';
 import EventCard from '../components/events/EventCard';
+import FeaturedEventCard from '../components/events/FeaturedEventCard';
 
 const AUTO_MS = 5000;
 
 export default function Home() {
   const router = useRouter();
-  const { t, lang } = useTranslation();
+  const { t } = useTranslation();
   const [events, setEvents] = useState<any[]>([]);
   const [featured, setFeatured] = useState<any[]>([]);
   // Infinite loop: the track holds [clone(last), ...real, clone(first)].
@@ -22,7 +23,6 @@ export default function Home() {
   const [animate, setAnimate] = useState(true);
   const [paused, setPaused] = useState(false);
 
-  const locale = lang === 'en' ? 'en-US' : 'vi-VN';
   const n = featured.length;
   const hasCarousel = n > 1;
 
@@ -56,22 +56,15 @@ export default function Home() {
   const trackPos = hasCarousel ? pos : 0;
   const realIndex = n > 0 ? (((pos - 1) % n) + n) % n : 0;
 
-  const featuredEvents = events.slice(1, 4);
-  const moreEvents = events.slice(4, 8);
-
-  const slideDate = (ev: any) =>
-    ev?.startTime
-      ? new Date(ev.startTime).toLocaleDateString(locale, { day: 'numeric', month: 'long', year: 'numeric' })
-      : null;
-
-  const slidePrice = (ev: any) => {
-    const min = Array.isArray(ev?.tickets) && ev.tickets.length > 0
-      ? Math.min(...ev.tickets.map((tk: { price: number }) => tk.price))
-      : null;
-    return min !== null
-      ? new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(min)
-      : null;
-  };
+  // Promo sections on the homepage should never surface an event that has
+  // already happened — "Đang mở bán" showing a finished concert (with its
+  // own "Đã kết thúc" badge right on the card) is a contradiction, not a
+  // styling choice. Drop ended events before slicing into sections.
+  const visibleEvents = events.filter((e) => effectiveSaleStatus(e) !== 'ENDED');
+  const featuredEvents = visibleEvents.slice(1, 4);
+  // "On sale" means exactly that — status must actually be ON_SALE, not
+  // just "whatever came after the featured slice".
+  const onSaleEvents = visibleEvents.slice(4).filter((e) => effectiveSaleStatus(e) === 'ON_SALE').slice(0, 8);
 
   return (
     <main className="home-root">
@@ -81,140 +74,104 @@ export default function Home() {
           onMouseEnter={() => setPaused(true)}
           onMouseLeave={() => setPaused(false)}
         >
-          <div className="home-hero__viewport">
-            <div
-              className="home-hero__track"
-              style={{
-                transform: `translateX(-${trackPos * 100}%)`,
-                transition: animate ? undefined : 'none',
-              }}
-              onTransitionEnd={onTrackTransitionEnd}
-            >
-              {slides.map((ev, i) => {
-                const date = slideDate(ev);
-                const price = slidePrice(ev);
-                const upcoming = effectiveSaleStatus(ev) === 'UPCOMING';
-                return (
+              <div className="home-hero__main">
+                <div className="home-hero__viewport">
                   <div
-                    className="home-hero__slide"
-                    key={`${ev.id}-${i}`}
-                    onClick={() => router.push(`/events/${ev.id}`)}
-                    style={{ cursor: 'pointer' }}
+                    className="home-hero__track"
+                    style={{
+                      transform: `translateX(-${trackPos * 100}%)`,
+                      transition: animate ? undefined : 'none',
+                    }}
+                    onTransitionEnd={onTrackTransitionEnd}
                   >
-                    <img
-                      src={resolveImageUrl(ev.bannerUrl)}
-                      alt={ev.title}
-                      className="home-hero__img"
-                      style={{ objectPosition: `${ev.bannerFocusX ?? 50}% ${ev.bannerFocusY ?? 50}%` }}
-                    />
-                    <div className="home-hero__scrim" />
-                    <div className="home-hero__content">
-                      <span className={`home-hero__tag ${upcoming ? 'home-hero__tag--upcoming' : ''}`}>
-                        {upcoming ? `⏳ ${upcomingLabel(ev.saleOpenAt, lang === 'en' ? 'en' : 'vi')}` : `🎟 ${t.home_on_sale}`}
-                      </span>
-                      <h1 className="home-hero__title">{ev.title}</h1>
-                      <div className="home-hero__info">
-                        {ev.location && (
-                          <span className="home-hero__location">
-                            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                              <path d="M7 1C4.79 1 3 2.79 3 5c0 3.25 4 8 4 8s4-4.75 4-8c0-2.21-1.79-4-4-4z" stroke="currentColor" strokeWidth="1.4"/>
-                              <circle cx="7" cy="5" r="1.2" fill="currentColor"/>
-                            </svg>
-                            {ev.location}
-                          </span>
-                        )}
-                        {date && (
-                          <span className="home-hero__date">
-                            <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-                              <rect x="1" y="2" width="14" height="13" rx="2" stroke="currentColor" strokeWidth="1.4"/>
-                              <path d="M1 6h14" stroke="currentColor" strokeWidth="1.4"/>
-                              <path d="M5 1v2M11 1v2" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
-                            </svg>
-                            {date}
-                          </span>
-                        )}
+                    {slides.map((ev, i) => (
+                      <div
+                        className="home-hero__slide"
+                        key={`${ev.id}-${i}`}
+                        onClick={() => router.push(`/events/${ev.id}`)}
+                      >
+                        <img
+                          src={resolveImageUrl(ev.bannerUrl)}
+                          alt={ev.title}
+                          className="home-hero__img"
+                          style={{ objectPosition: `${ev.bannerFocusX ?? 50}% ${ev.bannerFocusY ?? 50}%` }}
+                        />
                       </div>
-                      <div className="home-hero__actions">
-                        <button type="button" className="home-hero__cta" onClick={(e) => { e.stopPropagation(); router.push(`/events/${ev.id}`); }}>
-                          {upcoming ? (lang === 'en' ? 'View details' : 'Xem chi tiết') : t.home_buy_now}
-                          <svg width="14" height="14" viewBox="0 0 12 12" fill="none">
-                            <path d="M2 6h8M6.5 2.5L10 6l-3.5 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                          </svg>
-                        </button>
-                        {price && (
-                          <span className="home-hero__price">{t.home_price_from} <strong>{price}</strong></span>
-                        )}
-                      </div>
-                    </div>
+                    ))}
                   </div>
-                );
-              })}
-            </div>
-          </div>
+                </div>
 
-          {hasCarousel && (
-            <>
-              <button type="button" className="home-hero__arrow home-hero__arrow--prev" aria-label="Previous" onClick={goPrev}>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M15 5l-7 7 7 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-              </button>
-              <button type="button" className="home-hero__arrow home-hero__arrow--next" aria-label="Next" onClick={goNext}>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M9 5l7 7-7 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-              </button>
-              <div className="home-hero__dots">
-                {featured.map((_, i) => (
-                  <button
-                    key={i}
-                    type="button"
-                    aria-label={`Slide ${i + 1}`}
-                    className={`home-hero__dot ${i === realIndex ? 'home-hero__dot--active' : ''}`}
-                    onClick={() => goTo(i)}
-                  />
-                ))}
+                {hasCarousel && (
+                  <>
+                    <button type="button" className="home-hero__arrow home-hero__arrow--prev" aria-label="Previous" onClick={goPrev}>
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M15 5l-7 7 7 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                    </button>
+                    <button type="button" className="home-hero__arrow home-hero__arrow--next" aria-label="Next" onClick={goNext}>
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M9 5l7 7-7 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                    </button>
+                    <div className="home-hero__dots">
+                      {featured.map((_, i) => (
+                        <button
+                          key={i}
+                          type="button"
+                          aria-label={`Slide ${i + 1}`}
+                          className={`home-hero__dot ${i === realIndex ? 'home-hero__dot--active' : ''}`}
+                          onClick={() => goTo(i)}
+                        />
+                      ))}
+                    </div>
+                  </>
+                )}
               </div>
-            </>
-          )}
         </section>
       )}
 
       <div className="home-body">
-        {events.length > 0 && events.length <= 4 && (
+        {visibleEvents.length > 0 && visibleEvents.length <= 4 && (
           <section className="home-section">
             <div className="home-section__header">
               <h2 className="home-section__title">{t.home_featured}</h2>
             </div>
             <div className="home-featured">
-              {events.map((event) => (
-                <EventCard key={event.id} event={event} />
+              {visibleEvents.map((event, i) => (
+                <FeaturedEventCard key={event.id} event={event} index={i} />
               ))}
             </div>
           </section>
         )}
 
-        {events.length > 4 && (
+        {visibleEvents.length > 4 && (
           <>
-            <section className="home-section">
-              <div className="home-section__header">
-                <h2 className="home-section__title">{t.home_featured}</h2>
-                <Link href="/events" className="home-section__more">{t.home_view_all}</Link>
-              </div>
-              <div className="home-featured">
-                {featuredEvents.map((event) => (
-                  <EventCard key={event.id} event={event} />
-                ))}
-              </div>
-            </section>
+            {featuredEvents.length > 0 && (
+              <section className="home-section">
+                <div className="home-section__header">
+                  <h2 className="home-section__title">{t.home_featured}</h2>
+                  <Link href="/events" className="home-section__more">{t.home_view_all}</Link>
+                </div>
+                <div className="home-featured">
+                  {featuredEvents.map((event, i) => (
+                    <FeaturedEventCard key={event.id} event={event} index={i} />
+                  ))}
+                </div>
+              </section>
+            )}
 
-            <section className="home-section">
-              <div className="home-section__header">
-                <h2 className="home-section__title">{t.home_on_sale_section}</h2>
-                <Link href="/events" className="home-section__more">{t.home_view_all}</Link>
-              </div>
-              <div className="home-grid">
-                {moreEvents.map((event) => (
-                  <EventCard key={event.id} event={event} />
-                ))}
-              </div>
-            </section>
+            {onSaleEvents.length > 0 && (
+              <section className="home-section">
+                <div className="home-section__header">
+                  <h2 className="home-section__title">{t.home_on_sale_section}</h2>
+                  <Link href="/events" className="home-section__more">{t.home_view_all}</Link>
+                </div>
+                <div className="home-grid">
+                  {onSaleEvents.map((event) => (
+                    <EventCard key={event.id} event={event} />
+                  ))}
+                </div>
+                <div className="home-section__footer">
+                  <Link href="/events" className="home-section__view-all-btn">{t.home_view_all}</Link>
+                </div>
+              </section>
+            )}
           </>
         )}
       </div>

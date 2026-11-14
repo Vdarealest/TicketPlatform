@@ -80,7 +80,6 @@ export default function Footer() {
           <p className="oz-footer__copy">
             © 2026 <strong>Vietix</strong>. {t.footer_rights}
           </p>
-          
         </div>
       </div>
     </footer>

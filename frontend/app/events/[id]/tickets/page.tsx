@@ -32,6 +32,9 @@ export default function TicketSelectionPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
   const [selectedSeats, setSelectedSeats] = useState<Seat[]>([]);
+  // GA tickets have no seats to pick — this quantity counter stands in for
+  // selectedSeats.length everywhere a SEATED flow would read it.
+  const [gaQuantity, setGaQuantity] = useState(1);
   const [reservationIds, setReservationIds] = useState<number[]>([]);
   const [holdLoading, setHoldLoading] = useState(false);
   const [holdError, setHoldError] = useState<string | null>(null);
@@ -167,11 +170,21 @@ export default function TicketSelectionPage() {
       setSelectedSeats([]);
       setReservationIds([]);
     }
+    if (selectedTicket?.id !== ticket.id) {
+      setGaQuantity(1);
+    }
     setSelectedTicket(ticket);
   };
 
+  const maxGaQuantity = (ticket: Ticket) => Math.max(0, Math.min(MAX_SEATS, ticket.quantity));
+  const adjustGaQuantity = (ticket: Ticket, delta: number) => {
+    setGaQuantity((q) => Math.min(maxGaQuantity(ticket), Math.max(1, q + delta)));
+  };
+
   const handleProceedCheckout = async () => {
-    if (!selectedTicket || selectedSeats.length === 0) return;
+    if (!selectedTicket) return;
+    const isGA = selectedTicket.seating === 'GENERAL';
+    if (!isGA && selectedSeats.length === 0) return;
 
     if (!isLoggedIn) {
       const email = guestEmail.trim();
@@ -186,10 +199,17 @@ export default function TicketSelectionPage() {
     setHoldError(null);
 
     try {
-      const seatIds = selectedSeats.map((s) => s.id);
-      const body: { seatIds: number[]; guestEmail?: string } = { seatIds };
-      if (!isLoggedIn) body.guestEmail = guestEmail.trim();
-      const res = await api.post(`/reservations/${selectedTicket.id}/bulk`, body);
+      let res;
+      if (isGA) {
+        const body: { quantity: number; guestEmail?: string } = { quantity: gaQuantity };
+        if (!isLoggedIn) body.guestEmail = guestEmail.trim();
+        res = await api.post(`/reservations/${selectedTicket.id}/general`, body);
+      } else {
+        const seatIds = selectedSeats.map((s) => s.id);
+        const body: { seatIds: number[]; guestEmail?: string } = { seatIds };
+        if (!isLoggedIn) body.guestEmail = guestEmail.trim();
+        res = await api.post(`/reservations/${selectedTicket.id}/bulk`, body);
+      }
       const ids: number[] = res.data.reservationIds;
       const guestToken: string | undefined = res.data.guestToken;
       setReservationIds(ids);
@@ -262,11 +282,15 @@ export default function TicketSelectionPage() {
     }
     return rawLayout;
   })();
+  const isGA = selectedTicket?.seating === 'GENERAL';
+  const gaSoldOut = isGA && (selectedTicket?.quantity ?? 0) <= 0;
+  // Stands in for "seats picked" everywhere a GA ticket has no seats at all.
+  const chosenCount = gaSoldOut ? 0 : isGA ? gaQuantity : selectedSeats.length;
   const formattedDate = event.startTime ? new Date(event.startTime).toLocaleDateString('vi-VN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) : null;
-  const step = !selectedTicket ? 1 : selectedSeats.length === 0 ? 2 : 3;
+  const step = !selectedTicket ? 1 : chosenCount === 0 ? 2 : 3;
   const layoutZoneColor = selectedTicket && layout ? layout.sections.find((s) => s.ticketId === selectedTicket.id)?.color : undefined;
   const zoneColor = layoutZoneColor ?? (selectedTicket ? getZoneColor(selectedTicket.type, tickets.findIndex((t) => t.id === selectedTicket.id)).color : '#e02020');
-  const totalPrice = selectedTicket ? selectedTicket.price * selectedSeats.length : 0;
+  const totalPrice = selectedTicket ? selectedTicket.price * chosenCount : 0;
 
   const sessionFormatted = formatMMSS(sessionRemaining);
   const sessionLow = sessionRemaining <= 60;
@@ -300,7 +324,7 @@ export default function TicketSelectionPage() {
         <div className="tsp-stepper">
           <div className={`tsp-step ${step >= 1 ? 'tsp-step--active' : ''}`}><span className="tsp-step__num">1</span><span className="tsp-step__label">Chọn loại vé</span></div>
           <div className={`tsp-step__line ${step >= 2 ? 'tsp-step__line--active' : ''}`} />
-          <div className={`tsp-step ${step >= 2 ? 'tsp-step--active' : ''}`}><span className="tsp-step__num">2</span><span className="tsp-step__label">Chọn ghế (tối đa {MAX_SEATS})</span></div>
+          <div className={`tsp-step ${step >= 2 ? 'tsp-step--active' : ''}`}><span className="tsp-step__num">2</span><span className="tsp-step__label">{isGA ? 'Số lượng' : 'Chọn ghế'} (tối đa {MAX_SEATS})</span></div>
           <div className={`tsp-step__line ${step >= 3 ? 'tsp-step__line--active' : ''}`} />
           <div className={`tsp-step ${step >= 3 ? 'tsp-step--active' : ''}`}><span className="tsp-step__num">3</span><span className="tsp-step__label">Xác nhận &amp; đặt vé</span></div>
         </div>
@@ -331,10 +355,44 @@ export default function TicketSelectionPage() {
 
             <section className="tsp-card">
               <div className="tsp-card__header">
-                <h2 className="tsp-card__title"><span className="tsp-card__step">2</span>Chọn ghế</h2>
-                <span className="tsp-card__badge">{selectedSeats.length}/{MAX_SEATS} đã chọn</span>
+                <h2 className="tsp-card__title"><span className="tsp-card__step">2</span>{isGA ? 'Số lượng vé' : 'Chọn ghế'}</h2>
+                <span className="tsp-card__badge">
+                  {isGA ? `${gaQuantity}/${selectedTicket ? maxGaQuantity(selectedTicket) : MAX_SEATS}` : `${selectedSeats.length}/${MAX_SEATS}`} đã chọn
+                </span>
               </div>
-              {layout ? (
+              {isGA && selectedTicket ? (
+                <div className="tsp-ga-picker">
+                  <p className="tsp-empty-text" style={{ marginBottom: 16 }}>
+                    Vé đứng — không có sơ đồ ghế. Vào trước, đứng trước.
+                  </p>
+                  {gaSoldOut ? (
+                    <p className="tsp-empty-text" style={{ fontWeight: 600 }}>Loại vé này đã hết.</p>
+                  ) : (
+                    <>
+                      <div className="tsp-ga-stepper">
+                        <button
+                          type="button"
+                          className="tsp-ga-stepper__btn"
+                          onClick={() => adjustGaQuantity(selectedTicket, -1)}
+                          disabled={gaQuantity <= 1}
+                          aria-label="Giảm số lượng"
+                        >−</button>
+                        <span className="tsp-ga-stepper__value">{gaQuantity}</span>
+                        <button
+                          type="button"
+                          className="tsp-ga-stepper__btn"
+                          onClick={() => adjustGaQuantity(selectedTicket, 1)}
+                          disabled={gaQuantity >= maxGaQuantity(selectedTicket)}
+                          aria-label="Tăng số lượng"
+                        >+</button>
+                      </div>
+                      <p className="tsp-empty-text" style={{ marginTop: 12 }}>
+                        Tối đa {maxGaQuantity(selectedTicket)} vé mỗi lượt đặt — còn {selectedTicket.quantity} vé.
+                      </p>
+                    </>
+                  )}
+                </div>
+              ) : layout ? (
                 <VenueSeatMap
                   layout={layout}
                   tickets={tickets}
@@ -368,19 +426,21 @@ export default function TicketSelectionPage() {
                     </strong>
                   </div>
                   <div className="tsp-summary__divider" />
-                  <div className="tsp-summary__row">
-                    <span>Ghế đã chọn ({selectedSeats.length})</span>
-                    <strong className={selectedSeats.length > 0 ? '' : 'tsp-summary__placeholder'}>
-                      {selectedSeats.length > 0 ? selectedSeats.map((s) => s.label).join(', ') : 'Chưa chọn'}
-                    </strong>
-                  </div>
+                  {!isGA && (
+                    <div className="tsp-summary__row">
+                      <span>Ghế đã chọn ({selectedSeats.length})</span>
+                      <strong className={selectedSeats.length > 0 ? '' : 'tsp-summary__placeholder'}>
+                        {selectedSeats.length > 0 ? selectedSeats.map((s) => s.label).join(', ') : 'Chưa chọn'}
+                      </strong>
+                    </div>
+                  )}
                   <div className="tsp-summary__row">
                     <span>Đơn giá</span>
                     <strong>{formatCurrencyVND(selectedTicket.price)}</strong>
                   </div>
                   <div className="tsp-summary__row">
                     <span>Số lượng</span>
-                    <strong>{selectedSeats.length} vé</strong>
+                    <strong>{chosenCount} vé</strong>
                   </div>
                   <div className="tsp-summary__row">
                     <span>Còn lại</span>
@@ -398,11 +458,11 @@ export default function TicketSelectionPage() {
                 <p className="tsp-empty-text" style={{ padding: '16px 0' }}>Vui lòng chọn một loại vé.</p>
               )}
 
-              {selectedTicket && selectedSeats.length === 0 && (
+              {selectedTicket && !isGA && selectedSeats.length === 0 && (
                 <p className="tsp-summary__hint">Chọn ghế còn trống trên sơ đồ để tiếp tục (tối đa {MAX_SEATS} ghế).</p>
               )}
 
-              {!isLoggedIn && selectedSeats.length > 0 && (
+              {!isLoggedIn && chosenCount > 0 && (
                 <div className="tsp-guest-box">
                   <p className="tsp-guest-box__title">Mua vé không cần đăng nhập</p>
                   <p className="tsp-guest-box__note">Vé và mã xác nhận sẽ được gửi đến email này.</p>
@@ -425,11 +485,11 @@ export default function TicketSelectionPage() {
               <button
                 type="button"
                 onClick={handleProceedCheckout}
-                disabled={selectedSeats.length === 0 || holdLoading}
+                disabled={chosenCount === 0 || holdLoading}
                 className="tsp-reserve-btn"
-                style={selectedSeats.length > 0 ? { background: zoneColor } : undefined}
+                style={chosenCount > 0 ? { background: zoneColor } : undefined}
               >
-                {holdLoading ? <><span className="tsp-btn-spinner" /> Đang xử lý...</> : `Tiến hành thanh toán (${selectedSeats.length} vé)`}
+                {holdLoading ? <><span className="tsp-btn-spinner" /> Đang xử lý...</> : `Tiến hành thanh toán (${chosenCount} vé)`}
               </button>
 
               <p className="tsp-summary__note">Thanh toán bảo mật - Hoàn tiền trong 24h</p>

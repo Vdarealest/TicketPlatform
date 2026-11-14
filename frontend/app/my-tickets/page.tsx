@@ -173,7 +173,7 @@ function TicketCard({ r }: { r: Reservation }) {
         <div className="tk-bottom-row">
           <span className="tk-ref">{fmtRef(r.id)}</span>
           <span className="tk-type-pill">{type}</span>
-          {seatLabel && <span className="tk-type-pill" style={{ background: '#EEF2FF', color: '#0F35FF' }}>{t.mt_seat} {seatLabel}</span>}
+          {seatLabel && <span className="tk-type-pill" style={{ background: '#fef2f2', color: '#e02020' }}>{t.mt_seat} {seatLabel}</span>}
         </div>
       </div>
 

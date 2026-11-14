@@ -13,6 +13,10 @@ export interface Ticket {
   type: string;
   price: number;
   quantity: number;
+  // SEATED: pick off the venue map. GENERAL: standing admission, no seats —
+  // buyer just picks a quantity. Optional so old API responses (or anywhere
+  // this type is used before the field is fetched) default sensibly.
+  seating?: 'SEATED' | 'GENERAL';
   seats?: Seat[];
 }
 

@@ -175,9 +175,9 @@ function EventsContent() {
             onClick={() => setShowAdvanced((s) => !s)}
             style={{
               height: 42, padding: '0 16px', borderRadius: 10, cursor: 'pointer',
-              border: showAdvanced || activeCount > 0 ? '1.5px solid #0F35FF' : '1.5px solid var(--border-input)',
-              background: showAdvanced || activeCount > 0 ? 'rgba(15, 53, 255, 0.1)' : '#fff',
-              color: showAdvanced || activeCount > 0 ? '#0F35FF' : '#24292E',
+              border: showAdvanced || activeCount > 0 ? '1.5px solid #e02020' : '1.5px solid var(--border-input)',
+              background: showAdvanced || activeCount > 0 ? 'rgba(224, 32, 32, 0.08)' : '#fff',
+              color: showAdvanced || activeCount > 0 ? '#e02020' : '#24292E',
               fontSize: 14, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8,
               flex: '0 0 auto', fontFamily: 'inherit',
             }}
@@ -188,7 +188,7 @@ function EventsContent() {
             {t.events_sort}
             {activeCount > 0 && (
               <span style={{
-                background: '#0F35FF', color: '#fff', fontSize: 11, fontWeight: 700,
+                background: '#e02020', color: '#fff', fontSize: 11, fontWeight: 700,
                 minWidth: 18, height: 18, borderRadius: 9, display: 'flex',
                 alignItems: 'center', justifyContent: 'center', padding: '0 5px',
               }}>{activeCount}</span>

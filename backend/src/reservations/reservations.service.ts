@@ -155,6 +155,108 @@ export class ReservationsService {
     }
   }
 
+  /**
+   * GA / standing admission: no seat map, no Seat rows — the buyer just picks
+   * a quantity and the hold is tracked purely against ticket.quantity. Same
+   * shape as reserveMultipleSeats (lock, hold, delayed-expiry job, one
+   * Reservation row per ticket so the rest of the app — checkout, "my
+   * tickets", QR codes — doesn't need to know GA exists) minus the seat loop.
+   */
+  async reserveGeneralAdmission(
+    ticketId: number,
+    quantity: number,
+    requester: { userId?: number; guestEmail?: string },
+  ) {
+    if (!Number.isInteger(quantity) || quantity < 1 || quantity > 10) {
+      throw new BadRequestException('Chọn từ 1 đến 10 vé.');
+    }
+
+    const userId = requester.userId;
+    let guestEmail: string | null = null;
+    let guestToken: string | null = null;
+    if (!userId) {
+      const email = requester.guestEmail?.trim();
+      if (!email || !EMAIL_RE.test(email)) {
+        throw new BadRequestException('Vui lòng nhập email hợp lệ để đặt vé không cần đăng nhập.');
+      }
+      guestEmail = email;
+      guestToken = crypto.randomBytes(32).toString('hex');
+    }
+
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      const ticket = await queryRunner.manager
+        .createQueryBuilder(Ticket, 'ticket')
+        .innerJoinAndSelect('ticket.event', 'event')
+        .setLock('pessimistic_write')
+        .where('ticket.id = :id', { id: ticketId })
+        .getOne();
+
+      if (!ticket) throw new BadRequestException('Ticket not found');
+      if (ticket.seating !== 'GENERAL') {
+        throw new BadRequestException('Loại vé này yêu cầu chọn ghế trên sơ đồ.');
+      }
+
+      const saleStatus = effectiveSaleStatus(ticket.event);
+      if (saleStatus === 'ENDED') {
+        throw new BadRequestException('Sự kiện này đã kết thúc.');
+      }
+      if (saleStatus !== 'ON_SALE') {
+        throw new BadRequestException('Sự kiện này chưa mở bán.');
+      }
+      if (ticket.quantity < quantity) {
+        throw new BadRequestException(`Chỉ còn ${ticket.quantity} vé.`);
+      }
+
+      const reservations: Reservation[] = [];
+
+      for (let i = 0; i < quantity; i++) {
+        const reservation = this.reservationRepository.create({
+          user: userId ? ({ id: userId } as any) : null,
+          guestEmail,
+          guestToken,
+          ticket: { id: ticketId } as any,
+          seat: null,
+          expiresAt: new Date(Date.now() + 5 * 60 * 1000),
+          status: 'HOLD',
+        });
+        await queryRunner.manager.save(reservation);
+        reservations.push(reservation);
+
+        await this.reservationQueue.add(
+          'expire-reservation',
+          { reservationId: reservation.id },
+          { delay: 5 * 60 * 1000 },
+        );
+      }
+
+      ticket.quantity -= quantity;
+      await queryRunner.manager.save(ticket);
+
+      this.ticketGateway.emitTicketUpdate(
+        String(ticket.event?.id ?? ''),
+        ticket.id, ticket.quantity,
+      );
+
+      await queryRunner.commitTransaction();
+
+      return {
+        message: `Đã giữ ${quantity} vé.`,
+        reservationIds: reservations.map((r) => r.id),
+        expiresAt: reservations[0]?.expiresAt,
+        guestToken: guestToken ?? undefined,
+      };
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
+    }
+  }
+
   async getMultipleReservations(ids: number[], requester: Requester) {
     const reservations = await this.reservationRepository.find({
       where: ids.map((id) => ({ id })),

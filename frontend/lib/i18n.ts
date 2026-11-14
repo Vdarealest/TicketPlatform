@@ -19,6 +19,8 @@ const translations = {
     home_featured: 'Sự kiện nổi bật',
     home_view_all: 'Xem tất cả',
     home_on_sale_section: 'Đang mở bán',
+    home_hero_eyebrow: 'Vé được phân phối chính thức trên Vietix',
+    home_view_details: 'Xem chi tiết',
 
     // Events page
     events_title: 'Tất cả sự kiện',
@@ -218,6 +220,8 @@ const translations = {
     home_featured: 'Featured Events',
     home_view_all: 'View all',
     home_on_sale_section: 'On Sale',
+    home_hero_eyebrow: 'Officially distributed on Vietix',
+    home_view_details: 'View details',
 
     // Events page
     events_title: 'All Events',

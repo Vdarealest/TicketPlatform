@@ -199,6 +199,49 @@
   transform: translateY(0);
 }
 
+/* Narrow screens: one row can't hold logo + links + search + controls (it
+   needs ~870px and stretched the whole page on phones). Split into two rows:
+   logo + controls on top, links + search below. `display: contents` lets the
+   logo and links be reordered independently of their shared wrapper. */
+@media (max-width: 860px) {
+  .onezone-nav__inner {
+    flex-wrap: wrap;
+    height: auto;
+    padding-top: 10px;
+    padding-bottom: 10px;
+    row-gap: 10px;
+    column-gap: 12px;
+  }
+  .onezone-nav__left { display: contents; }
+  .onezone-nav__logo { order: 1; }
+  .onezone-nav__right { order: 2; margin-left: auto; }
+  /* Zero-height full-width item: forces the line break between the rows. */
+  .onezone-nav__inner::before {
+    content: '';
+    order: 3;
+    flex-basis: 100%;
+    height: 0;
+  }
+  .onezone-nav__links { order: 4; }
+  .onezone-nav__search-wrap {
+    order: 5;
+    flex: 1 1 0;
+    min-width: 0;
+    max-width: none;
+  }
+  .onezone-nav__search { height: 38px; min-width: 0; }
+  /* An <input> keeps a ~150px intrinsic width unless told it may shrink. */
+  .onezone-nav__search-input { min-width: 0; width: 100%; }
+}
+
+@media (max-width: 480px) {
+  .onezone-nav__logo { font-size: 1.75rem; }
+  .onezone-nav__link { padding: 6px 8px; font-size: 13px; }
+  .onezone-nav__search { padding: 0 12px; gap: 8px; }
+  .onezone-nav__search-input { font-size: 13px; }
+  .onezone-nav__login { padding: 8px 16px; font-size: 13px; }
+}
+
 /* ─────────────────────────────────────────────
    NAV AVATAR & DROPDOWN
    ───────────────────────────────────────────── */
@@ -400,11 +443,11 @@
 
 .ec2-card {
   background: #fff;
-  border-radius: 14px;
+  border-radius: 16px;
   overflow: hidden;
-  border: 1px solid #f0f0f0;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
-  transition: transform 0.25s ease, box-shadow 0.25s ease;
+  border: 1px solid #ededf0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
   cursor: pointer;
   height: 100%;
   display: flex;
@@ -412,14 +455,16 @@
 }
 .ec2-card:hover {
   transform: translateY(-4px);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  border-color: #e4e4e8;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.09);
 }
- 
-/* Ảnh */
+
+/* Ảnh — closer to square than the old 16:10, to match a ticket-shop grid
+   rather than a video-thumbnail grid. */
 .ec2-img-wrap {
   position: relative;
   width: 100%;
-  aspect-ratio: 16 / 10;
+  aspect-ratio: 4 / 3.1;
   overflow: hidden;
   background: #f5f5f5;
 }
@@ -451,30 +496,34 @@
   transform: scale(1.04);
 }
 
-.ec2-price {
+/* Sale-state pill, top-left of the artwork — one colour per state so it
+   reads before the eye even reaches the title. */
+.ec2-status {
   position: absolute;
-  bottom: 10px;
-  right: 10px;
+  top: 10px;
+  left: 10px;
   font-family: var(--font-sans);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
-  color: #111;
-  background: rgba(255,255,255,0.92);
-  backdrop-filter: blur(4px);
+  letter-spacing: 0.02em;
   border-radius: 999px;
-  padding: 5px 12px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+  padding: 4px 11px;
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.14);
 }
- 
+.ec2-status--onsale { background: #16a34a; }
+.ec2-status--upcoming { background: #e8732c; }
+.ec2-status--ended { background: rgba(63, 63, 70, 0.95); }
+
 /* Body */
 .ec2-body {
-  padding: 14px 16px 18px;
+  padding: 14px 16px 16px;
   display: flex;
   flex-direction: column;
   gap: 10px;
   flex: 1;
 }
- 
+
 /* Badge */
 .ec2-badge {
   display: inline-flex;
@@ -491,7 +540,7 @@
   text-transform: uppercase;
   background: transparent;
 }
- 
+
 /* Title */
 .ec2-title {
   font-family: var(--font-sans) !important;
@@ -506,7 +555,7 @@
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
- 
+
 /* Meta (date, location) */
 .ec2-meta {
   display: flex;
@@ -530,6 +579,151 @@
 .ec2-meta-icon {
   color: #9ea5ad;
   flex-shrink: 0;
+}
+
+/* Price + CTA on one row, pinned under meta — the card is one big link, so
+   this "button" is a visual cue only, not a second nested link. */
+.ec2-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding-top: 10px;
+  margin-top: 2px;
+  border-top: 1px solid #f0f0f2;
+}
+
+.ec2-price {
+  font-family: var(--font-sans);
+  font-size: 12.5px;
+  color: #9ea5ad;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ec2-price strong {
+  color: #111;
+  font-weight: 700;
+}
+
+.ec2-cta {
+  flex-shrink: 0;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 700;
+  color: #e02020;
+  border: 1.5px solid #e02020;
+  border-radius: 999px;
+  padding: 5px 14px;
+  transition: background 0.15s, color 0.15s;
+}
+.ec2-card:hover .ec2-cta {
+  background: #e02020;
+  color: #fff;
+}
+
+/* ─────────────────────────────────────────────
+   FEATURED EVENT CARD (fec) — horizontal, one per
+   "Sự kiện nổi bật" slot. Bigger artwork, a coloured
+   category pill, no price/CTA row — it's a teaser,
+   not a listing.
+   ───────────────────────────────────────────── */
+.fec-link {
+  display: block;
+  height: 100%;
+  text-decoration: none !important;
+  color: inherit;
+}
+
+.fec-card {
+  background: #fff;
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid #ededf0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+.fec-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.1);
+}
+
+.fec-img-wrap {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  background: #f0f0f0;
+}
+
+.fec-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.4s ease;
+}
+.fec-card:hover .fec-img {
+  transform: scale(1.05);
+}
+
+.fec-badge {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  font-family: var(--font-sans);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #fff;
+  border-radius: 999px;
+  padding: 4px 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.18);
+}
+
+.fec-body {
+  padding: 16px 18px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.fec-title {
+  font-family: var(--font-sans) !important;
+  font-size: 16px !important;
+  font-weight: 700 !important;
+  line-height: 1.4 !important;
+  color: #111 !important;
+  margin: 0 !important;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.fec-date {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  color: #9ea5ad;
+  margin: 0;
+}
+
+[data-theme="dark"] .fec-card {
+  background: var(--surface-primary);
+  border-color: var(--border-primary);
+  box-shadow: var(--shadow-card);
+}
+[data-theme="dark"] .fec-title {
+  color: var(--text-primary) !important;
+}
+[data-theme="dark"] .fec-date {
+  color: var(--text-tertiary);
 }
 
 /* ─────────────────────────────────────────────
@@ -696,20 +890,27 @@
   font-family: var(--font-sans);
 }
  
-/* ── Hero carousel ── */
+/* ── Hero: headline above the art, a main stage + a next-up preview pane ── */
 .home-hero {
   width: 100%;
   background: #111;
-  position: relative;
 }
 
-/* Viewport clips; track holds all slides side by side and slides horizontally */
+.home-hero__main {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  background: #111;
+}
+
 .home-hero__viewport {
   width: 100%;
+  height: 100%;
   overflow: hidden;
 }
 .home-hero__track {
   display: flex;
+  height: 100%;
   transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
   will-change: transform;
 }
@@ -718,28 +919,34 @@
   flex: 0 0 100%;
   position: relative;
   width: 100%;
+  height: 100%;
   overflow: hidden;
+  cursor: pointer;
 }
 
 .home-hero__img {
   width: 100%;
-  /* Same rule as the event-detail hero: header (68px + 1px border) + banner
-     fill exactly one screen, capped so it doesn't blow out on tall monitors. */
-  height: calc(100vh - 69px);
-  height: calc(100dvh - 69px);
-  min-height: 420px;
-  max-height: 760px;
+  height: 100%;
   object-fit: cover;
   object-position: center;
   display: block;
 }
 
-@media (max-width: 640px) {
-  .home-hero__img {
-    height: auto;
-    aspect-ratio: 4 / 3;
-    min-height: 280px;
-    max-height: 420px;
+/* Fills the screen below the 69px nav on every device. svh, not vh, so the
+   mobile browser's collapsing URL bar doesn't push the bottom off-screen. */
+.home-hero__main {
+  height: calc(100vh - 69px);
+  height: calc(100svh - 69px);
+  min-height: 320px;
+}
+
+/* Tablets and phones: a screen-tall box on a portrait screen would crop a
+   landscape banner down to a sliver of its middle. Follow the banner's own
+   16:9 shape instead, still edge to edge. */
+@media (max-width: 1024px), (orientation: portrait) {
+  .home-hero__main {
+    height: 56.25vw;
+    min-height: 0;
   }
 }
 
@@ -749,8 +956,8 @@
   top: 50%;
   transform: translateY(-50%);
   z-index: 3;
-  width: 44px;
-  height: 44px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
   border: none;
   background: rgba(0, 0, 0, 0.35);
@@ -765,14 +972,14 @@
 .home-hero__arrow:hover {
   background: rgba(0, 0, 0, 0.6);
 }
-.home-hero__arrow--prev { left: 20px; }
-.home-hero__arrow--next { right: 20px; }
+.home-hero__arrow--prev { left: 16px; }
+.home-hero__arrow--next { right: 16px; }
 .home-hero__arrow:active { transform: translateY(-50%) scale(0.92); }
 
 /* ── Hero dots ── */
 .home-hero__dots {
   position: absolute;
-  bottom: 20px;
+  bottom: 16px;
   left: 50%;
   transform: translateX(-50%);
   z-index: 3;
@@ -794,99 +1001,20 @@
   width: 24px;
   border-radius: 5px;
 }
- 
-.home-hero__scrim {
-  display: none;
-}
- 
-.home-hero__content {
-  display: none;
-}
- 
-.home-hero__tag {
-  display: inline-flex;
-  align-self: flex-start;
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  color: #fff;
-  background: #e02020;
-  border-radius: 999px;
-  padding: 4px 14px;
-}
- 
-.home-hero__title {
-  font-family: var(--font-sans) !important;
-  font-size: 3rem !important;
-  font-weight: 900 !important;
-  color: #fff !important;
-  line-height: 1.1 !important;
-  margin: 0 !important;
-  max-width: 640px;
-  text-shadow: 0 2px 24px rgba(0,0,0,0.4);
-}
- 
-.home-hero__info {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 16px;
+
+@media (max-width: 640px) {
+  .home-hero__arrow { width: 32px; height: 32px; }
+  .home-hero__arrow--prev { left: 8px; }
+  .home-hero__arrow--next { right: 8px; }
+  .home-hero__dots { bottom: 10px; gap: 6px; }
+  .home-hero__dot { width: 7px; height: 7px; }
+  .home-hero__dot--active { width: 18px; }
 }
 
-.home-hero__location,
-.home-hero__date {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 14px;
-  font-weight: 500;
-  color: rgba(255,255,255,0.75);
+[data-theme="dark"] .home-hero {
+  background: var(--surface-primary);
 }
 
-.home-hero__actions {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  flex-wrap: wrap;
-}
-
-.home-hero__price {
-  font-size: 13px;
-  font-weight: 500;
-  color: rgba(255,255,255,0.75);
-}
-.home-hero__price strong {
-  color: #fff;
-  font-weight: 800;
-}
-
-.home-hero__cta {
-  display: inline-flex;
-  align-items: center;
-  align-self: flex-start;
-  gap: 8px;
-  font-family: var(--font-sans);
-  font-size: 14px;
-  font-weight: 700;
-  color: #111 !important;
-  background: #fff;
-  border: none;
-  border-radius: 999px;
-  padding: 12px 26px;
-  margin-top: 4px;
-  text-decoration: none !important;
-  cursor: pointer;
-  /* Layered low-alpha shadow: smoother falloff = far less banding on 6-bit panels */
-  box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 4px 10px rgba(0,0,0,0.10);
-  transition: background 0.2s, color 0.2s, transform 0.15s, box-shadow 0.2s;
-}
-.home-hero__cta:hover {
-  background: #e02020;
-  color: #fff !important;
-  transform: translateY(-2px);
-  box-shadow: 0 6px 24px rgba(224,32,32,0.4);
-}
- 
 /* ── Body ── */
 .home-body {
   max-width: 1200px;
@@ -953,32 +1081,58 @@
   }
 }
  
-/* ── Đang bán: 2x2 grid ── */
+/* ── Vé sự kiện: 4-wide grid, enough rows to feel like a real shop ── */
 .home-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 20px;
 }
- 
-@media (max-width: 640px) {
+
+@media (max-width: 980px) {
+  .home-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+@media (max-width: 720px) {
+  .home-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+@media (max-width: 460px) {
   .home-grid {
     grid-template-columns: 1fr;
   }
 }
- 
-/* ── Upcoming cards: 2x2 horizontal layout ── */
-.home-upcoming {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 20px;
+
+.home-section__footer {
+  display: flex;
+  justify-content: center;
+  margin-top: 28px;
 }
- 
-@media (max-width: 640px) {
-  .home-upcoming {
-    grid-template-columns: 1fr;
-  }
+
+.home-section__view-all-btn {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 700;
+  color: #111 !important;
+  background: #fff;
+  border: 1.5px solid #e5e7ea;
+  border-radius: 999px;
+  padding: 11px 32px;
+  text-decoration: none !important;
+  transition: border-color 0.15s, background 0.15s, transform 0.15s;
 }
- 
+.home-section__view-all-btn:hover {
+  border-color: #e02020;
+  background: #fef2f2;
+  transform: translateY(-1px);
+}
+[data-theme="dark"] .home-section__view-all-btn {
+  color: var(--text-primary) !important;
+  background: var(--surface-primary);
+  border-color: var(--border-input);
+}
+
 /* ── Events listing page ── */
 .evp-root {
   max-width: 1200px;
@@ -1027,130 +1181,6 @@
   .evp-grid {
     grid-template-columns: 1fr;
   }
-}
-
-.home-upcoming__card {
-  background: var(--surface-primary);
-  border-radius: 16px;
-  overflow: hidden;
-  border: 1px solid #eee;
-  box-shadow: 0 1px 6px rgba(0,0,0,0.05);
-  transition: transform 0.25s ease, box-shadow 0.25s ease;
-}
-.home-upcoming__card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 8px 28px rgba(0,0,0,0.09);
-}
- 
-.home-upcoming__img-wrap {
-  position: relative;
-  aspect-ratio: 16 / 9;
-  overflow: hidden;
-  background: #f0f0f0;
-}
- 
-.home-upcoming__img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-  filter: brightness(0.75) saturate(0.8);
-  transition: transform 0.4s ease;
-}
-.home-upcoming__card:hover .home-upcoming__img {
-  transform: scale(1.04);
-}
- 
-.home-upcoming__overlay {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(0,0,0,0.25);
-}
- 
-.home-upcoming__soon {
-  font-family: var(--font-sans);
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: #fff;
-  background: rgba(0,0,0,0.5);
-  border: 1px solid rgba(255,255,255,0.25);
-  border-radius: 999px;
-  padding: 5px 14px;
-  backdrop-filter: blur(4px);
-}
- 
-.home-upcoming__body {
-  padding: 14px 16px 18px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
- 
-.home-upcoming__cat {
-  display: inline-flex;
-  align-self: flex-start;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: #9ea5ad;
-  border: 1.5px solid var(--border-input);
-  border-radius: 999px;
-  padding: 2px 10px;
-}
- 
-.home-upcoming__title {
-  font-family: var(--font-sans) !important;
-  font-size: 15px !important;
-  font-weight: 700 !important;
-  color: var(--text-primary) !important;
-  margin: 0 !important;
-  line-height: 1.4 !important;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
- 
-.home-upcoming__meta {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 12px;
-  color: #9ea5ad;
-  font-weight: 500;
-}
-.home-upcoming__meta svg {
-  color: #9ea5ad;
-  flex-shrink: 0;
-}
- 
-.home-upcoming__notify {
-  margin-top: 4px;
-}
- 
-.home-upcoming__notify-btn {
-  font-family: var(--font-sans);
-  font-size: 12px;
-  font-weight: 600;
-  color: #454c52;
-  background: #f2f3f5;
-  border: none;
-  border-radius: 8px;
-  padding: 7px 14px;
-  cursor: pointer;
-  transition: background 0.15s, color 0.15s;
-  width: 100%;
-}
-.home-upcoming__notify-btn:hover {
-  background: #111;
-  color: #fff;
 }
 
 /* ============================================
@@ -1401,8 +1431,7 @@
     max-height: 400px;
   }
 }
- 
-/* Content layout — hoàn toàn dưới hero, không overlap */
+
 .edp-content {
   max-width: 1100px;
   margin: 36px auto 0;
@@ -1412,19 +1441,19 @@
   gap: 28px;
   align-items: start;
 }
- 
+
 @media (max-width: 860px) {
   .edp-content {
     grid-template-columns: 1fr;
   }
 }
- 
+
 /* Ticket box — sticky chỉ hoạt động khi scroll, không overlap hero */
 .edp-ticket-box {
   position: sticky;
   top: 88px;
 }
- 
+
 /* Info panel */
 .edp-info {
   background: var(--surface-primary);
@@ -1432,7 +1461,7 @@
   padding: 32px;
   box-shadow: 0 2px 16px rgba(0,0,0,0.06);
 }
- 
+
 /* .edp-meta was the old date/venue strip — its facts now live in the hero
    card (.edp-stage__fact) and the detail panel (.edp-factlist). */
  
@@ -1510,7 +1539,7 @@
   line-height: 1.7;
   color: #6e6e73;
 }
- 
+
 .edp-ticket-box__inner {
   background: #fff;
   border-radius: 18px;
@@ -1520,7 +1549,7 @@
   flex-direction: column;
   gap: 0;
 }
- 
+
 .edp-ticket-box__label {
   font-size: 13px;
   font-weight: 600;
@@ -1529,7 +1558,7 @@
   color: #9ea5ad;
   margin-bottom: 16px;
 }
- 
+
 /* The "from" price row, its dividers and the sidebar buy button are gone —
    the hero card is the only place that shows a price headline and a CTA. */
 
@@ -1558,7 +1587,7 @@
   color: #6e6e73;
   font-weight: 500;
 }
- 
+
 .edp-ticket-box__note {
   font-size: 12px;
   color: #9ea5ad;
@@ -1674,8 +1703,8 @@
   box-sizing: border-box;
 }
 .edp-review-form__textarea:focus {
-  border-color: #0f35ff;
-  box-shadow: 0 0 0 3px rgba(15, 53, 255, 0.08);
+  border-color: #e02020;
+  box-shadow: 0 0 0 3px rgba(224, 32, 32, 0.08);
 }
 .edp-review-form__textarea::placeholder {
   color: #c7c7cc;
@@ -1692,7 +1721,7 @@
   padding: 8px 20px;
   border-radius: 10px;
   border: none;
-  background: #0f35ff;
+  background: #e02020;
   color: #fff;
   font-family: var(--font-sans);
   font-size: 13px;
@@ -1701,7 +1730,7 @@
   transition: background 0.15s, transform 0.1s;
 }
 .edp-review-form__submit:hover:not(:disabled) {
-  background: #0b2ad9;
+  background: #c01c1c;
   transform: translateY(-1px);
 }
 .edp-review-form__submit:disabled {
@@ -1836,22 +1865,49 @@
   align-items: center;
   justify-content: center;
   background: #f6f7f9;
+  /* Faint dot grid so the ground around the card reads as a surface, not a
+     dead flat fill — the card used to float in an empty rectangle. */
+  background-image: radial-gradient(rgba(0,0,0,0.035) 1px, transparent 1px);
+  background-size: 22px 22px;
   padding: 24px;
   position: relative;
   overflow: hidden;
   font-family: var(--font-sans);
 }
- 
+
+/* A second, lower glow so the bottom half of a tall viewport isn't bare —
+   the first blob only ever reached the top. Same brand red at a lower
+   strength, not a second colour, to stay consistent with the rest of the site. */
+.lp-root::after {
+  content: '';
+  position: absolute;
+  bottom: -160px;
+  right: -80px;
+  width: 640px;
+  height: 640px;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at center, rgba(224,32,32,0.1) 0%, transparent 70%);
+  pointer-events: none;
+}
+
 /* Decorative background blob */
 .lp-bg {
   position: absolute;
   top: -200px;
   left: 50%;
   transform: translateX(-50%);
-  width: 800px;
-  height: 600px;
-  background: radial-gradient(ellipse at center, rgba(224,32,32,0.08) 0%, transparent 70%);
+  width: 900px;
+  height: 700px;
+  background: radial-gradient(ellipse at center, rgba(224,32,32,0.12) 0%, transparent 70%);
   pointer-events: none;
+  animation: lp-float 12s ease-in-out infinite;
+}
+@keyframes lp-float {
+  0%, 100% { transform: translateX(-50%) translateY(0); }
+  50% { transform: translateX(-50%) translateY(18px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lp-bg { animation: none; }
 }
  
 .lp-card {
@@ -2789,6 +2845,55 @@
   gap: 10px;
 }
 
+/* ── GA / standing quantity picker — stands in for the seat map ── */
+.tsp-ga-picker {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 40px 20px;
+  text-align: center;
+}
+.tsp-ga-stepper {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+.tsp-ga-stepper__btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 1.5px solid var(--border-input);
+  background: var(--surface-primary);
+  color: var(--text-primary);
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, border-color 0.15s, transform 0.1s;
+}
+.tsp-ga-stepper__btn:hover:not(:disabled) {
+  border-color: #e02020;
+  color: #e02020;
+}
+.tsp-ga-stepper__btn:active:not(:disabled) {
+  transform: scale(0.94);
+}
+.tsp-ga-stepper__btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+.tsp-ga-stepper__value {
+  min-width: 48px;
+  text-align: center;
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
 /* ── Ticket type option ───────────────────────────────────────
    One row per tier. The zone colour only ever appears as the swatch,
    the border and the radio — the surface itself stays theme-driven, so
@@ -3564,14 +3669,14 @@
   font-family: var(--font-sans);
   font-size: 13px;
   font-weight: 600;
-  color: #0f35ff;
-  background: rgba(15, 53, 255, 0.06);
-  border: 1px solid rgba(15, 53, 255, 0.14);
+  color: #e02020;
+  background: rgba(224, 32, 32, 0.06);
+  border: 1px solid rgba(224, 32, 32, 0.14);
   cursor: pointer;
   transition: background 0.15s, transform 0.1s;
 }
 .pp-edit-profile-btn:hover {
-  background: rgba(15, 53, 255, 0.12);
+  background: rgba(224, 32, 32, 0.12);
   transform: translateY(-1px);
 }
 .pp-edit-profile-btn:active {
@@ -3594,7 +3699,7 @@
   font-family: var(--font-sans);
   font-size: 13px;
   font-weight: 600;
-  color: #0f35ff;
+  color: #e02020;
 }
 
 /* ── modal ── */
@@ -3766,8 +3871,8 @@
   box-sizing: border-box;
 }
 .pp-edit-input:focus {
-  border-color: #0f35ff;
-  box-shadow: 0 0 0 3px rgba(15, 53, 255, 0.08);
+  border-color: #e02020;
+  box-shadow: 0 0 0 3px rgba(224, 32, 32, 0.08);
 }
 .pp-edit-input--disabled {
   background: #f9fafb;
@@ -3849,13 +3954,13 @@
   cursor: not-allowed;
 }
 .pp-btn--primary {
-  background: #0f35ff;
+  background: #e02020;
   color: #fff;
 }
 .pp-btn--primary:hover:not(:disabled) {
-  background: #0b2ad9;
+  background: #c01c1c;
   transform: translateY(-1px);
-  box-shadow: 0 4px 14px rgba(15, 53, 255, 0.25);
+  box-shadow: 0 4px 14px rgba(224, 32, 32, 0.25);
 }
 .pp-btn--primary:active:not(:disabled) {
   transform: scale(0.98);
@@ -5251,20 +5356,11 @@
 [data-theme="dark"] .edp-ticket-box__label {
   color: var(--text-primary);
 }
-[data-theme="dark"] .edp-ticket-row__key {
-  color: var(--text-tertiary);
-}
-[data-theme="dark"] .edp-ticket-row__price {
-  color: var(--text-primary);
-}
 [data-theme="dark"] .edp-ticket-types__name {
   color: var(--text-secondary);
 }
 [data-theme="dark"] .edp-ticket-types__price {
   color: var(--text-primary);
-}
-[data-theme="dark"] .edp-ticket-divider {
-  background: var(--border-secondary);
 }
 [data-theme="dark"] .edp-ticket-box__note {
   color: var(--text-quaternary);
@@ -5316,7 +5412,13 @@
 
 /* ── login / register / forgot-password ── */
 [data-theme="dark"] .lp-root {
-  background: var(--background);
+  /* background-color only — "background" is a shorthand and would wipe out
+     the dot-grid background-image set on the base .lp-root rule. */
+  background-color: var(--background);
+  background-image: radial-gradient(rgba(255,255,255,0.045) 1px, transparent 1px);
+}
+[data-theme="dark"] .lp-root::after {
+  background: radial-gradient(ellipse at center, rgba(224,32,32,0.14) 0%, transparent 70%);
 }
 [data-theme="dark"] .lp-card {
   background: var(--surface-primary);
@@ -5919,8 +6021,13 @@
   color: var(--text-quaternary);
 }
 [data-theme="dark"] .ec2-price {
-  background: rgba(0, 0, 0, 0.7);
-  color: #fff;
+  color: var(--text-quaternary);
+}
+[data-theme="dark"] .ec2-price strong {
+  color: var(--text-primary);
+}
+[data-theme="dark"] .ec2-footer {
+  border-top-color: var(--border-primary);
 }
 
 /* ============================================
@@ -5971,9 +6078,10 @@
   border: 1px solid var(--border-primary);
   border-radius: 14px;
   overflow: hidden;
-  transition: box-shadow 0.15s;
+  transition: box-shadow 0.15s, border-color 0.15s;
 }
 .sp-faq-item--open {
+  border-color: rgba(224, 32, 32, 0.3);
   box-shadow: 0 2px 16px rgba(0, 0, 0, 0.06);
 }
 
@@ -6005,6 +6113,23 @@
 }
 .sp-faq-item--open .sp-faq-chevron {
   transform: rotate(180deg);
+}
+
+/* grid-rows 0fr→1fr animates height without measuring it in JS; the inner
+   wrapper clips the answer while collapsed. */
+.sp-faq-a-wrap {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.25s ease;
+}
+.sp-faq-item--open .sp-faq-a-wrap {
+  grid-template-rows: 1fr;
+}
+.sp-faq-a-inner {
+  overflow: hidden;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sp-faq-a-wrap { transition: none; }
 }
 
 .sp-faq-a {
@@ -6045,8 +6170,8 @@
   width: 40px;
   height: 40px;
   border-radius: 10px;
-  background: rgba(15, 53, 255, 0.06);
-  color: #0f35ff;
+  background: rgba(224, 32, 32, 0.07);
+  color: #e02020;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -6139,8 +6264,8 @@
 }
 .sp-form-input:focus,
 .sp-form-textarea:focus {
-  border-color: #0f35ff;
-  box-shadow: 0 0 0 3px rgba(15, 53, 255, 0.08);
+  border-color: #e02020;
+  box-shadow: 0 0 0 3px rgba(224, 32, 32, 0.08);
 }
 .sp-form-input::placeholder,
 .sp-form-textarea::placeholder {
@@ -6167,11 +6292,11 @@
   cursor: not-allowed;
 }
 .sp-btn--primary {
-  background: #0f35ff;
+  background: #e02020;
   color: #fff;
 }
 .sp-btn--primary:hover:not(:disabled) {
-  background: #0b2ad9;
+  background: #c01c1c;
   transform: translateY(-1px);
 }
 .sp-btn--full {
@@ -6215,7 +6340,7 @@
 }
 
 .sp-prose a {
-  color: #0f35ff;
+  color: #e02020;
   font-weight: 600;
   text-decoration: none;
 }
@@ -6232,11 +6357,11 @@
   box-shadow: 0 2px 16px rgba(0, 0, 0, 0.2);
 }
 [data-theme="dark"] .sp-contact-card__icon {
-  background: rgba(107, 138, 255, 0.12);
-  color: #6b8aff;
+  background: rgba(255, 90, 90, 0.14);
+  color: #ff5a5a;
 }
 [data-theme="dark"] .sp-prose a {
-  color: #6b8aff;
+  color: #ff5a5a;
 }
 
 /* ============================================
@@ -6480,8 +6605,8 @@
   box-sizing: border-box;
 }
 .acm-reply__input:focus {
-  border-color: #0f35ff;
-  box-shadow: 0 0 0 3px rgba(15, 53, 255, 0.08);
+  border-color: #e02020;
+  box-shadow: 0 0 0 3px rgba(224, 32, 32, 0.08);
 }
 .acm-reply__input::placeholder {
   color: var(--text-placeholder);
@@ -6566,6 +6691,14 @@
 }
 @media (max-width: 768px) {
   .nav-header-link__text { display: none; }
+}
+@media (max-width: 480px) {
+  .nav-header-link { padding: 7px 8px; }
+}
+/* Below 400px the top nav row can't fit logo + all controls; Liên hệ is
+   still reachable from the footer. */
+@media (max-width: 400px) {
+  .nav-header-link { display: none; }
 }
 
 /* ── language switcher ── */
@@ -7060,11 +7193,17 @@
   color: var(--text-tertiary);
 }
 
+/* A flat #12121c read as a dead slab. A faint radial wash (brighter near the
+   top, where the stage sits) plus an inset vignette on the edges gives the
+   venue actual depth without touching per-seat rendering cost. */
 .vsm-canvas-wrap {
-  background: #12121c;
-  border-radius: 12px;
+  background:
+    radial-gradient(ellipse 140% 60% at 50% 0%, rgba(255,255,255,0.05), transparent 65%),
+    #121018;
+  border-radius: 14px;
   overflow: hidden;
   border: 1px solid var(--border-secondary);
+  box-shadow: inset 0 0 60px rgba(0,0,0,0.5), 0 10px 30px rgba(0,0,0,0.18);
 }
 .vsm-canvas {
   display: block;
@@ -7072,11 +7211,28 @@
   height: auto;
 }
 .vsm-canvas--fade {
-  animation: vsm-fade-in 0.25s ease;
+  animation: vsm-fade-in 0.32s cubic-bezier(0.16, 1, 0.3, 1);
 }
 @keyframes vsm-fade-in {
-  from { opacity: 0; transform: scale(0.985); }
+  from { opacity: 0; transform: scale(0.97); }
   to { opacity: 1; transform: scale(1); }
+}
+
+/* Expanding ring behind a just-picked seat — the one flourish that marks
+   "this one is yours" without demanding attention from every other seat. */
+.vsm-pulse-ring {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: vsm-pulse 1.6s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+@keyframes vsm-pulse {
+  0%   { transform: scale(1);   opacity: 0.5; }
+  75%  { transform: scale(2.1); opacity: 0; }
+  100% { transform: scale(2.1); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .vsm-pulse-ring { animation: none; opacity: 0; }
+  .vsm-canvas--fade { animation: none; }
 }
 
 /* An even grid instead of wrapping flex — zones line up in columns however
@@ -7097,10 +7253,12 @@
   font-size: 12px;
   color: var(--text-secondary);
   cursor: pointer;
-  transition: border-color 0.15s, background 0.15s;
+  transition: border-color 0.15s, background 0.15s, transform 0.15s, box-shadow 0.15s;
 }
 .vsm-legend-item:hover {
   border-color: var(--border-primary);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
 }
 .vsm-legend-item--active {
   border-color: var(--text-primary);
@@ -7111,6 +7269,7 @@
   height: 10px;
   border-radius: 3px;
   flex-shrink: 0;
+  /* box-shadow glow is set inline (per swatch colour) in VenueSeatMap.tsx */
 }
 /* A long zone name truncates rather than pushing the price out of the chip */
 .vsm-legend-name {
@@ -7222,26 +7381,6 @@
 }
 .adm-status--draft { background: #eceff3; color: #6b7280; }
 .adm-status--upcoming { background: #fef3c7; color: #b45309; }
-
-/* Hero tag: upcoming variant */
-.home-hero__tag--upcoming {
-  background: rgba(245, 158, 11, 0.92) !important;
-  color: #fff !important;
-}
-
-/* Event card "coming soon" ribbon */
-.ec2-upcoming {
-  position: absolute;
-  top: 10px;
-  left: 10px;
-  background: rgba(245, 158, 11, 0.95);
-  color: #fff;
-  font-size: 11px;
-  font-weight: 700;
-  border-radius: 6px;
-  padding: 3px 9px;
-  z-index: 2;
-}
 
 
 

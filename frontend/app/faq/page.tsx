@@ -29,13 +29,21 @@ function FaqItem({ q, a }: { q: string; a: string }) {
   const [open, setOpen] = useState(false);
   return (
     <div className={`sp-faq-item ${open ? 'sp-faq-item--open' : ''}`}>
-      <button className="sp-faq-q" onClick={() => setOpen(!open)}>
+      <button className="sp-faq-q" onClick={() => setOpen(!open)} aria-expanded={open}>
         <span>{q}</span>
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="sp-faq-chevron">
           <path d="M4 6l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       </button>
-      {open && <p className="sp-faq-a">{a}</p>}
+      {/* Always rendered — the grid-rows 0fr→1fr trick on the wrapper is what
+          animates the reveal, so there's no height-measuring JS and no
+          layout jump. Conditional rendering here would skip that transition
+          entirely. */}
+      <div className="sp-faq-a-wrap">
+        <div className="sp-faq-a-inner">
+          <p className="sp-faq-a">{a}</p>
+        </div>
+      </div>
     </div>
   );
 }

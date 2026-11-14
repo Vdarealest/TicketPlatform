@@ -22,6 +22,7 @@ export default function EventCard({ event }: EventCardProps) {
     : null;
 
   const category = translateCategory(event.category || event.type, lang) || t.event;
+  const status = effectiveSaleStatus(event);
 
   const minPrice = Array.isArray(event.tickets) && event.tickets.length > 0
     ? Math.min(...event.tickets.map((t: { price: number }) => t.price))
@@ -49,14 +50,14 @@ export default function EventCard({ event }: EventCardProps) {
             alt={event.title}
             className="ec2-img"
           />
-          {formattedPrice && (
-            <span className="ec2-price">{t.events_from} {formattedPrice}</span>
+          {status === 'UPCOMING' && (
+            <span className="ec2-status ec2-status--upcoming">{lang === 'en' ? 'Coming soon' : 'Sắp mở bán'}</span>
           )}
-          {effectiveSaleStatus(event) === 'UPCOMING' && (
-            <span className="ec2-upcoming">{lang === 'en' ? 'Coming soon' : 'Sắp mở bán'}</span>
+          {status === 'ENDED' && (
+            <span className="ec2-status ec2-status--ended">{lang === 'en' ? 'Ended' : 'Đã kết thúc'}</span>
           )}
-          {effectiveSaleStatus(event) === 'ENDED' && (
-            <span className="ec2-upcoming">{lang === 'en' ? 'Ended' : 'Đã kết thúc'}</span>
+          {status === 'ON_SALE' && (
+            <span className="ec2-status ec2-status--onsale">{lang === 'en' ? 'Tickets available' : 'Còn vé'}</span>
           )}
         </div>
         <div className="ec2-body">
@@ -82,6 +83,12 @@ export default function EventCard({ event }: EventCardProps) {
                 <span>{event.location}</span>
               </div>
             )}
+          </div>
+          <div className="ec2-footer">
+            <span className="ec2-price">
+              {formattedPrice ? <>{t.events_from} <strong>{formattedPrice}</strong></> : ' '}
+            </span>
+            <span className="ec2-cta">{t.home_view_details}</span>
           </div>
         </div>
       </div>

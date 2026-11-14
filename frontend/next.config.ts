@@ -6,6 +6,13 @@ const wsUrl = process.env.NEXT_PUBLIC_WS_URL || apiUrl;
 // since Socket.IO negotiates over both http(s) and ws(s) schemes.
 const wsSocketUrl = wsUrl.replace(/^http/, "ws");
 
+// 'next dev' needs eval() for React's dev-only debugging features (e.g.
+// reconstructing component stacks). Without 'unsafe-eval' the browser blocks
+// it and React logs a scary-looking (but harmless) console warning — it
+// never calls eval() in production, so this stays dev-only and doesn't
+// weaken the production CSP below.
+const isDev = process.env.NODE_ENV !== "production";
+
 // This app stores its JWT in localStorage (see lib/api.ts) rather than an
 // httpOnly cookie — a deliberate, tracked tradeoff, not an oversight. CSP is
 // the main compensating control: even if a script ever got injected, a
@@ -17,7 +24,7 @@ const csp = [
   // Next.js ships inline bootstrap scripts; strict nonce-based CSP would
   // remove the need for 'unsafe-inline' here but requires per-request nonce
   // wiring across the App Router — tracked as a follow-up, not done here.
-  "script-src 'self' 'unsafe-inline'",
+  `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""}`,
   "style-src 'self' 'unsafe-inline'",
   // Event banners are admin-uploaded from the backend, plus Google avatar
   // images and the VietQR image service.

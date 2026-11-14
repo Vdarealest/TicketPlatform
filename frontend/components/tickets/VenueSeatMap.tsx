@@ -43,6 +43,9 @@ interface PlacedSection {
 export default function VenueSeatMap({ layout, tickets, selectedSeats, onSelectSeat, onZoneFocus, busy, maxSeats = 10 }: VenueSeatMapProps) {
   const { lang } = useTranslation();
   const [zoomId, setZoomId] = useState<string | null>(null);
+  // Hover glow only tracked while zoomed — overview can have thousands of
+  // dots, so per-seat interactivity stays scoped to the one zone in view.
+  const [hoveredSeatId, setHoveredSeatId] = useState<number | null>(null);
 
   const selectedIds = new Set(selectedSeats.map((s) => s.id));
   const atMax = selectedSeats.length >= maxSeats;
@@ -140,6 +143,7 @@ export default function VenueSeatMap({ layout, tickets, selectedSeats, onSelectS
 
   const focusZone = (secId: string, ticket: Ticket | null) => {
     setZoomId(secId);
+    setHoveredSeatId(null);
     if (ticket && onZoneFocus) onZoneFocus(ticket);
   };
 
@@ -183,6 +187,46 @@ export default function VenueSeatMap({ layout, tickets, selectedSeats, onSelectS
           viewBox={`${activeView.x} ${activeView.y} ${activeView.w} ${activeView.h}`}
           role="img"
         >
+          <defs>
+            {/* Stage: brushed-metal gradient instead of a flat grey slab */}
+            <linearGradient id="vsm-stage-metal" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#6b6b78" />
+              <stop offset="45%" stopColor="#47474f" />
+              <stop offset="100%" stopColor="#2b2b31" />
+            </linearGradient>
+            {/* Light spilling from the stage down over the seating area */}
+            <radialGradient id="vsm-spotlight" cx="50%" cy="0%" r="75%">
+              <stop offset="0%" stopColor="#fff" stopOpacity="0.16" />
+              <stop offset="55%" stopColor="#fff" stopOpacity="0.045" />
+              <stop offset="100%" stopColor="#fff" stopOpacity="0" />
+            </radialGradient>
+            {/* Soft halo for hovered/selected seats — cheap because only a
+                handful of seats ever use it at once (zoomed view, max ~10
+                selected + 1 hovered). */}
+            <filter id="vsm-seat-glow" x="-120%" y="-120%" width="340%" height="340%">
+              <feGaussianBlur stdDeviation="2.2" result="blur" />
+              <feMerge>
+                <feMergeNode in="blur" />
+                <feMergeNode in="SourceGraphic" />
+              </feMerge>
+            </filter>
+            {/* Diagonal hatch for HELD seats — reads as "temporarily taken by
+                someone else" at a glance, rather than the same flat grey as a
+                zone with no ticket assigned. */}
+            <pattern id="vsm-held-hatch" width="6" height="6" patternTransform="rotate(45)" patternUnits="userSpaceOnUse">
+              <rect width="6" height="6" fill="#52525b" />
+              <line x1="0" y1="0" x2="0" y2="6" stroke="#a1a1aa" strokeWidth="2" />
+            </pattern>
+            {/* Per-zone fill: a vertical gradient of the zone's own colour
+                reads as a lit panel instead of a flat colour wash. */}
+            {placed.map(({ sec }) => (
+              <linearGradient key={sec.id} id={`vsm-zone-${sec.id}`} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={sec.color} stopOpacity="0.22" />
+                <stop offset="100%" stopColor={sec.color} stopOpacity="0.07" />
+              </linearGradient>
+            ))}
+          </defs>
+
           {/* Backdrop — click to zoom out */}
           <rect x={activeView.x} y={activeView.y} width={activeView.w} height={activeView.h} fill="transparent" onClick={() => setZoomId(null)} />
 
@@ -192,8 +236,17 @@ export default function VenueSeatMap({ layout, tickets, selectedSeats, onSelectS
                 space and would just overlap it. */}
             {stage && !zoomId && (
               <g style={{ pointerEvents: 'none' }}>
-                <rect x={stage.x} y={stage.y} width={stage.w} height={stage.h} rx={6} fill="#555" opacity={0.65} />
-                <text x={stage.x + stage.w / 2} y={stage.y + stage.h * 0.67} textAnchor="middle" fill="#fff" fontSize={12} fontWeight={600} style={{ userSelect: 'none' }}>
+                {/* Spotlight wash, wide enough to spill past the stage edges
+                    and over the first few rows of seating. */}
+                <ellipse
+                  cx={stage.x + stage.w / 2} cy={stage.y + stage.h}
+                  rx={stage.w * 1.15} ry={stage.h * 7}
+                  fill="url(#vsm-spotlight)"
+                />
+                <rect x={stage.x} y={stage.y} width={stage.w} height={stage.h} rx={6} fill="url(#vsm-stage-metal)" />
+                {/* Thin bright edge along the top — the "lit lip" of the stage */}
+                <rect x={stage.x + 2} y={stage.y + 1} width={stage.w - 4} height={1.4} fill="#fff" opacity={0.35} />
+                <text x={stage.x + stage.w / 2} y={stage.y + stage.h * 0.67} textAnchor="middle" fill="#fff" fontSize={12} fontWeight={600} letterSpacing={1.5} style={{ userSelect: 'none' }}>
                   {lang === 'en' ? 'STAGE' : 'SÂN KHẤU'}
                 </text>
               </g>
@@ -245,8 +298,8 @@ export default function VenueSeatMap({ layout, tickets, selectedSeats, onSelectS
                   <g key={sec.id}>
                     <path
                       d={arcWedgePath(dsec)}
-                      fill={sec.color}
-                      fillOpacity={noTicket ? 0.06 : isZoomedHere ? 0.1 : 0.15}
+                      fill={noTicket ? sec.color : `url(#vsm-zone-${sec.id})`}
+                      fillOpacity={noTicket ? 0.06 : isZoomedHere ? 0.55 : 1}
                       stroke={sec.color}
                       strokeWidth={1.4}
                       strokeOpacity={noTicket ? 0.35 : 0.75}
@@ -294,32 +347,50 @@ export default function VenueSeatMap({ layout, tickets, selectedSeats, onSelectS
                       const isHeld = seat.status === 'HELD' && !isSelected;
                       const clickable = isZoomedHere && !isBooked && !isHeld && !busy && (!atMax || isSelected);
                       const dimmedByMax = atMax && !isSelected && !isBooked && !isHeld && isZoomedHere;
+                      const isHovered = isZoomedHere && clickable && hoveredSeatId === seat.id;
 
                       let fill: string, fillOp: number, stroke: string, strokeOp: number, textFill: string;
                       if (isBooked) {
                         fill = '#26262f'; fillOp = 1; stroke = '#3c3c48'; strokeOp = 1; textFill = 'rgba(255,255,255,0.22)';
                       } else if (isHeld) {
-                        fill = '#52525b'; fillOp = 0.3; stroke = '#71717a'; strokeOp = 0.8; textFill = 'rgba(255,255,255,0.35)';
+                        fill = 'url(#vsm-held-hatch)'; fillOp = 1; stroke = '#a1a1aa'; strokeOp = 0.8; textFill = 'rgba(255,255,255,0.45)';
                       } else if (isSelected) {
                         fill = sec.color; fillOp = 1; stroke = '#fff'; strokeOp = 1; textFill = '#fff';
+                      } else if (isHovered) {
+                        fill = sec.color; fillOp = 0.32; stroke = '#fff'; strokeOp = 0.9; textFill = '#fff';
                       } else {
                         fill = sec.color; fillOp = isZoomedHere ? 0.16 : 0.9; stroke = sec.color; strokeOp = 1; textFill = 'rgba(255,255,255,0.95)';
                       }
+                      const seatR = isSelected ? dotR * 1.1 : isHovered ? dotR * 1.18 : dotR;
 
                       return (
                         <g key={seat.id} opacity={dimmedByMax ? 0.35 : 1}>
+                          {/* Expanding ping ring behind a selected seat — the
+                              one flourish that draws the eye to "you picked
+                              this", cheap because at most maxSeats run at once. */}
+                          {isSelected && isZoomedHere && (
+                            <circle
+                              className="vsm-pulse-ring"
+                              cx={sx} cy={sy} r={dotR}
+                              fill={sec.color}
+                              style={{ pointerEvents: 'none' }}
+                            />
+                          )}
                           <circle
-                            cx={sx} cy={sy} r={isSelected ? dotR * 1.06 : dotR}
+                            cx={sx} cy={sy} r={seatR}
                             fill={fill}
                             fillOpacity={fillOp}
                             stroke={isZoomedHere ? stroke : 'none'}
                             strokeOpacity={strokeOp}
                             strokeWidth={isZoomedHere ? dotR * (isSelected ? 0.2 : 0.15) : 0}
+                            filter={isZoomedHere && (isSelected || isHovered) ? 'url(#vsm-seat-glow)' : undefined}
                             style={{
                               cursor: clickable ? 'pointer' : isZoomedHere ? 'not-allowed' : 'default',
                               pointerEvents: isZoomedHere ? 'auto' : 'none',
-                              transition: 'fill 0.15s, fill-opacity 0.15s, stroke 0.15s',
+                              transition: 'fill 0.15s, fill-opacity 0.15s, stroke 0.15s, r 0.12s ease-out',
                             }}
+                            onMouseEnter={() => clickable && setHoveredSeatId(seat.id)}
+                            onMouseLeave={() => setHoveredSeatId((id) => (id === seat.id ? null : id))}
                             onClick={(e) => {
                               e.stopPropagation();
                               if (clickable && ticket) onSelectSeat(ticket, seat);
@@ -403,8 +474,8 @@ export default function VenueSeatMap({ layout, tickets, selectedSeats, onSelectS
                   {/* Zone box: always zoomable */}
                   <rect
                     x={dsec.x} y={dsec.y} width={w} height={h} rx={4}
-                    fill={sec.color}
-                    fillOpacity={noTicket ? 0.06 : isZoomedHere ? 0.1 : 0.15}
+                    fill={noTicket ? sec.color : `url(#vsm-zone-${sec.id})`}
+                    fillOpacity={noTicket ? 0.06 : isZoomedHere ? 0.55 : 1}
                     stroke={sec.color}
                     strokeWidth={1.4}
                     strokeOpacity={noTicket ? 0.35 : 0.75}
@@ -476,6 +547,7 @@ export default function VenueSeatMap({ layout, tickets, selectedSeats, onSelectS
                       const isHeld = seat.status === 'HELD' && !isSelected;
                       const clickable = isZoomedHere && !isBooked && !isHeld && !busy && (!atMax || isSelected);
                       const dimmedByMax = atMax && !isSelected && !isBooked && !isHeld && isZoomedHere;
+                      const isHovered = isZoomedHere && clickable && hoveredSeatId === seat.id;
 
                       // Zoomed: outlined circle with seat number (classic style).
                       // Overview: small solid dot.
@@ -483,27 +555,41 @@ export default function VenueSeatMap({ layout, tickets, selectedSeats, onSelectS
                       if (isBooked) {
                         fill = '#26262f'; fillOp = 1; stroke = '#3c3c48'; strokeOp = 1; textFill = 'rgba(255,255,255,0.22)';
                       } else if (isHeld) {
-                        fill = '#52525b'; fillOp = 0.3; stroke = '#71717a'; strokeOp = 0.8; textFill = 'rgba(255,255,255,0.35)';
+                        fill = 'url(#vsm-held-hatch)'; fillOp = 1; stroke = '#a1a1aa'; strokeOp = 0.8; textFill = 'rgba(255,255,255,0.45)';
                       } else if (isSelected) {
                         fill = sec.color; fillOp = 1; stroke = '#fff'; strokeOp = 1; textFill = '#fff';
+                      } else if (isHovered) {
+                        fill = sec.color; fillOp = 0.32; stroke = '#fff'; strokeOp = 0.9; textFill = '#fff';
                       } else {
                         fill = sec.color; fillOp = isZoomedHere ? 0.16 : 0.9; stroke = sec.color; strokeOp = 1; textFill = 'rgba(255,255,255,0.95)';
                       }
+                      const seatR = isSelected ? dotR * 1.1 : isHovered ? dotR * 1.18 : dotR;
 
                       return (
                         <g key={seat.id} opacity={dimmedByMax ? 0.35 : 1}>
+                          {isSelected && isZoomedHere && (
+                            <circle
+                              className="vsm-pulse-ring"
+                              cx={sx} cy={sy} r={dotR}
+                              fill={sec.color}
+                              style={{ pointerEvents: 'none' }}
+                            />
+                          )}
                           <circle
-                            cx={sx} cy={sy} r={isSelected ? dotR * 1.06 : dotR}
+                            cx={sx} cy={sy} r={seatR}
                             fill={fill}
                             fillOpacity={fillOp}
                             stroke={isZoomedHere ? stroke : 'none'}
                             strokeOpacity={strokeOp}
                             strokeWidth={isZoomedHere ? dotR * (isSelected ? 0.2 : 0.15) : 0}
+                            filter={isZoomedHere && (isSelected || isHovered) ? 'url(#vsm-seat-glow)' : undefined}
                             style={{
                               cursor: clickable ? 'pointer' : isZoomedHere ? 'not-allowed' : 'default',
                               pointerEvents: isZoomedHere ? 'auto' : 'none',
-                              transition: 'fill 0.15s, fill-opacity 0.15s, stroke 0.15s',
+                              transition: 'fill 0.15s, fill-opacity 0.15s, stroke 0.15s, r 0.12s ease-out',
                             }}
+                            onMouseEnter={() => clickable && setHoveredSeatId(seat.id)}
+                            onMouseLeave={() => setHoveredSeatId((id) => (id === seat.id ? null : id))}
                             onClick={(e) => {
                               e.stopPropagation();
                               if (clickable && ticket) onSelectSeat(ticket, seat);
@@ -566,7 +652,7 @@ export default function VenueSeatMap({ layout, tickets, selectedSeats, onSelectS
             className={`vsm-legend-item ${zoomId === sec.id ? 'vsm-legend-item--active' : ''}`}
             onClick={() => (zoomId === sec.id ? setZoomId(null) : focusZone(sec.id, ticket))}
           >
-            <span className="vsm-legend-dot" style={{ background: sec.color }} />
+            <span className="vsm-legend-dot" style={{ background: sec.color, boxShadow: `0 0 0 3px ${sec.color}30` }} />
             <span className="vsm-legend-name">{sec.label}</span>
             <span className="vsm-legend-qty">{available}/{seats.length}</span>
             <span className="vsm-legend-price" style={{ color: sec.color }}>{formatCurrencyVND(ticket!.price)}</span>

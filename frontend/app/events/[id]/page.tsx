@@ -236,7 +236,7 @@ function ReviewSection({ eventId, eventEndTime }: { eventId: number; eventEndTim
 
       {eventEnded && !isLoggedIn && (
         <p className="edp-review-form__msg edp-review-form__msg--info" style={{ marginBottom: 16 }}>
-          <Link href="/login" style={{ color: '#0f35ff', fontWeight: 600 }}>{t.nav_login}</Link> {t.edp_review_login}
+          <Link href="/login" style={{ color: '#e02020', fontWeight: 600 }}>{t.nav_login}</Link> {t.edp_review_login}
         </p>
       )}
 

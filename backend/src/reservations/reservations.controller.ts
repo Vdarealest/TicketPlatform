@@ -63,6 +63,20 @@ export class ReservationsController {
     );
   }
 
+  @Post(':ticketId/general')
+  @UseGuards(OptionalJwtAuthGuard)
+  reserveGeneral(
+    @Param('ticketId') ticketId: string,
+    @Body() body: { quantity: number; guestEmail?: string },
+    @Request() req,
+  ) {
+    return this.reservationsService.reserveGeneralAdmission(
+      Number(ticketId),
+      body.quantity,
+      { userId: req.user?.userId, guestEmail: body.guestEmail },
+    );
+  }
+
   @Post('bulk/details')
   @UseGuards(OptionalJwtAuthGuard)
   getMultiple(

@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 
 import { User } from '../users/entities/user.entity';
@@ -115,7 +115,9 @@ export class AdminService {
       ticketTypeStats,
       recentOrders: recentOrders.map((r) => ({
         id: r.id,
-        userEmail: r.user?.email,
+        // Guest checkout has no `user` — fall back to the email they typed
+        // in, or the row shows a bare "??" avatar with a blank line under it.
+        userEmail: r.user?.email ?? r.guestEmail ?? null,
         eventTitle: r.ticket?.event?.title,
         ticketType: r.ticket?.type,
         price: r.ticket?.price,
@@ -158,7 +160,7 @@ export class AdminService {
     featuredOrder?: number;
     status?: 'DRAFT' | 'UPCOMING' | 'ON_SALE';
     saleOpenAt?: string | null;
-    tickets?: { type: string; price: number; quantity: number }[];
+    tickets?: { type: string; price: number; quantity: number; seating?: 'SEATED' | 'GENERAL' }[];
   }) {
     const event = this.eventsRepo.create({
       title: data.title,
@@ -197,10 +199,13 @@ export class AdminService {
           type: t.type,
           price: t.price,
           quantity: t.quantity,
+          seating: t.seating === 'GENERAL' ? 'GENERAL' : 'SEATED',
           event: savedEvent,
         });
         const savedTicket = await this.ticketsRepo.save(ticket);
-        if (!usesLayout) {
+        // GA tickets track availability purely through ticket.quantity — no
+        // Seat rows, so there's nothing to generate.
+        if (!usesLayout && savedTicket.seating !== 'GENERAL') {
           const rowsGenerated = await this.generateSeats(savedTicket, rowOffset);
           rowOffset += rowsGenerated;
         }
@@ -294,7 +299,7 @@ export class AdminService {
 
   async addTicketToEvent(
     eventId: number,
-    data: { type: string; price: number; quantity: number },
+    data: { type: string; price: number; quantity: number; seating?: 'SEATED' | 'GENERAL' },
   ) {
     const event = await this.eventsRepo.findOne({
       where: { id: eventId },
@@ -306,9 +311,16 @@ export class AdminService {
       type: data.type,
       price: data.price,
       quantity: data.quantity,
+      seating: data.seating === 'GENERAL' ? 'GENERAL' : 'SEATED',
       event,
     });
     const savedTicket = await this.ticketsRepo.save(ticket);
+
+    // GA tickets have no seat map to place on — availability is tracked
+    // purely through ticket.quantity, so there's nothing to generate.
+    if (savedTicket.seating === 'GENERAL') {
+      return this.getEvent(eventId);
+    }
 
     // For SVG-layout events, seats are created from the drawn sections via
     // "Tạo ghế" in the designer — auto-generating a grid here would produce
@@ -365,6 +377,24 @@ export class AdminService {
       const quantity = Number(data.quantity);
       if (!Number.isInteger(quantity) || quantity < 0) {
         throw new BadRequestException('Số lượng vé phải là số nguyên không âm.');
+      }
+
+      if (ticket.seating === 'GENERAL') {
+        // No Seat rows to reconcile for GA — just refuse to set the
+        // remaining count below what's already held or sold.
+        const taken = await this.reservationsRepo.count({
+          where: { ticket: { id: ticketId }, status: In(['HOLD', 'CONFIRMED']) },
+        });
+        if (quantity < taken) {
+          throw new BadRequestException(
+            `Không thể giảm xuống ${quantity} vé — đã có ${taken} vé đang giữ hoặc đã bán.`,
+          );
+        }
+        patch.quantity = quantity;
+        if (Object.keys(patch).length) {
+          await this.ticketsRepo.update(ticketId, patch);
+        }
+        return this.getEvent(ticket.event.id);
       }
 
       const seats = ticket.seats || [];

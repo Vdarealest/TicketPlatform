@@ -102,7 +102,9 @@ export default function AdminDashboard() {
   const stats = [
     {
       value: formatCurrencyVND(data.totalRevenue), label: `Từ ${data.confirmedReservations} đơn thanh toán`,
-      color: '#6366f1', bg: 'rgba(15, 53, 255, 0.1)', pct: convPct,
+      // bg used to be a leftover rgba(0f35ff) that didn't match the indigo
+      // `color`/icon above it — this is the correct tint for #6366f1.
+      color: '#6366f1', bg: 'rgba(99, 102, 241, 0.1)', pct: convPct,
       icon: <svg width="20" height="20" fill="none" stroke="#6366f1" strokeWidth="2" viewBox="0 0 24 24"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" /></svg>,
     },
     {
@@ -290,11 +292,11 @@ export default function AdminDashboard() {
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     fontSize: 10, fontWeight: 700, color: '#fff',
                   }}>
-                    {(o.userEmail || '??').slice(0, 2).toUpperCase()}
+                    {o.userEmail ? o.userEmail.slice(0, 2).toUpperCase() : '?'}
                   </div>
                   <div style={{ minWidth: 0 }}>
                     <div style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{o.eventTitle}</div>
-                    <div style={{ fontSize: 10.5, color: 'var(--text-quaternary)' }}>{o.userEmail}</div>
+                    <div style={{ fontSize: 10.5, color: 'var(--text-quaternary)' }}>{o.userEmail || 'Không rõ người mua'}</div>
                   </div>
                 </div>
                 <span style={{ fontSize: 12, color: 'var(--text-tertiary)', fontWeight: 500 }}>{o.ticketType}</span>

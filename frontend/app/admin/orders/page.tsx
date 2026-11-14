@@ -10,6 +10,7 @@ interface OrderItem {
   createdAt: string;
   expiresAt: string;
   user: { id: number; email: string } | null;
+  guestEmail: string | null;
   ticket: {
     id: number;
     type: string;
@@ -109,7 +110,7 @@ export default function AdminOrders() {
               {orders.map((o) => (
                 <tr key={o.id}>
                   <td style={{ fontWeight: 600 }}>{o.id}</td>
-                  <td>{o.user?.email || '—'}</td>
+                  <td>{o.user?.email || o.guestEmail || '—'}</td>
                   <td style={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {o.ticket?.event?.title || '—'}
                   </td>
