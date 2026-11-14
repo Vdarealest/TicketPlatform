@@ -3,9 +3,10 @@
 import Link from 'next/link';
 import { useTranslation, translateCategory } from '../../lib/i18n';
 import { cdnImage, cdnSrcSet } from '../../lib/image';
+import type { EventSummary } from '../../lib/types';
 
 interface FeaturedEventCardProps {
-  event: any;
+  event: EventSummary;
   /** Cycles the accent colour so three cards in a row don't read as one
    *  flat block — purely decorative, carries no meaning of its own. */
   index: number;

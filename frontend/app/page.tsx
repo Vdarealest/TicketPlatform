@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import api from '../lib/api';
 import { useTranslation } from '../lib/i18n';
+import type { EventSummary } from '../lib/types';
 import { cdnImage, cdnSrcSet } from '../lib/image';
 import { effectiveSaleStatus } from '../lib/eventStatus';
 import EventCard from '../components/events/EventCard';
@@ -15,8 +16,8 @@ const AUTO_MS = 5000;
 export default function Home() {
   const router = useRouter();
   const { t } = useTranslation();
-  const [events, setEvents] = useState<any[]>([]);
-  const [featured, setFeatured] = useState<any[]>([]);
+  const [events, setEvents] = useState<EventSummary[]>([]);
+  const [featured, setFeatured] = useState<EventSummary[]>([]);
   // Infinite loop: the track holds [clone(last), ...real, clone(first)].
   // `pos` indexes that extended array; real slides live at positions 1..n.
   const [pos, setPos] = useState(1);

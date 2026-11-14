@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import api from '@/lib/api';
+import api, { apiErrorMessage } from '@/lib/api';
 import { useTranslation } from '@/lib/i18n';
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
@@ -121,8 +121,8 @@ function EditProfileModal({
         headers: { 'Content-Type': 'multipart/form-data' },
       });
       setAvatarUrl(res.data.url);
-    } catch (err: any) {
-      setError(err?.response?.data?.message || t.pp_upload_fail);
+    } catch (err) {
+      setError(apiErrorMessage(err, t.pp_upload_fail));
     } finally {
       setUploading(false);
     }
@@ -138,8 +138,8 @@ function EditProfileModal({
       onSaved(res.data);
       window.dispatchEvent(new Event('auth-changed'));
       setTimeout(onClose, 800);
-    } catch (err: any) {
-      setError(err?.response?.data?.message || t.pp_save_fail);
+    } catch (err) {
+      setError(apiErrorMessage(err, t.pp_save_fail));
     } finally {
       setSaving(false);
     }
@@ -282,8 +282,8 @@ function ChangePasswordModal({
       });
       setSuccess(t.pp_pw_success);
       setTimeout(onClose, 1000);
-    } catch (err: any) {
-      setError(err?.response?.data?.message || t.pp_pw_fail);
+    } catch (err) {
+      setError(apiErrorMessage(err, t.pp_pw_fail));
     } finally {
       setSaving(false);
     }

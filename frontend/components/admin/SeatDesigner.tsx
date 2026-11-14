@@ -11,6 +11,7 @@ import {
   isArcSection,
   ARC_SECTION_DEFAULTS,
 } from '@/lib/seatGeometry';
+import { apiErrorMessage } from '@/lib/api';
 
 const CELL = 28;
 const CANVAS_W = 900;
@@ -389,8 +390,8 @@ export default function SeatDesigner({ title, subtitle, initialSections, initial
         ...t,
         seatCount: sections.filter(s => s.ticketId === t.id).reduce((a, s) => a + s.rows * s.seatsPerRow, 0),
       })) ?? null);
-    } catch (err: any) {
-      flash(err?.response?.data?.message || 'Thao tác thất bại.');
+    } catch (err) {
+      flash(apiErrorMessage(err, 'Thao tác thất bại.'));
     } finally {
       setRunning(false);
     }

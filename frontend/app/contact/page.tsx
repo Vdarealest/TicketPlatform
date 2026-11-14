@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import api from '@/lib/api';
+import api, { apiErrorMessage } from '@/lib/api';
 import { useTranslation } from '@/lib/i18n';
 
 export default function ContactPage() {
@@ -19,8 +19,8 @@ export default function ContactPage() {
       await api.post('/contact', form);
       setSent(true);
       setForm({ name: '', email: '', subject: '', message: '' });
-    } catch (err: any) {
-      setError(err?.response?.data?.message || t.contact_fail);
+    } catch (err) {
+      setError(apiErrorMessage(err, t.contact_fail));
     } finally {
       setSending(false);
     }

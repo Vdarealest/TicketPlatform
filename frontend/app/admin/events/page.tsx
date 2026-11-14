@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
-import api from '../../../lib/api';
+import api, { apiErrorMessage } from '../../../lib/api';
 import { formatCurrencyVND } from '../../../lib/format';
 import { resolveImageUrl } from '../../../lib/image';
 
@@ -177,10 +177,10 @@ export default function AdminEvents() {
         await api.post('/admin/events', { ...payload, tickets: newTickets });
       }
       setShowModal(false); load();
-    } catch (err: any) {
+    } catch (err) {
       // Surfaced because the ticket rules can legitimately reject a save
       // (e.g. reducing a tier below the number of seats already sold).
-      setFormError(err?.response?.data?.message || 'Không lưu được. Vui lòng thử lại.');
+      setFormError(apiErrorMessage(err, 'Không lưu được. Vui lòng thử lại.'));
     } finally { setSaving(false); }
   };
 

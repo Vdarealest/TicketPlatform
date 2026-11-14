@@ -55,5 +55,19 @@ api.interceptors.response.use(
   }
 );
 
+/**
+ * The message to show for a failed API call. Nest sends `message` as a
+ * string from services, but as an array of strings from ValidationPipe
+ * (one per invalid field), which used to render glued together.
+ */
+export function apiErrorMessage(err: unknown, fallback: string): string {
+  if (axios.isAxiosError<{ message?: string | string[] }>(err)) {
+    const message = err.response?.data?.message;
+    if (Array.isArray(message)) return message.filter(Boolean).join(' ') || fallback;
+    if (typeof message === 'string' && message) return message;
+  }
+  return fallback;
+}
+
 // Export axios instance for direct use
 export default api;

@@ -4,7 +4,7 @@ import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 
-import api from '@/lib/api';
+import api, { apiErrorMessage } from '@/lib/api';
 import { formatCurrencyVND } from '@/lib/format';
 import { cdnImage } from '@/lib/image';
 
@@ -119,9 +119,9 @@ function BulkCheckoutContent() {
       } else {
         throw new Error('Không nhận được URL thanh toán.');
       }
-    } catch (err: any) {
+    } catch (err) {
       setPayState('error');
-      setPayError(err.response?.data?.message || 'Không thể tạo liên kết thanh toán.');
+      setPayError(apiErrorMessage(err, 'Không thể tạo liên kết thanh toán.'));
     }
   };
 
@@ -137,8 +137,8 @@ function BulkCheckoutContent() {
       } else {
         throw new Error(res.data?.message || 'Xác nhận thất bại.');
       }
-    } catch (err: any) {
-      setPayError(err.response?.data?.message || 'Không thể xác nhận thanh toán.');
+    } catch (err) {
+      setPayError(apiErrorMessage(err, 'Không thể xác nhận thanh toán.'));
     } finally {
       setConfirming(false);
     }
@@ -292,7 +292,6 @@ function BulkCheckoutContent() {
                     Quét mã VietQR để thanh toán
                   </p>
                   <div style={{ display: 'inline-block', padding: 12, background: '#fff', borderRadius: 16, border: '1px solid var(--border-input)' }}>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={qr.qrUrl} alt="VietQR" style={{ width: 240, height: 240, display: 'block' }} />
                   </div>
                   <div style={{ margin: '14px 0 4px', fontSize: 13, color: 'var(--text-secondary)' }}>

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import api from '../../../lib/api';
+import api, { apiErrorMessage } from '../../../lib/api';
 import { formatCurrencyVND } from '../../../lib/format';
 
 interface UserItem {
@@ -94,7 +94,13 @@ export default function AdminUsers() {
     setSaving(true);
     try {
       if (editingUser) {
-        const body: any = {};
+        const body: {
+          email?: string;
+          phone?: string;
+          role?: string;
+          password?: string;
+          adminPassword?: string;
+        } = {};
         if (form.email !== editingUser.email) body.email = form.email;
         if (form.phone !== (editingUser.phone || '')) body.phone = form.phone;
         if (form.role !== editingUser.role) body.role = form.role;
@@ -114,8 +120,8 @@ export default function AdminUsers() {
       setShowForm(false);
       setConfirmAction(null);
       load();
-    } catch (e: any) {
-      const msg = e.response?.data?.message || 'Có lỗi xảy ra.';
+    } catch (e) {
+      const msg = apiErrorMessage(e, 'Có lỗi xảy ra.');
       if (confirmAction) setConfirmError(msg);
       else setError(msg);
     } finally {
@@ -151,8 +157,8 @@ export default function AdminUsers() {
       } else if (confirmAction?.type === 'save') {
         await handleSave(adminPassword);
       }
-    } catch (e: any) {
-      setConfirmError(e.response?.data?.message || 'Có lỗi xảy ra.');
+    } catch (e) {
+      setConfirmError(apiErrorMessage(e, 'Có lỗi xảy ra.'));
     } finally {
       setConfirming(false);
     }

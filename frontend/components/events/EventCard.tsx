@@ -8,9 +8,10 @@ import { cdnImage, cdnSrcSet, BLUR_BACKDROP_WIDTH } from '../../lib/image';
 // the viewport wide on tablets and a quarter on desktop.
 const CARD_SIZES = '(max-width: 560px) 100vw, (max-width: 980px) 50vw, 25vw';
 import { effectiveSaleStatus } from '../../lib/eventStatus';
+import type { EventSummary } from '../../lib/types';
 
 interface EventCardProps {
-  event: any;
+  event: EventSummary;
 }
 
 export default function EventCard({ event }: EventCardProps) {

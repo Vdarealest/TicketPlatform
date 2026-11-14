@@ -27,11 +27,12 @@ export function useBackendConnection() {
           });
           console.log('Backend connection successful');
         }
-      } catch (error: any) {
+      } catch (error) {
+        const { code, message } = (error ?? {}) as { code?: string; message?: string };
         const errorMsg =
-          error.code === 'ECONNREFUSED'
+          code === 'ECONNREFUSED'
             ? 'Backend is not running'
-            : error.message || 'Network error';
+            : message || 'Network error';
 
         setStatus({
           isConnected: false,

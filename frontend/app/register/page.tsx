@@ -3,9 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { AxiosError } from 'axios';
-
-import api from '@/lib/api';
+import api, { apiErrorMessage } from '@/lib/api';
 import { useTranslation } from '@/lib/i18n';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
@@ -63,8 +61,7 @@ export default function RegisterPage() {
       window.dispatchEvent(new Event('auth-changed'));
       router.push('/');
     } catch (err) {
-      const e = err as AxiosError<{ message?: string }>;
-      setError(e.response?.data?.message || 'Registration failed');
+      setError(apiErrorMessage(err, 'Registration failed'));
     } finally {
       setLoading(false);
     }

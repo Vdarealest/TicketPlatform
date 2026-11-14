@@ -3,9 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { AxiosError } from 'axios';
-
-import api from '@/lib/api';
+import api, { apiErrorMessage } from '@/lib/api';
 import { socket } from '@/lib/socket';
 import { EventDetail, Seat, SeatLayout, Ticket } from '@/lib/types';
 import { formatCurrencyVND } from '@/lib/format';
@@ -110,6 +108,11 @@ export default function TicketSelectionPage() {
     };
   }, [params.id]);
 
+  const cancelAllHolds = async () => {
+    if (!reservationIdsRef.current.length) return;
+    try { await api.post('/reservations/bulk/cancel', { ids: reservationIdsRef.current, guestToken: guestTokenRef.current }); } catch {}
+  };
+
   // Session countdown
   useEffect(() => {
     const tick = () => {
@@ -134,11 +137,6 @@ export default function TicketSelectionPage() {
       }
     };
   }, []);
-
-  const cancelAllHolds = async () => {
-    if (!reservationIdsRef.current.length) return;
-    try { await api.post('/reservations/bulk/cancel', { ids: reservationIdsRef.current, guestToken: guestTokenRef.current }); } catch {}
-  };
 
   const handleSelectSeat = (ticket: Ticket, seat: Seat) => {
     setHoldError(null);
@@ -218,8 +216,7 @@ export default function TicketSelectionPage() {
       const guestParam = guestToken ? `&guestToken=${encodeURIComponent(guestToken)}` : '';
       router.push(`/checkout/bulk?ids=${ids.join(',')}&deadline=${sessionDeadline}${guestParam}`);
     } catch (err) {
-      const axiosErr = err as AxiosError<{ message?: string }>;
-      setHoldError(axiosErr.response?.data?.message || 'Không thể giữ ghế, vui lòng thử lại.');
+      setHoldError(apiErrorMessage(err, 'Không thể giữ ghế, vui lòng thử lại.'));
     } finally {
       setHoldLoading(false);
     }

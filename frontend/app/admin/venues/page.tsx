@@ -97,7 +97,7 @@ export default function AdminVenues() {
                   <td>
                     {v.layout?.sections?.length ? (
                       <span style={{ fontSize: 12, background: '#d1fae5', color: '#065f46', borderRadius: 6, padding: '2px 10px', fontWeight: 600 }}>
-                        {v.layout.sections.length} khu · {v.layout.sections.reduce((s: number, sec: any) => s + sec.rows * sec.seatsPerRow, 0)} ghế
+                        {v.layout.sections.length} khu · {v.layout.sections.reduce((s, sec) => s + sec.rows * sec.seatsPerRow, 0)} ghế
                       </span>
                     ) : (
                       <span style={{ fontSize: 12, color: '#9ca3af' }}>Chưa có sơ đồ</span>

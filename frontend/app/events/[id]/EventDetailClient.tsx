@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 
-import api from '@/lib/api';
+import api, { apiErrorMessage } from '@/lib/api';
 import { useTranslation, translateCategory } from '@/lib/i18n';
 import { cdnImage, cdnSrcSet, BLUR_BACKDROP_WIDTH } from '@/lib/image';
 import { upcomingLabel, effectiveSaleStatus } from '@/lib/eventStatus';
@@ -40,7 +40,7 @@ function decodeJwt(token: string) {
   } catch { return null; }
 }
 
-function fmtRelative(dateStr: string, t: any) {
+function fmtRelative(dateStr: string, t: ReturnType<typeof useTranslation>['t']) {
   const diff = Date.now() - new Date(dateStr).getTime();
   const mins = Math.floor(diff / 60000);
   if (mins < 1) return t.edp_review_just_now;
@@ -152,8 +152,8 @@ function ReviewSection({ eventId, eventEndTime }: { eventId: number; eventEndTim
       setRating(0);
       setComment('');
       fetchReviews();
-    } catch (err: any) {
-      setFormMsg({ type: 'error', text: err?.response?.data?.message || t.edp_review_fail });
+    } catch (err) {
+      setFormMsg({ type: 'error', text: apiErrorMessage(err, t.edp_review_fail) });
     } finally {
       setSubmitting(false);
     }

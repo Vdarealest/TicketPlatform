@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
   AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
-  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
+  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts';
 import api from '../../lib/api';
 import { formatCurrencyVND } from '../../lib/format';
@@ -66,14 +66,21 @@ function Skeleton() {
   );
 }
 
-function CustomTooltip({ active, payload, label }: any) {
+// Props recharts passes to a custom <Tooltip content>.
+interface ChartTooltipProps {
+  active?: boolean;
+  label?: string;
+  payload?: { name?: string; value?: number }[];
+}
+
+function CustomTooltip({ active, payload, label }: ChartTooltipProps) {
   if (!active || !payload?.length) return null;
   return (
     <div style={{ background: '#18181b', borderRadius: 10, padding: '10px 14px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)', border: 'none' }}>
       <div style={{ fontSize: 11, color: '#a1a1aa', marginBottom: 4 }}>{label}</div>
-      {payload.map((p: any, i: number) => (
+      {payload.map((p, i) => (
         <div key={i} style={{ fontSize: 13, fontWeight: 700, color: '#fff' }}>
-          {p.name === 'revenue' ? formatCurrencyVND(p.value) : p.value}
+          {p.name === 'revenue' ? formatCurrencyVND(p.value ?? 0) : p.value}
         </div>
       ))}
     </div>
@@ -212,7 +219,7 @@ export default function AdminDashboard() {
                       <Cell key={entry.status} fill={PIE_COLORS[entry.status] || '#d1d5db'} />
                     ))}
                   </Pie>
-                  <Tooltip formatter={(value: any, name: any) => [value, STATUS_LABEL[name] || name]} />
+                  <Tooltip formatter={(value, name) => [value, STATUS_LABEL[String(name)] || name]} />
                 </PieChart>
               </ResponsiveContainer>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px 16px', justifyContent: 'center', marginTop: 8 }}>

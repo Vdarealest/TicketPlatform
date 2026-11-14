@@ -98,7 +98,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     const fetchCount = () => {
       api.get('/contact')
         .then((r) => {
-          const count = Array.isArray(r.data) ? r.data.filter((m: any) => m.status === 'PENDING').length : 0;
+          const count = Array.isArray(r.data) ? r.data.filter((m: { status: string }) => m.status === 'PENDING').length : 0;
           setPendingContacts(count);
         })
         .catch(() => {});

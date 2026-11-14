@@ -2,8 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback, Fragment } from 'react';
 import Link from 'next/link';
-import { AxiosError } from 'axios';
-import api from '@/lib/api';
+import api, { apiErrorMessage } from '@/lib/api';
 
 // ─── OTP input — 6 individual digit boxes ────────────────────────────────────
 
@@ -160,8 +159,7 @@ export default function ForgotPasswordPage() {
       setStep(2);
       setOtp('      ');
     } catch (err) {
-      const e = err as AxiosError<{ message?: string }>;
-      setError(e.response?.data?.message || 'Có lỗi xảy ra. Vui lòng thử lại.');
+      setError(apiErrorMessage(err, 'Có lỗi xảy ra. Vui lòng thử lại.'));
     } finally {
       setLoading(false);
     }
@@ -177,8 +175,7 @@ export default function ForgotPasswordPage() {
       await api.post('/auth/verify-otp', { email: resolvedEmail, otp: code });
       setStep(3);
     } catch (err) {
-      const e = err as AxiosError<{ message?: string }>;
-      setError(e.response?.data?.message || 'Mã OTP không đúng. Vui lòng kiểm tra lại.');
+      setError(apiErrorMessage(err, 'Mã OTP không đúng. Vui lòng kiểm tra lại.'));
     } finally {
       setLoading(false);
     }
@@ -195,8 +192,7 @@ export default function ForgotPasswordPage() {
       await api.post('/auth/reset-password', { email: resolvedEmail, otp: otp.trim(), newPassword: password });
       setStep('done');
     } catch (err) {
-      const e = err as AxiosError<{ message?: string }>;
-      setError(e.response?.data?.message || 'Có lỗi xảy ra. Vui lòng thử lại.');
+      setError(apiErrorMessage(err, 'Có lỗi xảy ra. Vui lòng thử lại.'));
     } finally {
       setLoading(false);
     }

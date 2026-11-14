@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import api from '../../../lib/api';
+import api, { apiErrorMessage } from '../../../lib/api';
 
 interface ContactMsg {
   id: number;
@@ -46,8 +46,8 @@ function ReplyForm({ contactId, status, onSent }: { contactId: number; status: s
       setResult({ ok: true, text: 'Đã gửi phản hồi thành công!' });
       setReply('');
       onSent();
-    } catch (err: any) {
-      setResult({ ok: false, text: err?.response?.data?.message || 'Gửi thất bại.' });
+    } catch (err) {
+      setResult({ ok: false, text: apiErrorMessage(err, 'Gửi thất bại.') });
     } finally {
       setSending(false);
     }

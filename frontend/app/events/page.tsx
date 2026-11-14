@@ -4,6 +4,7 @@ import { Suspense, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import api from '@/lib/api';
 import { useTranslation, translateCategory } from '@/lib/i18n';
+import type { EventSummary } from '@/lib/types';
 import EventCard from '@/components/events/EventCard';
 
 interface Filters {
@@ -60,7 +61,7 @@ const labelStyle: React.CSSProperties = {
 function EventsContent() {
   const { t, lang } = useTranslation();
   const searchParams = useSearchParams();
-  const [events, setEvents] = useState<any[]>([]);
+  const [events, setEvents] = useState<EventSummary[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState<Filters>(() => ({

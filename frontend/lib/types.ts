@@ -25,7 +25,7 @@ export interface Venue {
   name: string;
   address?: string;
   capacity?: number;
-  layout?: any;
+  layout?: SeatLayout | null;
   createdAt?: string;
 }
 
@@ -60,6 +60,10 @@ export interface SeatLayout {
   sections: LayoutSection[];
   stage?: { x: number; y: number; w: number; h: number };
 }
+
+// List endpoints return the same shape; `type` is a legacy field some rows
+// still carry instead of `category`.
+export type EventSummary = EventDetail & { type?: string };
 
 export interface EventDetail {
   id: number;

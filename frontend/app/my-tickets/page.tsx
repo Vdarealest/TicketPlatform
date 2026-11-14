@@ -34,7 +34,7 @@ function fmtRef(id: number) {
 
 // ─── status config ────────────────────────────────────────────────────────────
 
-function getStatusCfg(status: string, t: any) {
+function getStatusCfg(status: string, t: ReturnType<typeof useTranslation>['t']) {
   const map: Record<string, { label: string; color: string; cls: string }> = {
     HOLD:      { label: t.status_hold,      color: '#f59e0b', cls: 'tk-badge--hold' },
     CONFIRMED: { label: t.status_confirmed, color: '#10b981', cls: 'tk-badge--confirmed' },

@@ -13,6 +13,18 @@ const eslintConfig = defineConfig([
     "build/**",
     "next-env.d.ts",
   ]),
+  {
+    rules: {
+      // The flagged effects are deliberate: reading localStorage (token,
+      // theme, language) after hydration, and fetching on mount. Doing either
+      // during render would make the server HTML differ from the browser's
+      // first render. Kept visible as a warning, not a CI failure.
+      "react-hooks/set-state-in-effect": "warn",
+      // Banners are Cloudinary URLs already resized via cdnImage/cdnSrcSet
+      // (lib/image.ts); next/image would add a second optimisation layer.
+      "@next/next/no-img-element": "off",
+    },
+  },
 ]);
 
 export default eslintConfig;
