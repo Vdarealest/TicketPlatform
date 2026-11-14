@@ -71,3 +71,4 @@ coverage/
 .claude-*vietix_data.sql
 vietix_data.sql
 vietix_data.sql
+.neon

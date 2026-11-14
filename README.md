@@ -228,6 +228,15 @@ MOMO_IPN_URL=
 VIETQR_BANK_ID=
 VIETQR_ACCOUNT_NO=
 VIETQR_ACCOUNT_NAME=
+# Development only. VietQR has no bank webhook yet, so "confirm" trusts the
+# buyer's own click. Leave unset in production: VietQR is then disabled.
+# VIETQR_MANUAL_CONFIRM=true
+```
+
+Create the database schema (first run, or after pulling new migrations):
+
+```bash
+npm run migration:run
 ```
 
 Start the backend:
@@ -241,6 +250,36 @@ The backend will run at:
 ```text
 http://localhost:3000
 ```
+
+#### Database migrations
+
+The schema is managed by TypeORM migrations in `backend/src/migrations`.
+`synchronize` is off in every environment, so changing an entity does not
+change the database until you add a migration:
+
+```bash
+# after editing an entity — generates the SQL diff against your database
+npm run migration:generate -- src/migrations/DescribeTheChange
+npm run migration:run       # apply pending migrations
+npm run migration:revert    # undo the last one
+npm run migration:show      # list applied [X] / pending [ ]
+```
+
+Production: run `npm run migration:run:prod` (uses the built `dist/`) as part
+of every deploy, before starting the server.
+
+**Existing databases created before migrations were added** (by the old
+`synchronize` setup) already have the tables, so `InitialSchema` must be
+recorded as applied instead of run. Do this once per database:
+
+```bash
+npm run migration:baseline        # local (ts-node)
+npm run migration:baseline:prod   # production (built dist/)
+```
+
+The baseline script only marks migrations when the live schema already matches
+the entities exactly; otherwise it prints the differences and changes nothing.
+`DB_SYNCHRONIZE` is no longer read.
 
 ### 3. Frontend Setup
 
