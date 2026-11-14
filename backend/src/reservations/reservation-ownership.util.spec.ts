@@ -21,11 +21,20 @@ describe('ownsReservation', () => {
 
   it('never treats two missing tokens as a match', () => {
     expect(ownsReservation({ user: null, guestToken: null }, {})).toBe(false);
-    expect(ownsReservation({ user: null, guestToken: undefined }, { guestToken: undefined })).toBe(false);
-    expect(ownsReservation({ user: null, guestToken: '' }, { guestToken: '' })).toBe(false);
+    expect(
+      ownsReservation(
+        { user: null, guestToken: undefined },
+        { guestToken: undefined },
+      ),
+    ).toBe(false);
+    expect(
+      ownsReservation({ user: null, guestToken: '' }, { guestToken: '' }),
+    ).toBe(false);
   });
 
   it('does not let a logged-in user claim a guest reservation', () => {
-    expect(ownsReservation({ user: null, guestToken: 'tok' }, { userId: 1 })).toBe(false);
+    expect(
+      ownsReservation({ user: null, guestToken: 'tok' }, { userId: 1 }),
+    ).toBe(false);
   });
 });

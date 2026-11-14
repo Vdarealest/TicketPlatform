@@ -51,9 +51,7 @@ export class MomoService {
     );
   }
 
-  async createPayment(
-    params: MomoPaymentParams,
-  ): Promise<MomoCreateResult> {
+  async createPayment(params: MomoPaymentParams): Promise<MomoCreateResult> {
     const requestId = `${params.orderId}_${Date.now()}`;
     // captureWallet: ví MoMo (QR) | payWithATM: thẻ ATM nội địa
     const requestType =

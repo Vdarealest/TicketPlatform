@@ -11,37 +11,31 @@ import {
 import { ReservationsService } from './reservations.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
-import { GuestTokenDto, ReservationIdsDto, ReserveGeneralDto, ReserveSeatsDto } from './dto/reservation.dto';
+import {
+  GuestTokenDto,
+  ReservationIdsDto,
+  ReserveGeneralDto,
+  ReserveSeatsDto,
+} from './dto/reservation.dto';
 
 @Controller('reservations')
 export class ReservationsController {
-  constructor(
-    private reservationsService:
-      ReservationsService,
-  ) {}
+  constructor(private reservationsService: ReservationsService) {}
 
   // "My tickets" genuinely requires an account — guests have nowhere to log
   // back into, so this one stays strictly authenticated.
   @Get('my')
   @UseGuards(JwtAuthGuard)
-  getMyReservations(
-    @Request() req,
-  ) {
-    return this.reservationsService.getMyReservations(
-      req.user.userId,
-    );
+  getMyReservations(@Request() req) {
+    return this.reservationsService.getMyReservations(req.user.userId);
   }
 
   @Get(':id')
   @UseGuards(JwtAuthGuard)
-  getReservation(
-    @Param('id') id: string,
-    @Request() req,
-  ) {
-    return this.reservationsService.getReservation(
-      Number(id),
-      { userId: req.user.userId },
-    );
+  getReservation(@Param('id') id: string, @Request() req) {
+    return this.reservationsService.getReservation(Number(id), {
+      userId: req.user.userId,
+    });
   }
 
   // ── Guest-checkout-capable endpoints ──
@@ -80,38 +74,28 @@ export class ReservationsController {
 
   @Post('bulk/details')
   @UseGuards(OptionalJwtAuthGuard)
-  getMultiple(
-    @Body() body: ReservationIdsDto,
-    @Request() req,
-  ) {
-    return this.reservationsService.getMultipleReservations(
-      body.ids,
-      { userId: req.user?.userId, guestToken: body.guestToken },
-    );
+  getMultiple(@Body() body: ReservationIdsDto, @Request() req) {
+    return this.reservationsService.getMultipleReservations(body.ids, {
+      userId: req.user?.userId,
+      guestToken: body.guestToken,
+    });
   }
 
   @Post('bulk/cancel')
   @UseGuards(OptionalJwtAuthGuard)
-  cancelMultiple(
-    @Body() body: ReservationIdsDto,
-    @Request() req,
-  ) {
-    return this.reservationsService.cancelMultipleReservations(
-      body.ids,
-      { userId: req.user?.userId, guestToken: body.guestToken },
-    );
+  cancelMultiple(@Body() body: ReservationIdsDto, @Request() req) {
+    return this.reservationsService.cancelMultipleReservations(body.ids, {
+      userId: req.user?.userId,
+      guestToken: body.guestToken,
+    });
   }
 
   @Post(':id/cancel')
   @UseGuards(OptionalJwtAuthGuard)
-  cancel(
-    @Param('id') id: string,
-    @Body() body: GuestTokenDto,
-    @Request() req,
-  ) {
-    return this.reservationsService.cancelReservation(
-      Number(id),
-      { userId: req.user?.userId, guestToken: body?.guestToken },
-    );
+  cancel(@Param('id') id: string, @Body() body: GuestTokenDto, @Request() req) {
+    return this.reservationsService.cancelReservation(Number(id), {
+      userId: req.user?.userId,
+      guestToken: body?.guestToken,
+    });
   }
 }

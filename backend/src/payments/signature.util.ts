@@ -13,5 +13,8 @@ export function signaturesMatch(expected: string, received: unknown): boolean {
   if (typeof received !== 'string' || received.length !== expected.length) {
     return false;
   }
-  return crypto.timingSafeEqual(Buffer.from(expected, 'utf8'), Buffer.from(received, 'utf8'));
+  return crypto.timingSafeEqual(
+    Buffer.from(expected, 'utf8'),
+    Buffer.from(received, 'utf8'),
+  );
 }

@@ -36,18 +36,12 @@ export class UsersController {
   }
 
   @Patch('profile')
-  updateProfile(
-    @Req() req: any,
-    @Body() body: UpdateProfileDto,
-  ) {
+  updateProfile(@Req() req: any, @Body() body: UpdateProfileDto) {
     return this.usersService.updateProfile(req.user.userId, body);
   }
 
   @Patch('change-password')
-  changePassword(
-    @Req() req: any,
-    @Body() body: ChangePasswordDto,
-  ) {
+  changePassword(@Req() req: any, @Body() body: ChangePasswordDto) {
     return this.usersService.changePassword(
       req.user.userId,
       body.currentPassword,

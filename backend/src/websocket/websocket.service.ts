@@ -8,7 +8,11 @@ export class WebsocketService {
   constructor(private ticketGateway: TicketGateway) {}
 
   // Send ticket update to event room
-  notifyTicketUpdate(eventId: string, ticketId: number, availableQuantity: number) {
+  notifyTicketUpdate(
+    eventId: string,
+    ticketId: number,
+    availableQuantity: number,
+  ) {
     this.ticketGateway.emitTicketUpdate(eventId, ticketId, availableQuantity);
   }
 

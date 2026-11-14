@@ -7,22 +7,12 @@ import { EventsController } from './events.controller';
 import { EventsService } from './events.service';
 
 @Module({
-  imports: [
-    TypeOrmModule.forFeature([
-      Event,
-    ]),
-  ],
+  imports: [TypeOrmModule.forFeature([Event])],
 
-  controllers: [
-    EventsController,
-  ],
+  controllers: [EventsController],
 
-  providers: [
-    EventsService,
-  ],
+  providers: [EventsService],
 
-  exports: [
-    EventsService,
-  ],
+  exports: [EventsService],
 })
 export class EventsModule {}

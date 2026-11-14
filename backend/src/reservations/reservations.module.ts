@@ -10,25 +10,19 @@ import { ReservationsController } from './reservations.controller';
 import { ReservationExpirationService } from './reservation-expiration.service';
 import { WebsocketModule } from '../websocket/websocket.module';
 import { BullModule } from '@nestjs/bullmq';
-import { ReservationExpirationProcessor }
-from './processors/reservation-expiration.processor';
+import { ReservationExpirationProcessor } from './processors/reservation-expiration.processor';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([
-      Reservation,
-      Ticket,
-      Seat,
-    ]),
+    TypeOrmModule.forFeature([Reservation, Ticket, Seat]),
     BullModule.registerQueue({
-    name: 'reservation-expiration',
-  }),
+      name: 'reservation-expiration',
+    }),
     WebsocketModule,
   ],
-  
 
   controllers: [ReservationsController],
 
-  providers: [ReservationsService,  ReservationExpirationProcessor],
+  providers: [ReservationsService, ReservationExpirationProcessor],
 })
 export class ReservationsModule {}

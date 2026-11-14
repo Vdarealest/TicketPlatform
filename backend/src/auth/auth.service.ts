@@ -1,4 +1,8 @@
-import { Injectable, BadRequestException, UnauthorizedException } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ConfigService } from '@nestjs/config';
 import { Repository } from 'typeorm';
@@ -28,7 +32,10 @@ export class AuthService {
   // JWT itself never touches the URL/browser history/Referer/server logs —
   // only this short-lived, one-time code does, and it's useless once used
   // or expired.
-  private readonly oauthCodeStore = new Map<string, { token: string; expiresAt: number }>();
+  private readonly oauthCodeStore = new Map<
+    string,
+    { token: string; expiresAt: number }
+  >();
 
   private readonly transporter: nodemailer.Transporter;
 
@@ -52,18 +59,25 @@ export class AuthService {
   // ─── Auth ─────────────────────────────────────────────────────────────────
 
   async register(email: string, password: string, phone?: string) {
-    const existingUser = await this.usersRepository.findOne({ where: { email } });
+    const existingUser = await this.usersRepository.findOne({
+      where: { email },
+    });
     if (existingUser) throw new BadRequestException('Email already exists');
 
     const hashedPassword = await bcrypt.hash(password, 10);
-    const user = this.usersRepository.create({ email, password: hashedPassword, ...(phone ? { phone } : {}) });
+    const user = this.usersRepository.create({
+      email,
+      password: hashedPassword,
+      ...(phone ? { phone } : {}),
+    });
     await this.usersRepository.save(user);
     return { message: 'Register success' };
   }
 
   async login(email: string, password: string) {
     const user = await this.usersRepository.findOne({ where: { email } });
-    if (!user || !user.password) throw new UnauthorizedException('Invalid credentials');
+    if (!user || !user.password)
+      throw new UnauthorizedException('Invalid credentials');
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) throw new UnauthorizedException('Invalid credentials');
@@ -93,7 +107,16 @@ export class AuthService {
   async getMe(userId: number) {
     return this.usersRepository.findOne({
       where: { id: userId },
-      select: ['id', 'email', 'name', 'phone', 'avatarUrl', 'googleId', 'role', 'createdAt'],
+      select: [
+        'id',
+        'email',
+        'name',
+        'phone',
+        'avatarUrl',
+        'googleId',
+        'role',
+        'createdAt',
+      ],
     });
   }
 
@@ -101,17 +124,25 @@ export class AuthService {
 
   async forgotPassword(identifier: string) {
     // Find by email first, then by phone
-    let user = await this.usersRepository.findOne({ where: { email: identifier } });
+    let user = await this.usersRepository.findOne({
+      where: { email: identifier },
+    });
     if (!user) {
-      user = await this.usersRepository.findOne({ where: { phone: identifier } });
+      user = await this.usersRepository.findOne({
+        where: { phone: identifier },
+      });
     }
 
     if (!user) {
-      throw new BadRequestException('Số điện thoại / email không tồn tại trong hệ thống.');
+      throw new BadRequestException(
+        'Số điện thoại / email không tồn tại trong hệ thống.',
+      );
     }
 
     if (!user.password) {
-      throw new BadRequestException('Tài khoản này đăng nhập qua Google. Không thể đặt lại mật khẩu.');
+      throw new BadRequestException(
+        'Tài khoản này đăng nhập qua Google. Không thể đặt lại mật khẩu.',
+      );
     }
 
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
@@ -138,7 +169,9 @@ export class AuthService {
       // Too many wrong guesses: burn this OTP so it can't be brute-forced.
       if (record.attempts >= MAX_OTP_ATTEMPTS) {
         this.otpStore.delete(email);
-        throw new BadRequestException('Nhập sai OTP quá nhiều lần. Vui lòng yêu cầu mã mới.');
+        throw new BadRequestException(
+          'Nhập sai OTP quá nhiều lần. Vui lòng yêu cầu mã mới.',
+        );
       }
       throw new BadRequestException('Mã OTP không đúng.');
     }
@@ -151,7 +184,9 @@ export class AuthService {
     const record = this.getValidOtp(email);
 
     if (!record.verified) {
-      throw new BadRequestException('OTP chưa được xác minh. Vui lòng thử lại từ đầu.');
+      throw new BadRequestException(
+        'OTP chưa được xác minh. Vui lòng thử lại từ đầu.',
+      );
     }
     if (record.otp !== otp) {
       throw new BadRequestException('Mã OTP không hợp lệ.');
@@ -176,14 +211,17 @@ export class AuthService {
     const record = this.otpStore.get(email);
     if (!record || Date.now() > record.expiresAt) {
       this.otpStore.delete(email);
-      throw new BadRequestException('Mã OTP không hợp lệ hoặc đã hết hạn. Vui lòng yêu cầu mã mới.');
+      throw new BadRequestException(
+        'Mã OTP không hợp lệ hoặc đã hết hạn. Vui lòng yêu cầu mã mới.',
+      );
     }
     return record;
   }
 
   private async sendOtpEmail(email: string, otp: string) {
     const mailUser = this.configService.get<string>('MAIL_USER');
-    const mailFrom = this.configService.get<string>('MAIL_FROM') || `"Vietix" <${mailUser}>`;
+    const mailFrom =
+      this.configService.get<string>('MAIL_FROM') || `"Vietix" <${mailUser}>`;
 
     const html = `
 <!DOCTYPE html>
@@ -254,7 +292,10 @@ export class AuthService {
 
   createOAuthCode(token: string): string {
     const code = crypto.randomBytes(24).toString('hex');
-    this.oauthCodeStore.set(code, { token, expiresAt: Date.now() + OAUTH_CODE_TTL_MS });
+    this.oauthCodeStore.set(code, {
+      token,
+      expiresAt: Date.now() + OAUTH_CODE_TTL_MS,
+    });
     return code;
   }
 
@@ -263,7 +304,9 @@ export class AuthService {
     // Single-use: delete immediately regardless of outcome.
     this.oauthCodeStore.delete(code);
     if (!record || Date.now() > record.expiresAt) {
-      throw new BadRequestException('Mã đăng nhập không hợp lệ hoặc đã hết hạn.');
+      throw new BadRequestException(
+        'Mã đăng nhập không hợp lệ hoặc đã hết hạn.',
+      );
     }
     return { access_token: record.token };
   }

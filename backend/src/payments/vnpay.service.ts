@@ -66,9 +66,7 @@ export class VnpayService {
     const sorted = this.sortObject(vnpParams);
     const signData = this.stringifyParams(sorted);
     const hmac = crypto.createHmac('sha512', this.hashSecret);
-    const signed = hmac
-      .update(Buffer.from(signData, 'utf-8'))
-      .digest('hex');
+    const signed = hmac.update(Buffer.from(signData, 'utf-8')).digest('hex');
 
     sorted['vnp_SecureHash'] = signed;
     return this.vnpUrl + '?' + this.stringifyParams(sorted);
@@ -141,9 +139,10 @@ export class VnpayService {
 
     for (const encodedKey of encodedKeys) {
       const originalKey = decodeURIComponent(encodedKey);
-      sorted[encodedKey] = encodeURIComponent(
-        String(obj[originalKey]),
-      ).replace(/%20/g, '+');
+      sorted[encodedKey] = encodeURIComponent(String(obj[originalKey])).replace(
+        /%20/g,
+        '+',
+      );
     }
     return sorted;
   }

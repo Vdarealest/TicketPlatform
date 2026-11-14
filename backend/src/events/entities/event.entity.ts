@@ -68,16 +68,17 @@ export class Event {
   @Column({ nullable: true })
   venueId: number;
 
-  @ManyToOne(() => Venue, { nullable: true, onDelete: 'SET NULL', eager: false })
+  @ManyToOne(() => Venue, {
+    nullable: true,
+    onDelete: 'SET NULL',
+    eager: false,
+  })
   @JoinColumn({ name: 'venueId' })
   venue: Venue;
 
   @CreateDateColumn()
   createdAt: Date;
 
-  @OneToMany(
-    () => Ticket,
-    (ticket) => ticket.event,
-  )
+  @OneToMany(() => Ticket, (ticket) => ticket.event)
   tickets: Ticket[];
 }

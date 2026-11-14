@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import * as bcrypt from 'bcrypt';
@@ -18,7 +23,8 @@ export class AdminService {
     @InjectRepository(Event) private eventsRepo: Repository<Event>,
     @InjectRepository(Ticket) private ticketsRepo: Repository<Ticket>,
     @InjectRepository(Seat) private seatsRepo: Repository<Seat>,
-    @InjectRepository(Reservation) private reservationsRepo: Repository<Reservation>,
+    @InjectRepository(Reservation)
+    private reservationsRepo: Repository<Reservation>,
     @InjectRepository(Venue) private venuesRepo: Repository<Venue>,
     @InjectRepository(Review) private reviewsRepo: Repository<Review>,
   ) {}
@@ -60,7 +66,12 @@ export class AdminService {
       .getRawMany();
 
     // Fill in missing days for last 7 days
-    const last7: { date: string; label: string; revenue: number; count: number }[] = [];
+    const last7: {
+      date: string;
+      label: string;
+      revenue: number;
+      count: number;
+    }[] = [];
     for (let i = 6; i >= 0; i--) {
       const d = new Date();
       d.setDate(d.getDate() - i);
@@ -68,7 +79,10 @@ export class AdminService {
       const found = revenueByDay.find((r) => r.date === key);
       last7.push({
         date: key,
-        label: d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' }),
+        label: d.toLocaleDateString('vi-VN', {
+          day: '2-digit',
+          month: '2-digit',
+        }),
         revenue: Number(found?.revenue || 0),
         count: Number(found?.count || 0),
       });
@@ -160,7 +174,12 @@ export class AdminService {
     featuredOrder?: number;
     status?: 'DRAFT' | 'UPCOMING' | 'ON_SALE';
     saleOpenAt?: string | null;
-    tickets?: { type: string; price: number; quantity: number; seating?: 'SEATED' | 'GENERAL' }[];
+    tickets?: {
+      type: string;
+      price: number;
+      quantity: number;
+      seating?: 'SEATED' | 'GENERAL';
+    }[];
   }) {
     const event = this.eventsRepo.create({
       title: data.title,
@@ -206,7 +225,10 @@ export class AdminService {
         // GA tickets track availability purely through ticket.quantity — no
         // Seat rows, so there's nothing to generate.
         if (!usesLayout && savedTicket.seating !== 'GENERAL') {
-          const rowsGenerated = await this.generateSeats(savedTicket, rowOffset);
+          const rowsGenerated = await this.generateSeats(
+            savedTicket,
+            rowOffset,
+          );
           rowOffset += rowsGenerated;
         }
       }
@@ -240,7 +262,8 @@ export class AdminService {
     if (data.title !== undefined) event.title = data.title;
     if (data.description !== undefined) event.description = data.description;
     if (data.location !== undefined) event.location = data.location;
-    if (data.category !== undefined) event.category = data.category.trim() || 'Khác';
+    if (data.category !== undefined)
+      event.category = data.category.trim() || 'Khác';
     if (data.bannerUrl !== undefined) event.bannerUrl = data.bannerUrl;
     if (data.bannerFocusX !== undefined) event.bannerFocusX = data.bannerFocusX;
     if (data.bannerFocusY !== undefined) event.bannerFocusY = data.bannerFocusY;
@@ -252,9 +275,11 @@ export class AdminService {
     }
     if ('venueId' in data) event.venueId = data.venueId as any;
     if (data.featured !== undefined) event.featured = data.featured;
-    if (data.featuredOrder !== undefined) event.featuredOrder = data.featuredOrder;
+    if (data.featuredOrder !== undefined)
+      event.featuredOrder = data.featuredOrder;
     if (data.status !== undefined) event.status = data.status;
-    if ('saleOpenAt' in data) event.saleOpenAt = data.saleOpenAt ? new Date(data.saleOpenAt as string) : null;
+    if ('saleOpenAt' in data)
+      event.saleOpenAt = data.saleOpenAt ? new Date(data.saleOpenAt) : null;
 
     await this.eventsRepo.save(event);
     return this.getEvent(id);
@@ -299,7 +324,12 @@ export class AdminService {
 
   async addTicketToEvent(
     eventId: number,
-    data: { type: string; price: number; quantity: number; seating?: 'SEATED' | 'GENERAL' },
+    data: {
+      type: string;
+      price: number;
+      quantity: number;
+      seating?: 'SEATED' | 'GENERAL';
+    },
   ) {
     const event = await this.eventsRepo.findOne({
       where: { id: eventId },
@@ -361,7 +391,8 @@ export class AdminService {
 
     if (data.type !== undefined) {
       const type = String(data.type).trim();
-      if (!type) throw new BadRequestException('Tên loại vé không được để trống.');
+      if (!type)
+        throw new BadRequestException('Tên loại vé không được để trống.');
       patch.type = type;
     }
 
@@ -376,14 +407,19 @@ export class AdminService {
     if (data.quantity !== undefined) {
       const quantity = Number(data.quantity);
       if (!Number.isInteger(quantity) || quantity < 0) {
-        throw new BadRequestException('Số lượng vé phải là số nguyên không âm.');
+        throw new BadRequestException(
+          'Số lượng vé phải là số nguyên không âm.',
+        );
       }
 
       if (ticket.seating === 'GENERAL') {
         // No Seat rows to reconcile for GA — just refuse to set the
         // remaining count below what's already held or sold.
         const taken = await this.reservationsRepo.count({
-          where: { ticket: { id: ticketId }, status: In(['HOLD', 'CONFIRMED']) },
+          where: {
+            ticket: { id: ticketId },
+            status: In(['HOLD', 'CONFIRMED']),
+          },
         });
         if (quantity < taken) {
           throw new BadRequestException(
@@ -422,7 +458,11 @@ export class AdminService {
           .select('MAX(s.row)', 'max')
           .getRawOne();
         await this.generateSeats(
-          { ...ticket, type: patch.type ?? ticket.type, quantity: delta } as Ticket,
+          {
+            ...ticket,
+            type: patch.type ?? ticket.type,
+            quantity: delta,
+          },
           Number(maxRow?.max || 0),
         );
       } else if (!usesLayout && delta < 0) {
@@ -473,7 +513,7 @@ export class AdminService {
     const users = await this.usersRepo.find({ order: { id: 'DESC' } });
 
     const userIds = users.map((u) => u.id);
-    let reservationCounts: Record<number, number> = {};
+    const reservationCounts: Record<number, number> = {};
 
     if (userIds.length) {
       const counts = await this.reservationsRepo
@@ -540,15 +580,26 @@ export class AdminService {
   }
 
   async createUser(
-    data: { email: string; password: string; phone?: string; role: string; adminPassword?: string },
+    data: {
+      email: string;
+      password: string;
+      phone?: string;
+      role: string;
+      adminPassword?: string;
+    },
     adminId: number,
   ) {
     if (data.role === 'ADMIN') {
-      if (!data.adminPassword) throw new ForbiddenException('Cần nhập mật khẩu admin để tạo tài khoản admin.');
+      if (!data.adminPassword)
+        throw new ForbiddenException(
+          'Cần nhập mật khẩu admin để tạo tài khoản admin.',
+        );
       await this.verifyAdminPassword(adminId, data.adminPassword);
     }
 
-    const existing = await this.usersRepo.findOne({ where: { email: data.email } });
+    const existing = await this.usersRepo.findOne({
+      where: { email: data.email },
+    });
     if (existing) throw new BadRequestException('Email đã tồn tại.');
 
     if (!['USER', 'ADMIN'].includes(data.role)) {
@@ -563,7 +614,12 @@ export class AdminService {
       role: data.role,
     });
     await this.usersRepo.save(user);
-    return { id: user.id, email: user.email, phone: user.phone, role: user.role };
+    return {
+      id: user.id,
+      email: user.email,
+      phone: user.phone,
+      role: user.role,
+    };
   }
 
   async updateUser(
@@ -576,27 +632,39 @@ export class AdminService {
     if (!user) throw new NotFoundException('User không tồn tại.');
 
     const isChangingToAdmin = data.role === 'ADMIN' && user.role !== 'ADMIN';
-    const isChangingFromAdmin = data.role && data.role !== 'ADMIN' && user.role === 'ADMIN';
+    const isChangingFromAdmin =
+      data.role && data.role !== 'ADMIN' && user.role === 'ADMIN';
     const targetIsAdmin = user.role === 'ADMIN';
 
     if (isChangingToAdmin || isChangingFromAdmin || targetIsAdmin) {
-      if (!adminPassword) throw new ForbiddenException('Cần nhập mật khẩu admin để thao tác với tài khoản admin.');
+      if (!adminPassword)
+        throw new ForbiddenException(
+          'Cần nhập mật khẩu admin để thao tác với tài khoản admin.',
+        );
       await this.verifyAdminPassword(adminId, adminPassword);
     }
 
     if (data.email !== undefined) {
       if (data.email !== user.email) {
-        const dup = await this.usersRepo.findOne({ where: { email: data.email } });
+        const dup = await this.usersRepo.findOne({
+          where: { email: data.email },
+        });
         if (dup) throw new BadRequestException('Email đã tồn tại.');
       }
       user.email = data.email;
     }
     if (data.phone !== undefined) user.phone = data.phone || (null as any);
-    if (data.role && ['USER', 'ADMIN'].includes(data.role)) user.role = data.role;
+    if (data.role && ['USER', 'ADMIN'].includes(data.role))
+      user.role = data.role;
     if (data.password) user.password = await bcrypt.hash(data.password, 10);
 
     await this.usersRepo.save(user);
-    return { id: user.id, email: user.email, phone: user.phone, role: user.role };
+    return {
+      id: user.id,
+      email: user.email,
+      phone: user.phone,
+      role: user.role,
+    };
   }
 
   async deleteUser(userId: number, adminId: number, adminPassword: string) {
@@ -604,7 +672,8 @@ export class AdminService {
 
     const user = await this.usersRepo.findOne({ where: { id: userId } });
     if (!user) throw new NotFoundException('User không tồn tại.');
-    if (user.id === adminId) throw new BadRequestException('Không thể xóa chính mình.');
+    if (user.id === adminId)
+      throw new BadRequestException('Không thể xóa chính mình.');
 
     await this.reservationsRepo
       .createQueryBuilder()
@@ -667,7 +736,8 @@ export class AdminService {
       relations: ['tickets', 'tickets.seats', 'venue'],
     });
     if (!event) throw new NotFoundException('Sự kiện không tồn tại.');
-    if (!event.tickets?.length) throw new BadRequestException('Chưa có loại vé nào.');
+    if (!event.tickets?.length)
+      throw new BadRequestException('Chưa có loại vé nào.');
 
     // Guard: refuse if any seat is already sold/held
     for (const ticket of event.tickets) {
@@ -679,7 +749,7 @@ export class AdminService {
     }
 
     // Use event's own layout first, then venue layout as fallback
-    const layout = (event.seatLayout || event.venue?.layout) as any;
+    const layout = event.seatLayout || event.venue?.layout;
 
     // Validate BEFORE deleting anything so a failed run never leaves the event seatless
     const hasSections = !!layout?.sections?.length;
@@ -731,7 +801,7 @@ export class AdminService {
       // rows run vertically. Transpose the labels so on-screen horizontal
       // lines get the letters and seats get the numbers — the classic reading.
       const rot = section.rotation || 0;
-      const transposed = ((Math.round(rot / 90) % 4) + 4) % 4 % 2 === 1;
+      const transposed = (((Math.round(rot / 90) % 4) + 4) % 4) % 2 === 1;
 
       // Honour the designer's start letter, but push past it when it would
       // collide with rows another section of this tier already claimed.
@@ -745,15 +815,17 @@ export class AdminService {
           const label = transposed
             ? `${this.rowName(base + c)}${r + 1}`
             : `${this.rowName(base + r)}${c + 1}`;
-          seats.push(this.seatsRepo.create({
-            row: r,
-            col: c,
-            label,
-            status: 'AVAILABLE',
-            // Reference by id only: passing the loaded entity (with its stale
-            // `seats` relation) makes a later save() unlink the new seats.
-            ticket: { id: ticket.id } as Ticket,
-          }));
+          seats.push(
+            this.seatsRepo.create({
+              row: r,
+              col: c,
+              label,
+              status: 'AVAILABLE',
+              // Reference by id only: passing the loaded entity (with its stale
+              // `seats` relation) makes a later save() unlink the new seats.
+              ticket: { id: ticket.id } as Ticket,
+            }),
+          );
         }
       }
 
@@ -815,7 +887,8 @@ export class AdminService {
       Standard: 14,
       Economy: 16,
     };
-    const cols = colsPerType[ticket.type] || Math.min(Math.ceil(Math.sqrt(qty * 2)), 16);
+    const cols =
+      colsPerType[ticket.type] || Math.min(Math.ceil(Math.sqrt(qty * 2)), 16);
     const rows = Math.ceil(qty / cols);
 
     const seats: Seat[] = [];
@@ -825,13 +898,15 @@ export class AdminService {
       const globalRow = rowOffset + r;
       const seatsInRow = Math.min(cols, remaining);
       for (let c = 1; c <= seatsInRow; c++) {
-        seats.push(this.seatsRepo.create({
-          row: globalRow,
-          col: c,
-          label: `${this.rowName(globalRow - 1)}${c}`,
-          status: 'AVAILABLE',
-          ticket: { id: ticket.id } as Ticket,
-        }));
+        seats.push(
+          this.seatsRepo.create({
+            row: globalRow,
+            col: c,
+            label: `${this.rowName(globalRow - 1)}${c}`,
+            status: 'AVAILABLE',
+            ticket: { id: ticket.id } as Ticket,
+          }),
+        );
         remaining--;
       }
     }
@@ -852,7 +927,11 @@ export class AdminService {
     return venue;
   }
 
-  async createVenue(data: { name: string; address?: string; capacity?: number }) {
+  async createVenue(data: {
+    name: string;
+    address?: string;
+    capacity?: number;
+  }) {
     const venue = this.venuesRepo.create({
       name: data.name,
       address: data.address,
@@ -861,7 +940,10 @@ export class AdminService {
     return this.venuesRepo.save(venue);
   }
 
-  async updateVenue(id: number, data: { name?: string; address?: string; capacity?: number }) {
+  async updateVenue(
+    id: number,
+    data: { name?: string; address?: string; capacity?: number },
+  ) {
     const venue = await this.venuesRepo.findOne({ where: { id } });
     if (!venue) throw new NotFoundException('Địa điểm không tồn tại.');
     if (data.name !== undefined) venue.name = data.name;

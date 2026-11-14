@@ -13,12 +13,22 @@ export class ContactService {
     private mailService: MailService,
   ) {}
 
-  async create(data: { name: string; email: string; subject: string; message: string }) {
-    if (!data.name?.trim()) throw new BadRequestException('Vui lòng nhập họ tên.');
-    if (!data.email?.trim()) throw new BadRequestException('Vui lòng nhập email.');
-    if (!data.subject?.trim()) throw new BadRequestException('Vui lòng nhập chủ đề.');
-    if (!data.message?.trim()) throw new BadRequestException('Vui lòng nhập nội dung.');
-    if (data.message.trim().length > 5000) throw new BadRequestException('Nội dung tối đa 5000 ký tự.');
+  async create(data: {
+    name: string;
+    email: string;
+    subject: string;
+    message: string;
+  }) {
+    if (!data.name?.trim())
+      throw new BadRequestException('Vui lòng nhập họ tên.');
+    if (!data.email?.trim())
+      throw new BadRequestException('Vui lòng nhập email.');
+    if (!data.subject?.trim())
+      throw new BadRequestException('Vui lòng nhập chủ đề.');
+    if (!data.message?.trim())
+      throw new BadRequestException('Vui lòng nhập nội dung.');
+    if (data.message.trim().length > 5000)
+      throw new BadRequestException('Nội dung tối đa 5000 ký tự.');
 
     const msg = this.contactRepo.create({
       name: data.name.trim(),
@@ -30,7 +40,9 @@ export class ContactService {
 
     this.notifyAdmin(msg);
 
-    return { message: 'Gửi liên hệ thành công. Chúng tôi sẽ phản hồi sớm nhất.' };
+    return {
+      message: 'Gửi liên hệ thành công. Chúng tôi sẽ phản hồi sớm nhất.',
+    };
   }
 
   async findAll() {
@@ -46,7 +58,8 @@ export class ContactService {
   }
 
   async reply(id: number, replyMessage: string) {
-    if (!replyMessage?.trim()) throw new BadRequestException('Vui lòng nhập nội dung trả lời.');
+    if (!replyMessage?.trim())
+      throw new BadRequestException('Vui lòng nhập nội dung trả lời.');
 
     const msg = await this.contactRepo.findOne({ where: { id } });
     if (!msg) throw new BadRequestException('Không tìm thấy tin nhắn.');
@@ -126,9 +139,13 @@ export class ContactService {
 </body>
 </html>`;
 
-    this.mailService.sendRaw({
-      subject: `[Vietix Contact] ${msg.subject}`,
-      html,
-    }).catch((err) => console.error('Failed to send contact notification:', err));
+    this.mailService
+      .sendRaw({
+        subject: `[Vietix Contact] ${msg.subject}`,
+        html,
+      })
+      .catch((err) =>
+        console.error('Failed to send contact notification:', err),
+      );
   }
 }

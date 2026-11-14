@@ -17,7 +17,10 @@ import { TicketGateway } from '../websocket/gateways/ticket.gateway';
 import { VnpayService } from './vnpay.service';
 import { MomoService } from './momo.service';
 import { MailService } from '../mail/mail.service';
-import { Requester, ownsReservation } from '../reservations/reservation-ownership.util';
+import {
+  Requester,
+  ownsReservation,
+} from '../reservations/reservation-ownership.util';
 
 @Injectable()
 export class PaymentsService {
@@ -81,7 +84,9 @@ export class PaymentsService {
     // Scoped by reservation-id overlap rather than by user — ownership of
     // those ids was already verified above, guest or not.
     const idSet = new Set(reservationIds);
-    const pendings = await this.paymentRepository.find({ where: { status: 'PENDING' } });
+    const pendings = await this.paymentRepository.find({
+      where: { status: 'PENDING' },
+    });
     const stale = pendings.filter((p) =>
       p.reservationIds.some((rid) => idSet.has(Number(rid))),
     );
@@ -96,7 +101,7 @@ export class PaymentsService {
       amount: totalAmount,
       status: 'PENDING',
       reservationIds,
-      user: requester.userId ? ({ id: requester.userId } as User) : null,
+      user: requester.userId ? { id: requester.userId } : null,
     });
     await this.paymentRepository.save(payment);
 
@@ -186,7 +191,14 @@ export class PaymentsService {
       `&addInfo=${encodeURIComponent(orderId)}` +
       `&accountName=${encodeURIComponent(accountName)}`;
 
-    return { orderId, amount: totalAmount, qrUrl, bankId, accountNo, accountName };
+    return {
+      orderId,
+      amount: totalAmount,
+      qrUrl,
+      bankId,
+      accountNo,
+      accountName,
+    };
   }
 
   async confirmVietQR(orderId: string, requester: Requester) {
@@ -214,7 +226,11 @@ export class PaymentsService {
 
     payment.status = 'SUCCESS';
     await this.paymentRepository.save(payment);
-    await this.confirmReservations(payment.reservationIds, requester.userId, payment);
+    await this.confirmReservations(
+      payment.reservationIds,
+      requester.userId,
+      payment,
+    );
 
     return {
       success: true,
@@ -236,7 +252,9 @@ export class PaymentsService {
       return;
     }
     const firstId = Number(payment.reservationIds[0]);
-    const reservation = await this.reservationRepository.findOne({ where: { id: firstId } });
+    const reservation = await this.reservationRepository.findOne({
+      where: { id: firstId },
+    });
     if (!reservation || !ownsReservation(reservation, requester)) {
       throw new ForbiddenException('Đơn thanh toán không thuộc về bạn.');
     }
@@ -270,7 +288,11 @@ export class PaymentsService {
     if (Number(momoParams.resultCode) === 0) {
       payment.status = 'SUCCESS';
       await this.paymentRepository.save(payment);
-      await this.confirmReservations(payment.reservationIds, payment.user?.id, payment);
+      await this.confirmReservations(
+        payment.reservationIds,
+        payment.user?.id,
+        payment,
+      );
     } else {
       payment.status = 'FAILED';
       await this.paymentRepository.save(payment);
@@ -302,7 +324,11 @@ export class PaymentsService {
         payment.vnpTransactionNo = momoParams.transId || '';
         payment.responseCode = String(momoParams.resultCode);
         await this.paymentRepository.save(payment);
-        await this.confirmReservations(payment.reservationIds, undefined, payment);
+        await this.confirmReservations(
+          payment.reservationIds,
+          undefined,
+          payment,
+        );
       }
       return {
         success: true,
@@ -468,10 +494,15 @@ export class PaymentsService {
         const fmtDate = (d: string) => {
           try {
             return new Date(d).toLocaleDateString('vi-VN', {
-              day: 'numeric', month: 'short', year: 'numeric',
-              hour: '2-digit', minute: '2-digit',
+              day: 'numeric',
+              month: 'short',
+              year: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit',
             });
-          } catch { return d; }
+          } catch {
+            return d;
+          }
         };
 
         this.mailService.sendTicketConfirmation({
@@ -492,5 +523,4 @@ export class PaymentsService {
       }
     }
   }
-
 }

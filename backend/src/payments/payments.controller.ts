@@ -11,13 +11,15 @@ import {
 
 import { PaymentsService } from './payments.service';
 import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
-import { ConfirmVietQRDto, CreateMomoPaymentDto, CreatePaymentDto } from './dto/payment.dto';
+import {
+  ConfirmVietQRDto,
+  CreateMomoPaymentDto,
+  CreatePaymentDto,
+} from './dto/payment.dto';
 
 @Controller('payments')
 export class PaymentsController {
-  constructor(
-    private readonly paymentsService: PaymentsService,
-  ) {}
+  constructor(private readonly paymentsService: PaymentsService) {}
 
   // All create/confirm endpoints below accept either a logged-in user (JWT)
   // or a guest carrying the guestToken from their reservation — see
@@ -57,10 +59,7 @@ export class PaymentsController {
 
   @Post('momo/create-url')
   @UseGuards(OptionalJwtAuthGuard)
-  createMomoUrl(
-    @Body() body: CreateMomoPaymentDto,
-    @Request() req: any,
-  ) {
+  createMomoUrl(@Body() body: CreateMomoPaymentDto, @Request() req: any) {
     return this.paymentsService.createMomoPaymentUrl(
       body.reservationIds,
       { userId: req.user?.userId, guestToken: body.guestToken },
@@ -91,18 +90,18 @@ export class PaymentsController {
   @Post('vietqr/create')
   @UseGuards(OptionalJwtAuthGuard)
   createVietQR(@Body() body: CreatePaymentDto, @Request() req: any) {
-    return this.paymentsService.createVietQR(
-      body.reservationIds,
-      { userId: req.user?.userId, guestToken: body.guestToken },
-    );
+    return this.paymentsService.createVietQR(body.reservationIds, {
+      userId: req.user?.userId,
+      guestToken: body.guestToken,
+    });
   }
 
   @Post('vietqr/confirm')
   @UseGuards(OptionalJwtAuthGuard)
   confirmVietQR(@Body() body: ConfirmVietQRDto, @Request() req: any) {
-    return this.paymentsService.confirmVietQR(
-      body.orderId,
-      { userId: req.user?.userId, guestToken: body.guestToken },
-    );
+    return this.paymentsService.confirmVietQR(body.orderId, {
+      userId: req.user?.userId,
+      guestToken: body.guestToken,
+    });
   }
 }

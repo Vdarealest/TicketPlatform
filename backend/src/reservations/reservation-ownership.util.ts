@@ -16,5 +16,7 @@ export function ownsReservation(
   // Guest reservation: both sides must present the same non-empty token.
   // Never fall through on a missing token — an absent guestToken must not
   // match an absent one.
-  return !!requester.guestToken && requester.guestToken === reservation.guestToken;
+  return (
+    !!requester.guestToken && requester.guestToken === reservation.guestToken
+  );
 }

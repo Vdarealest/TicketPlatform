@@ -13,11 +13,7 @@ import { WebsocketModule } from '../websocket/websocket.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([
-      Reservation,
-      Seat,
-      Payment,
-    ]),
+    TypeOrmModule.forFeature([Reservation, Seat, Payment]),
     WebsocketModule,
   ],
   controllers: [PaymentsController],

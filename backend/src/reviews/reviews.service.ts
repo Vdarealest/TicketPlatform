@@ -42,11 +42,15 @@ export class ReviewsService {
       throw new BadRequestException('Bình luận tối đa 1000 ký tự.');
     }
 
-    const event = await this.eventRepository.findOne({ where: { id: eventId } });
+    const event = await this.eventRepository.findOne({
+      where: { id: eventId },
+    });
     if (!event) throw new NotFoundException('Sự kiện không tồn tại.');
 
     if (new Date(event.endTime) > new Date()) {
-      throw new BadRequestException('Chỉ có thể đánh giá sau khi sự kiện kết thúc.');
+      throw new BadRequestException(
+        'Chỉ có thể đánh giá sau khi sự kiện kết thúc.',
+      );
     }
 
     const hasTicket = await this.reservationRepository.findOne({
@@ -59,7 +63,9 @@ export class ReviewsService {
     });
 
     if (!hasTicket) {
-      throw new ForbiddenException('Bạn cần có vé đã xác nhận để đánh giá sự kiện này.');
+      throw new ForbiddenException(
+        'Bạn cần có vé đã xác nhận để đánh giá sự kiện này.',
+      );
     }
 
     const existing = await this.reviewRepository.findOne({
@@ -71,8 +77,8 @@ export class ReviewsService {
     }
 
     const review = this.reviewRepository.create({
-      user: { id: userId } as any,
-      event: { id: eventId } as any,
+      user: { id: userId },
+      event: { id: eventId },
       rating,
       comment: comment.trim(),
     });
@@ -93,9 +99,8 @@ export class ReviewsService {
     });
 
     const total = reviews.length;
-    const avgRating = total > 0
-      ? reviews.reduce((sum, r) => sum + r.rating, 0) / total
-      : 0;
+    const avgRating =
+      total > 0 ? reviews.reduce((sum, r) => sum + r.rating, 0) / total : 0;
 
     return {
       reviews: reviews.map((r) => ({
@@ -123,7 +128,9 @@ export class ReviewsService {
 
     if (!review) throw new NotFoundException('Đánh giá không tồn tại.');
     if (review.user.id !== userId) {
-      throw new ForbiddenException('Bạn không thể xoá đánh giá của người khác.');
+      throw new ForbiddenException(
+        'Bạn không thể xoá đánh giá của người khác.',
+      );
     }
 
     await this.reviewRepository.remove(review);

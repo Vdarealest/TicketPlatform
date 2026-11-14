@@ -26,11 +26,11 @@ export class TicketGateway implements OnGatewayConnection, OnGatewayDisconnect {
   handleConnection(client: Socket) {
     const clientId = client.id;
     this.activeConnections.set(clientId, client);
-    
+
     this.logger.log(
       `✅ Client connected: ${clientId} (Total: ${this.activeConnections.size})`,
     );
-    
+
     // Send connection confirmation
     client.emit('connected', {
       message: 'Connected to ticket updates',
@@ -45,7 +45,7 @@ export class TicketGateway implements OnGatewayConnection, OnGatewayDisconnect {
   handleDisconnect(client: Socket) {
     const clientId = client.id;
     this.activeConnections.delete(clientId);
-    
+
     this.logger.log(
       `❌ Client disconnected: ${clientId} (Total: ${this.activeConnections.size})`,
     );
@@ -58,9 +58,9 @@ export class TicketGateway implements OnGatewayConnection, OnGatewayDisconnect {
   handleJoinEvent(client: Socket, data: { eventId: string }) {
     const room = `event-${data.eventId}`;
     client.join(room);
-    
+
     this.logger.log(`📍 Client ${client.id} joined room: ${room}`);
-    
+
     // Notify others in the room
     this.server.to(room).emit('user-joined', {
       eventId: data.eventId,
@@ -78,7 +78,7 @@ export class TicketGateway implements OnGatewayConnection, OnGatewayDisconnect {
   handleLeaveEvent(client: Socket, data: { eventId: string }) {
     const room = `event-${data.eventId}`;
     client.leave(room);
-    
+
     this.logger.log(`👋 Client ${client.id} left room: ${room}`);
 
     // Notify others in the room
@@ -90,9 +90,13 @@ export class TicketGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   // Emit ticket update to specific event room
-  emitTicketUpdate(eventId: string, ticketId: number, availableQuantity: number) {
+  emitTicketUpdate(
+    eventId: string,
+    ticketId: number,
+    availableQuantity: number,
+  ) {
     const room = `event-${eventId}`;
-    
+
     this.server.to(room).emit('ticket-update', {
       eventId,
       ticketId,
@@ -106,7 +110,12 @@ export class TicketGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   // Emit seat status update to specific event room
-  emitSeatUpdate(eventId: string, ticketId: number, seatId: number, status: string) {
+  emitSeatUpdate(
+    eventId: string,
+    ticketId: number,
+    seatId: number,
+    status: string,
+  ) {
     const room = `event-${eventId}`;
 
     this.server.to(room).emit('seat-update', {
@@ -123,7 +132,11 @@ export class TicketGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   // Broadcast real-time ticket count
-  broadcastTicketCount(eventId: string, totalTickets: number, soldTickets: number) {
+  broadcastTicketCount(
+    eventId: string,
+    totalTickets: number,
+    soldTickets: number,
+  ) {
     this.server.to(`event-${eventId}`).emit('ticket-count-update', {
       eventId,
       totalTickets,
@@ -142,9 +155,13 @@ export class TicketGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   // Broadcast queue status
-  broadcastQueueStatus(eventId: string, position: number, estimatedWait: number) {
+  broadcastQueueStatus(
+    eventId: string,
+    position: number,
+    estimatedWait: number,
+  ) {
     const room = `queue-${eventId}`;
-    
+
     this.server.to(room).emit('queue-status', {
       eventId,
       position,

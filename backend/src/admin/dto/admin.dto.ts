@@ -66,74 +66,114 @@ export class UpdateTicketDto {
 // ─── Events ────────────────────────────────────────────────────────────────
 
 export class UpdateEventDto {
-  @IsOptional() @IsString() @IsNotEmpty() @MaxLength(200)
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(200)
   title?: string;
 
-  @IsOptional() @IsString() @MaxLength(20_000)
+  @IsOptional()
+  @IsString()
+  @MaxLength(20_000)
   description?: string;
 
-  @IsOptional() @IsString() @IsNotEmpty() @MaxLength(300)
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(300)
   location?: string;
 
-  @IsOptional() @IsString() @MaxLength(50)
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
   category?: string;
 
-  @IsOptional() @IsString() @MaxLength(500)
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
   bannerUrl?: string;
 
-  @IsOptional() @IsInt() @Min(0) @Max(100)
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(100)
   bannerFocusX?: number;
 
-  @IsOptional() @IsInt() @Min(0) @Max(100)
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(100)
   bannerFocusY?: number;
 
   // ISO strings; AdminService.parseDate rejects invalid ones in Vietnamese.
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   startTime?: string;
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   endTime?: string;
 
   // null = detach from venue.
-  @IsOptional() @IsInt()
+  @IsOptional()
+  @IsInt()
   venueId?: number | null;
 
-  @IsOptional() @IsBoolean()
+  @IsOptional()
+  @IsBoolean()
   featured?: boolean;
 
-  @IsOptional() @IsInt() @Min(0)
+  @IsOptional()
+  @IsInt()
+  @Min(0)
   featuredOrder?: number;
 
-  @IsOptional() @IsIn(SALE_STATUSES)
+  @IsOptional()
+  @IsIn(SALE_STATUSES)
   status?: (typeof SALE_STATUSES)[number];
 
   // null = no automatic sale opening.
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   saleOpenAt?: string | null;
 }
 
 // Not `extends UpdateEventDto`: class-validator inherits the parent's
 // @IsOptional, which would make the required fields below optional too.
 export class CreateEventDto {
-  @IsString() @IsNotEmpty() @MaxLength(200)
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(200)
   title: string;
 
-  @IsString() @MaxLength(20_000)
+  @IsString()
+  @MaxLength(20_000)
   description: string;
 
-  @IsString() @IsNotEmpty() @MaxLength(300)
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(300)
   location: string;
 
-  @IsOptional() @IsString() @MaxLength(50)
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
   category?: string;
 
-  @IsString() @MaxLength(500)
+  @IsString()
+  @MaxLength(500)
   bannerUrl: string;
 
-  @IsOptional() @IsInt() @Min(0) @Max(100)
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(100)
   bannerFocusX?: number;
 
-  @IsOptional() @IsInt() @Min(0) @Max(100)
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(100)
   bannerFocusY?: number;
 
   @IsString()
@@ -142,19 +182,25 @@ export class CreateEventDto {
   @IsString()
   endTime: string;
 
-  @IsOptional() @IsInt()
+  @IsOptional()
+  @IsInt()
   venueId?: number | null;
 
-  @IsOptional() @IsBoolean()
+  @IsOptional()
+  @IsBoolean()
   featured?: boolean;
 
-  @IsOptional() @IsInt() @Min(0)
+  @IsOptional()
+  @IsInt()
+  @Min(0)
   featuredOrder?: number;
 
-  @IsOptional() @IsIn(SALE_STATUSES)
+  @IsOptional()
+  @IsIn(SALE_STATUSES)
   status?: (typeof SALE_STATUSES)[number];
 
-  @IsOptional() @IsString()
+  @IsOptional()
+  @IsString()
   saleOpenAt?: string | null;
 
   @IsOptional()
@@ -167,24 +213,37 @@ export class CreateEventDto {
 // ─── Venues ────────────────────────────────────────────────────────────────
 
 export class UpdateVenueDto {
-  @IsOptional() @IsString() @IsNotEmpty() @MaxLength(200)
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(200)
   name?: string;
 
-  @IsOptional() @IsString() @MaxLength(300)
+  @IsOptional()
+  @IsString()
+  @MaxLength(300)
   address?: string;
 
-  @IsOptional() @IsInt() @Min(0)
+  @IsOptional()
+  @IsInt()
+  @Min(0)
   capacity?: number;
 }
 
 export class CreateVenueDto {
-  @IsString() @IsNotEmpty() @MaxLength(200)
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(200)
   name: string;
 
-  @IsOptional() @IsString() @MaxLength(300)
+  @IsOptional()
+  @IsString()
+  @MaxLength(300)
   address?: string;
 
-  @IsOptional() @IsInt() @Min(0)
+  @IsOptional()
+  @IsInt()
+  @Min(0)
   capacity?: number;
 }
 
@@ -192,27 +251,38 @@ export class CreateVenueDto {
 
 export class AdminPasswordDto {
   // Re-authentication for sensitive actions on admin accounts.
-  @IsOptional() @IsString() @MaxLength(128)
+  @IsOptional()
+  @IsString()
+  @MaxLength(128)
   adminPassword?: string;
 }
 
 export class RequiredAdminPasswordDto {
-  @IsString() @IsNotEmpty() @MaxLength(128)
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(128)
   adminPassword: string;
 }
 
 export class UpdateUserDto extends AdminPasswordDto {
-  @IsOptional() @IsEmail()
+  @IsOptional()
+  @IsEmail()
   email?: string;
 
   // "" clears the phone number.
-  @IsOptional() @IsString() @MaxLength(20)
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
   phone?: string;
 
-  @IsOptional() @IsIn(ROLES)
+  @IsOptional()
+  @IsIn(ROLES)
   role?: (typeof ROLES)[number];
 
-  @IsOptional() @IsString() @MinLength(6) @MaxLength(128)
+  @IsOptional()
+  @IsString()
+  @MinLength(6)
+  @MaxLength(128)
   password?: string;
 }
 
@@ -220,10 +290,14 @@ export class CreateUserDto extends AdminPasswordDto {
   @IsEmail()
   email: string;
 
-  @IsString() @MinLength(6) @MaxLength(128)
+  @IsString()
+  @MinLength(6)
+  @MaxLength(128)
   password: string;
 
-  @IsOptional() @IsString() @MaxLength(20)
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
   phone?: string;
 
   @IsIn(ROLES)

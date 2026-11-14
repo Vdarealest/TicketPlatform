@@ -14,11 +14,8 @@ export class Ticket {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @ManyToOne(
-  () => Event,
-  (event) => event.tickets,
-)
-event: Event;
+  @ManyToOne(() => Event, (event) => event.tickets)
+  event: Event;
 
   @Column()
   type: string;

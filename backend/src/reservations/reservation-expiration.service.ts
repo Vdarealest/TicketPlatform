@@ -1,19 +1,10 @@
-import {
-  Injectable,
-} from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 
-import {
-  Cron,
-} from '@nestjs/schedule';
+import { Cron } from '@nestjs/schedule';
 
-import {
-  InjectRepository,
-} from '@nestjs/typeorm';
+import { InjectRepository } from '@nestjs/typeorm';
 
-import {
-  LessThan,
-  Repository,
-} from 'typeorm';
+import { LessThan, Repository } from 'typeorm';
 
 import { Reservation } from './entities/reservation.entity';
 import { Ticket } from '../tickets/entities/ticket.entity';
@@ -23,48 +14,38 @@ import { TicketGateway } from '../websocket/gateways/ticket.gateway';
 @Injectable()
 export class ReservationExpirationService {
   constructor(
-  @InjectRepository(Reservation)
-  private reservationRepository:
-    Repository<Reservation>,
+    @InjectRepository(Reservation)
+    private reservationRepository: Repository<Reservation>,
 
-  @InjectRepository(Ticket)
-  private ticketRepository:
-    Repository<Ticket>,
+    @InjectRepository(Ticket)
+    private ticketRepository: Repository<Ticket>,
 
-  @InjectRepository(Seat)
-  private seatRepository:
-    Repository<Seat>,
+    @InjectRepository(Seat)
+    private seatRepository: Repository<Seat>,
 
-  private ticketGateway: TicketGateway,
-) {}
+    private ticketGateway: TicketGateway,
+  ) {}
 
-    @Cron('*/1 * * * *')
+  @Cron('*/1 * * * *')
   async handleExpiredReservations() {
-    console.log(
-      'Checking expired reservations...',
-    );
-    const expiredReservations =
-      await this.reservationRepository.find({
-        where: {
-          status: 'HOLD',
-          expiresAt: LessThan(new Date()),
-        },
+    console.log('Checking expired reservations...');
+    const expiredReservations = await this.reservationRepository.find({
+      where: {
+        status: 'HOLD',
+        expiresAt: LessThan(new Date()),
+      },
 
-        relations: ['ticket', 'ticket.event', 'seat'],
-      });
+      relations: ['ticket', 'ticket.event', 'seat'],
+    });
 
     for (const reservation of expiredReservations) {
       reservation.status = 'EXPIRED';
 
-      await this.reservationRepository.save(
-        reservation,
-      );
+      await this.reservationRepository.save(reservation);
 
       reservation.ticket.quantity += 1;
 
-      await this.ticketRepository.save(
-        reservation.ticket,
-      );
+      await this.ticketRepository.save(reservation.ticket);
 
       // Only emit if event is loaded
       if (reservation.ticket.event?.id) {
@@ -90,9 +71,7 @@ export class ReservationExpirationService {
         }
       }
 
-      console.log(
-        `Reservation ${reservation.id} expired`,
-      );
+      console.log(`Reservation ${reservation.id} expired`);
     }
   }
 }

@@ -1,5 +1,11 @@
 import {
-  Body, Controller, Get, Post, Req, Res, UseGuards,
+  Body,
+  Controller,
+  Get,
+  Post,
+  Req,
+  Res,
+  UseGuards,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { Throttle } from '@nestjs/throttler';
@@ -9,7 +15,12 @@ import { ConfigService } from '@nestjs/config';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
-import { ForgotPasswordDto, OAuthExchangeDto, ResetPasswordDto, VerifyOtpDto } from './dto/password-reset.dto';
+import {
+  ForgotPasswordDto,
+  OAuthExchangeDto,
+  ResetPasswordDto,
+  VerifyOtpDto,
+} from './dto/password-reset.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 
 @Controller('auth')
@@ -48,7 +59,11 @@ export class AuthController {
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @Post('reset-password')
   resetPassword(@Body() body: ResetPasswordDto) {
-    return this.authService.resetPassword(body.email, body.otp, body.newPassword);
+    return this.authService.resetPassword(
+      body.email,
+      body.otp,
+      body.newPassword,
+    );
   }
 
   @Get('google')

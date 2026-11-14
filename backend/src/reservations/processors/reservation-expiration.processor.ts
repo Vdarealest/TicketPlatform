@@ -27,22 +27,14 @@ export class ReservationExpirationProcessor extends WorkerHost {
   }
 
   async process(job: Job): Promise<void> {
-    console.log(
-      '🔥 Processing reservation:',
-      job.data.reservationId,
-    );
+    console.log('🔥 Processing reservation:', job.data.reservationId);
 
-    const reservation =
-      await this.reservationRepository.findOne({
-        where: {
-          id: job.data.reservationId,
-        },
-        relations: [
-          'ticket',
-          'ticket.event',
-          'seat',
-        ],
-      });
+    const reservation = await this.reservationRepository.findOne({
+      where: {
+        id: job.data.reservationId,
+      },
+      relations: ['ticket', 'ticket.event', 'seat'],
+    });
 
     if (!reservation) {
       return;
@@ -54,22 +46,16 @@ export class ReservationExpirationProcessor extends WorkerHost {
 
     reservation.status = 'EXPIRED';
 
-    await this.reservationRepository.save(
-      reservation,
-    );
+    await this.reservationRepository.save(reservation);
 
     reservation.ticket.quantity += 1;
 
-    await this.ticketRepository.save(
-      reservation.ticket,
-    );
+    await this.ticketRepository.save(reservation.ticket);
 
     if (reservation.seat) {
       reservation.seat.status = 'AVAILABLE';
 
-      await this.seatRepository.save(
-        reservation.seat,
-      );
+      await this.seatRepository.save(reservation.seat);
     }
 
     // Emit realtime update
@@ -90,8 +76,6 @@ export class ReservationExpirationProcessor extends WorkerHost {
       }
     }
 
-    console.log(
-      `Reservation ${reservation.id} expired`,
-    );
+    console.log(`Reservation ${reservation.id} expired`);
   }
 }

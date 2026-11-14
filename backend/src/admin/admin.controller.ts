@@ -73,7 +73,10 @@ export class AdminController {
   }
 
   @Put('tickets/:ticketId')
-  updateTicket(@Param('ticketId') ticketId: string, @Body() body: UpdateTicketDto) {
+  updateTicket(
+    @Param('ticketId') ticketId: string,
+    @Body() body: UpdateTicketDto,
+  ) {
     return this.adminService.updateTicket(Number(ticketId), body);
   }
 
@@ -156,7 +159,12 @@ export class AdminController {
     @Body() body: UpdateUserDto,
     @Req() req: any,
   ) {
-    return this.adminService.updateUser(Number(id), body, req.user.userId, body.adminPassword);
+    return this.adminService.updateUser(
+      Number(id),
+      body,
+      req.user.userId,
+      body.adminPassword,
+    );
   }
 
   @Delete('users/:id')
@@ -165,7 +173,11 @@ export class AdminController {
     @Body() body: RequiredAdminPasswordDto,
     @Req() req: any,
   ) {
-    return this.adminService.deleteUser(Number(id), req.user.userId, body.adminPassword);
+    return this.adminService.deleteUser(
+      Number(id),
+      req.user.userId,
+      body.adminPassword,
+    );
   }
 
   // ─── Orders ───────────────────────────────────────────────────────────────

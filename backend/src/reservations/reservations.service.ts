@@ -5,14 +5,9 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 
-import {
-  InjectRepository,
-} from '@nestjs/typeorm';
+import { InjectRepository } from '@nestjs/typeorm';
 
-import {
-  Repository,
-  DataSource,
-} from 'typeorm';
+import { Repository, DataSource } from 'typeorm';
 
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
@@ -56,7 +51,9 @@ export class ReservationsService {
     if (!userId) {
       const email = requester.guestEmail?.trim();
       if (!email || !EMAIL_RE.test(email)) {
-        throw new BadRequestException('Vui lòng nhập email hợp lệ để đặt vé không cần đăng nhập.');
+        throw new BadRequestException(
+          'Vui lòng nhập email hợp lệ để đặt vé không cần đăng nhập.',
+        );
       }
       guestEmail = email;
       // Unguessable, single checkout batch worth of authority — this is the
@@ -87,7 +84,9 @@ export class ReservationsService {
         throw new BadRequestException('Sự kiện này chưa mở bán.');
       }
       if (ticket.quantity < seatIds.length) {
-        throw new BadRequestException(`Chỉ còn ${ticket.quantity} vé, không đủ cho ${seatIds.length} ghế.`);
+        throw new BadRequestException(
+          `Chỉ còn ${ticket.quantity} vé, không đủ cho ${seatIds.length} ghế.`,
+        );
       }
 
       const reservations: Reservation[] = [];
@@ -96,26 +95,33 @@ export class ReservationsService {
         const seat = await queryRunner.manager
           .createQueryBuilder(Seat, 'seat')
           .setLock('pessimistic_write')
-          .where('seat.id = :id AND seat.ticketId = :ticketId', { id: seatId, ticketId })
+          .where('seat.id = :id AND seat.ticketId = :ticketId', {
+            id: seatId,
+            ticketId,
+          })
           .getOne();
 
-        if (!seat) throw new BadRequestException(`Ghế #${seatId} không tồn tại.`);
-        if (seat.status !== 'AVAILABLE') throw new BadRequestException(`Ghế ${seat.label} không còn trống.`);
+        if (!seat)
+          throw new BadRequestException(`Ghế #${seatId} không tồn tại.`);
+        if (seat.status !== 'AVAILABLE')
+          throw new BadRequestException(`Ghế ${seat.label} không còn trống.`);
 
         seat.status = 'HELD';
         await queryRunner.manager.save(seat);
 
         this.ticketGateway.emitSeatUpdate(
           String(ticket.event?.id ?? ''),
-          ticket.id, seat.id, seat.status,
+          ticket.id,
+          seat.id,
+          seat.status,
         );
 
         const reservation = this.reservationRepository.create({
-          user: userId ? ({ id: userId } as any) : null,
+          user: userId ? { id: userId } : null,
           guestEmail,
           guestToken,
-          ticket: { id: ticketId } as any,
-          seat: { id: seat.id } as any,
+          ticket: { id: ticketId },
+          seat: { id: seat.id },
           expiresAt: new Date(Date.now() + 5 * 60 * 1000),
           status: 'HOLD',
         });
@@ -134,7 +140,8 @@ export class ReservationsService {
 
       this.ticketGateway.emitTicketUpdate(
         String(ticket.event?.id ?? ''),
-        ticket.id, ticket.quantity,
+        ticket.id,
+        ticket.quantity,
       );
 
       await queryRunner.commitTransaction();
@@ -177,7 +184,9 @@ export class ReservationsService {
     if (!userId) {
       const email = requester.guestEmail?.trim();
       if (!email || !EMAIL_RE.test(email)) {
-        throw new BadRequestException('Vui lòng nhập email hợp lệ để đặt vé không cần đăng nhập.');
+        throw new BadRequestException(
+          'Vui lòng nhập email hợp lệ để đặt vé không cần đăng nhập.',
+        );
       }
       guestEmail = email;
       guestToken = crypto.randomBytes(32).toString('hex');
@@ -197,7 +206,9 @@ export class ReservationsService {
 
       if (!ticket) throw new BadRequestException('Ticket not found');
       if (ticket.seating !== 'GENERAL') {
-        throw new BadRequestException('Loại vé này yêu cầu chọn ghế trên sơ đồ.');
+        throw new BadRequestException(
+          'Loại vé này yêu cầu chọn ghế trên sơ đồ.',
+        );
       }
 
       const saleStatus = effectiveSaleStatus(ticket.event);
@@ -215,10 +226,10 @@ export class ReservationsService {
 
       for (let i = 0; i < quantity; i++) {
         const reservation = this.reservationRepository.create({
-          user: userId ? ({ id: userId } as any) : null,
+          user: userId ? { id: userId } : null,
           guestEmail,
           guestToken,
-          ticket: { id: ticketId } as any,
+          ticket: { id: ticketId },
           seat: null,
           expiresAt: new Date(Date.now() + 5 * 60 * 1000),
           status: 'HOLD',
@@ -238,7 +249,8 @@ export class ReservationsService {
 
       this.ticketGateway.emitTicketUpdate(
         String(ticket.event?.id ?? ''),
-        ticket.id, ticket.quantity,
+        ticket.id,
+        ticket.quantity,
       );
 
       await queryRunner.commitTransaction();
@@ -264,7 +276,8 @@ export class ReservationsService {
     });
 
     for (const r of reservations) {
-      if (!ownsReservation(r, requester)) throw new ForbiddenException('Not your reservation');
+      if (!ownsReservation(r, requester))
+        throw new ForbiddenException('Not your reservation');
     }
 
     return reservations.map(({ user, guestToken, ...rest }) => rest);
@@ -278,34 +291,23 @@ export class ReservationsService {
     return results;
   }
 
-  async getMyReservations(
-    userId: number,
-  ) {
-    return this.reservationRepository.find(
-      {
-        where: {
-          user: {
-            id: userId,
-          },
-        },
-
-        relations: [
-          'ticket',
-          'ticket.event',
-          'seat',
-        ],
-
-        order: {
-          createdAt: 'DESC',
+  async getMyReservations(userId: number) {
+    return this.reservationRepository.find({
+      where: {
+        user: {
+          id: userId,
         },
       },
-    );
+
+      relations: ['ticket', 'ticket.event', 'seat'],
+
+      order: {
+        createdAt: 'DESC',
+      },
+    });
   }
 
-  async getReservation(
-    reservationId: number,
-    requester: Requester,
-  ) {
+  async getReservation(reservationId: number, requester: Requester) {
     const reservation = await this.reservationRepository.findOne({
       where: { id: reservationId },
       relations: ['ticket', 'ticket.event', 'seat', 'user'],
@@ -323,10 +325,7 @@ export class ReservationsService {
     return rest;
   }
 
-  async cancelReservation(
-    reservationId: number,
-    requester: Requester,
-  ) {
+  async cancelReservation(reservationId: number, requester: Requester) {
     const queryRunner = this.dataSource.createQueryRunner();
 
     await queryRunner.connect();

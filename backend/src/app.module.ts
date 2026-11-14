@@ -23,12 +23,10 @@ import { ServeStaticModule } from '@nestjs/serve-static';
 import { join } from 'path';
 import { connectionOptions } from './database/connection-options';
 
-
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      
     }),
     ScheduleModule.forRoot(),
     // Global rate limiting: 120 requests / minute per IP by default.
@@ -57,9 +55,7 @@ import { connectionOptions } from './database/connection-options';
       serveRoot: '/uploads',
     }),
   ],
-   controllers: [
-    HealthController,
-  ],
+  controllers: [HealthController],
   providers: [
     // Apply rate limiting to every route
     { provide: APP_GUARD, useClass: ThrottlerGuard },
