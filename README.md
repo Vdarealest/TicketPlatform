@@ -148,11 +148,16 @@ frontend/app/
 
 Before running the project locally, make sure the following are installed:
 
-* Node.js
-* PostgreSQL
-* Redis
+* Node.js 22
+* PostgreSQL and Redis — easiest with Docker:
+
+```bash
+docker compose up -d   # Postgres 18 + Redis 7, matching backend/.env.example
+```
 
 Redis is required because the backend uses BullMQ for background job processing.
+The compose file binds ports 5432 and 6379; if you already run Postgres or Redis
+locally, change the host ports there and in `backend/.env`.
 
 ## Getting Started
 
@@ -170,67 +175,13 @@ cd backend
 npm install
 ```
 
-Create a `.env` file inside the `backend` directory:
+Create `backend/.env` from the template. It already matches the Docker
+services; the only value you must fill in is `JWT_SECRET`. The rest
+(Google, Cloudinary, email, VNPay, MoMo, VietQR) is optional and documented
+in [`backend/.env.example`](backend/.env.example).
 
-```env
-DB_HOST=localhost
-DB_PORT=5432
-DB_USER=postgres
-DB_PASSWORD=
-DB_NAME=vietix
-
-# DATABASE_URL=postgres://user:pass@host:5432/db
-# DB_SSL=true
-
-REDIS_HOST=localhost
-REDIS_PORT=6379
-
-# REDIS_URL=redis://...
-
-JWT_SECRET=
-
-FRONTEND_URL=http://localhost:3001
-PORT=3000
-
-# Google OAuth
-GOOGLE_CLIENT_ID=
-GOOGLE_CLIENT_SECRET=
-GOOGLE_CALLBACK_URL=http://localhost:3000/auth/google/callback
-
-# Cloudinary
-CLOUDINARY_CLOUD_NAME=
-CLOUDINARY_API_KEY=
-CLOUDINARY_API_SECRET=
-
-# Email
-MAIL_HOST=smtp.gmail.com
-MAIL_PORT=587
-MAIL_USER=
-MAIL_PASS=
-MAIL_FROM=
-ADMIN_EMAIL=
-
-# VNPay
-VNPAY_TMN_CODE=
-VNPAY_HASH_SECRET=
-VNPAY_URL=https://sandbox.vnpayment.vn/paymentv2/vpcpay.html
-VNPAY_RETURN_URL=http://localhost:3001/checkout/vnpay-return
-
-# MoMo
-MOMO_PARTNER_CODE=
-MOMO_ACCESS_KEY=
-MOMO_SECRET_KEY=
-MOMO_ENDPOINT=
-MOMO_REDIRECT_URL=
-MOMO_IPN_URL=
-
-# VietQR
-VIETQR_BANK_ID=
-VIETQR_ACCOUNT_NO=
-VIETQR_ACCOUNT_NAME=
-# Development only. VietQR has no bank webhook yet, so "confirm" trusts the
-# buyer's own click. Leave unset in production: VietQR is then disabled.
-# VIETQR_MANUAL_CONFIRM=true
+```bash
+cp .env.example .env
 ```
 
 Create the database schema (first run, or after pulling new migrations):
@@ -290,11 +241,10 @@ cd frontend
 npm install
 ```
 
-Create `.env.local`:
+Create `.env.local` (both values point at the backend):
 
-```env
-NEXT_PUBLIC_API_URL=http://localhost:3000
-NEXT_PUBLIC_WS_URL=http://localhost:3000
+```bash
+cp .env.example .env.local
 ```
 
 Start the frontend:
@@ -341,7 +291,7 @@ E2E boots the whole app against a real Postgres and Redis and writes data, so
 it refuses to run unless the database name contains `test`:
 
 ```bash
-# once: create an empty database called vietix_test, then
+# docker compose creates vietix_test for you; otherwise create it by hand
 DB_NAME=vietix_test npm run migration:run
 DB_NAME=vietix_test npm run test:e2e
 ```

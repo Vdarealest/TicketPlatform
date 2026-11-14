@@ -1,0 +1,40 @@
+# Local Postgres + Redis for development: `docker compose up -d`
+# Credentials match backend/.env.example. Data survives restarts (named
+# volume); `docker compose down -v` wipes it.
+#
+# Already running Postgres or Redis on this machine? Change the host side of
+# the port mapping (e.g. "5433:5432") and DB_PORT / REDIS_PORT to match.
+services:
+  postgres:
+    # Same major version as production (Neon).
+    image: postgres:18
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: vietix
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql
+      # Also creates vietix_test for the e2e suite (first start only).
+      - ./docker/postgres-init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  pgdata:
