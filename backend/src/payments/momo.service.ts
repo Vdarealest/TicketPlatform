@@ -1,6 +1,7 @@
 import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as crypto from 'crypto';
+import { signaturesMatch } from './signature.util';
 
 export interface MomoPaymentParams {
   orderId: string;
@@ -132,6 +133,6 @@ export class MomoService {
       .update(rawSignature)
       .digest('hex');
 
-    return expected === params.signature;
+    return signaturesMatch(expected, params.signature);
   }
 }

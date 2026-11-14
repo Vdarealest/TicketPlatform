@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as crypto from 'crypto';
+import { signaturesMatch } from './signature.util';
 
 export interface VnpayPaymentParams {
   orderId: string;
@@ -77,20 +78,8 @@ export class VnpayService {
     isValid: boolean;
     responseCode: string;
   } {
-    const secureHash = vnpParams['vnp_SecureHash'];
-    const params = { ...vnpParams };
-    delete params['vnp_SecureHash'];
-    delete params['vnp_SecureHashType'];
-
-    const sorted = this.sortObject(params);
-    const signData = this.stringifyParams(sorted);
-    const hmac = crypto.createHmac('sha512', this.hashSecret);
-    const signed = hmac
-      .update(Buffer.from(signData, 'utf-8'))
-      .digest('hex');
-
     return {
-      isValid: secureHash === signed,
+      isValid: this.hasValidSignature(vnpParams),
       responseCode: vnpParams['vnp_ResponseCode'] || '',
     };
   }
@@ -106,20 +95,8 @@ export class VnpayService {
     cardType: string;
     payDate: string;
   } {
-    const secureHash = vnpParams['vnp_SecureHash'];
-    const params = { ...vnpParams };
-    delete params['vnp_SecureHash'];
-    delete params['vnp_SecureHashType'];
-
-    const sorted = this.sortObject(params);
-    const signData = this.stringifyParams(sorted);
-    const hmac = crypto.createHmac('sha512', this.hashSecret);
-    const signed = hmac
-      .update(Buffer.from(signData, 'utf-8'))
-      .digest('hex');
-
     return {
-      isValid: secureHash === signed,
+      isValid: this.hasValidSignature(vnpParams),
       responseCode: vnpParams['vnp_ResponseCode'] || '',
       txnRef: vnpParams['vnp_TxnRef'] || '',
       amount: parseInt(vnpParams['vnp_Amount'] || '0', 10) / 100,
@@ -129,6 +106,22 @@ export class VnpayService {
       cardType: vnpParams['vnp_CardType'] || '',
       payDate: vnpParams['vnp_PayDate'] || '',
     };
+  }
+
+  // Recomputes the HMAC over every vnp_* param except the hash fields and
+  // compares it in constant time with the one VNPay sent.
+  private hasValidSignature(vnpParams: VnpayReturnParams): boolean {
+    const params = { ...vnpParams };
+    delete params['vnp_SecureHash'];
+    delete params['vnp_SecureHashType'];
+
+    const signData = this.stringifyParams(this.sortObject(params));
+    const signed = crypto
+      .createHmac('sha512', this.hashSecret)
+      .update(Buffer.from(signData, 'utf-8'))
+      .digest('hex');
+
+    return signaturesMatch(signed, vnpParams['vnp_SecureHash']);
   }
 
   // Khớp đúng sortObject từ VNPay sample code:
