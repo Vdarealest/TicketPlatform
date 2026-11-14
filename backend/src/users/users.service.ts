@@ -50,7 +50,9 @@ export class UsersService {
     }
 
     if (data.name !== undefined) user.name = data.name || '';
-    if (data.phone !== undefined) user.phone = data.phone || '';
+    // phone is UNIQUE: an empty string would collide with the next user who
+    // also clears it, so "no phone" must be stored as NULL.
+    if (data.phone !== undefined) user.phone = data.phone || (null as any);
     if (data.avatarUrl !== undefined) user.avatarUrl = data.avatarUrl || '';
 
     await this.usersRepository.save(user);
