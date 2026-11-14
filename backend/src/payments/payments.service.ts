@@ -152,9 +152,23 @@ export class PaymentsService {
   // ── VietQR (test-friendly) ────────────────────────────────────────────────
   // Generates a real Napas-247 QR via the free img.vietqr.io service (no API
   // key). There is no automatic bank IPN here, so confirmVietQR is a MANUAL
-  // confirm — great for fast local testing. For production you'd wire a bank
-  // webhook (e.g. Casso / SePay) instead of trusting the client's "I paid".
+  // confirm: the buyer's own click marks the order paid. That hands out free
+  // tickets, so the whole flow is off unless VIETQR_MANUAL_CONFIRM=true (local
+  // dev only). Creation is blocked too — otherwise a buyer could transfer real
+  // money into an order nothing will ever confirm. Production needs a bank
+  // webhook (SePay / Casso) before this can be turned on there.
+  isVietQREnabled(): boolean {
+    return process.env.VIETQR_MANUAL_CONFIRM === 'true';
+  }
+
+  private assertVietQREnabled() {
+    if (!this.isVietQREnabled()) {
+      throw new ForbiddenException('Phương thức VietQR hiện không khả dụng.');
+    }
+  }
+
   async createVietQR(reservationIds: number[], requester: Requester) {
+    this.assertVietQREnabled();
     const orderId = `VTX${Date.now()}${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
     const { totalAmount } = await this.validateAndCreatePayment(
       reservationIds,
@@ -176,6 +190,7 @@ export class PaymentsService {
   }
 
   async confirmVietQR(orderId: string, requester: Requester) {
+    this.assertVietQREnabled();
     const payment = await this.paymentRepository.findOne({
       where: { orderId },
       relations: ['user'],

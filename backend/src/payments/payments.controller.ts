@@ -79,6 +79,12 @@ export class PaymentsController {
     return this.paymentsService.handleMomoReturn(query);
   }
 
+  // Lets checkout hide methods the server would refuse anyway.
+  @Get('methods')
+  getMethods() {
+    return { vietqr: this.paymentsService.isVietQREnabled() };
+  }
+
   // ── VietQR (test-friendly, no redirect) ──
 
   @Post('vietqr/create')

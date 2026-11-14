@@ -57,8 +57,16 @@ function BulkCheckoutContent() {
   const [momoMethod, setMomoMethod] = useState<MomoMethod>('captureWallet');
   const [qr, setQr] = useState<QrData | null>(null);
   const [confirming, setConfirming] = useState(false);
+  // Hidden until the server says it's on — it refuses VietQR otherwise.
+  const [vietqrEnabled, setVietqrEnabled] = useState(false);
 
   const ids = idsParam.split(',').map(Number).filter(Boolean);
+
+  useEffect(() => {
+    api.get('/payments/methods')
+      .then((res) => setVietqrEnabled(!!res.data?.vietqr))
+      .catch(() => setVietqrEnabled(false));
+  }, []);
 
   useEffect(() => {
     if (!ids.length) { setLoadError('Không có đơn đặt vé nào.'); setLoading(false); return; }
@@ -167,7 +175,9 @@ function BulkCheckoutContent() {
     ...(SHOW_MOMO
       ? [{ key: 'momo' as PayMethod, label: 'MoMo', desc: 'Ví MoMo', logoBg: '#a50064', logoText: 'M' }]
       : []),
-    { key: 'vietqr', label: 'VietQR', logoBg: '#0a8a5f', logoText: 'QR' },
+    ...(vietqrEnabled
+      ? [{ key: 'vietqr' as PayMethod, label: 'VietQR', logoBg: '#0a8a5f', logoText: 'QR' }]
+      : []),
   ];
 
   return (
