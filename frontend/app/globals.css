@@ -10,7 +10,9 @@
 /* Vietix Design System - Color Variables */
 :root {
   /* Primary */
-  --color-primary: #0f35ff;
+  /* Brand red. Was the old brand's blue, which leaked into default link
+     hover and input focus borders. */
+  --color-primary: #e02020;
   --color-deep-navy: #171717;
 
   /* Accent Colors */
