@@ -44,5 +44,14 @@ export function cdnSrcSet(path: string | null | undefined, widths: number[]): st
   return widths.map((w) => `${cdnImage(path, w)} ${w}w`).join(', ');
 }
 
+/**
+ * 1200×630 crop for link previews (Facebook, Zalo, Messenger use ~1.91:1).
+ * g_auto keeps the interesting part of the poster in frame.
+ */
+export function ogImage(path: string | null | undefined): string {
+  const url = resolveImageUrl(path);
+  return url.replace(CLOUDINARY_UPLOAD, '$1f_jpg,q_auto,c_fill,g_auto,w_1200,h_630/');
+}
+
 // Blurred backdrops (blur 18–56px) look identical from a 64px source.
 export const BLUR_BACKDROP_WIDTH = 64;

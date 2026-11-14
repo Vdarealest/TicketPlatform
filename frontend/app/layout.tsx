@@ -3,6 +3,7 @@ import { Be_Vietnam_Pro, Bebas_Neue } from "next/font/google";
 import "./globals.css";
 import "./custom.css";
 import LayoutShell from '@/components/layout/LayoutShell';
+import { SITE_NAME, SITE_URL } from '@/lib/site';
 
 // Primary UI font — full Vietnamese diacritics (U+1EA0–1EF9) drawn natively,
 // so mixed-font "ế/ộ/ữ" fallback glyphs disappear.
@@ -22,8 +23,19 @@ const bebas = Bebas_Neue({
 });
 
 export const metadata: Metadata = {
-  title: "Vietix",
-  description: "High-concurrency event ticket booking platform",
+  // Lets pages use relative URLs for canonical / og:image.
+  metadataBase: new URL(SITE_URL),
+  title: {
+    default: `${SITE_NAME} — Đặt vé sự kiện, concert, chọn ghế trực tuyến`,
+    template: `%s | ${SITE_NAME}`,
+  },
+  description:
+    "Đặt vé concert, sân khấu và sự kiện tại Việt Nam. Chọn ghế trên sơ đồ, giữ chỗ 5 phút và thanh toán qua VNPay, MoMo.",
+  openGraph: {
+    type: "website",
+    siteName: SITE_NAME,
+    locale: "vi_VN",
+  },
 };
 
 export default function RootLayout({
