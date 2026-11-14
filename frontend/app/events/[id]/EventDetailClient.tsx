@@ -109,8 +109,13 @@ function ReviewSection({ eventId, eventEndTime }: { eventId: number; eventEndTim
   const [formMsg, setFormMsg] = useState<{ type: 'error' | 'success' | 'info'; text: string } | null>(null);
   const [currentUserId, setCurrentUserId] = useState<number | null>(null);
 
-  const eventEnded = eventEndTime ? new Date(eventEndTime).getTime() < Date.now() : false;
-  const isLoggedIn = typeof window !== 'undefined' && !!localStorage.getItem('access_token');
+  // Read once per mount; a lazy initializer keeps Date.now() out of render.
+  const [now] = useState(() => Date.now());
+  const eventEnded = eventEndTime ? new Date(eventEndTime).getTime() < now : false;
+  // localStorage only exists in the browser. Reading it during render made
+  // the server HTML (logged out) differ from a logged-in browser's first
+  // render and broke hydration, so it is read after mount instead.
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   const fetchReviews = useCallback(async () => {
     try {
@@ -124,6 +129,7 @@ function ReviewSection({ eventId, eventEndTime }: { eventId: number; eventEndTim
   useEffect(() => {
     fetchReviews();
     const token = localStorage.getItem('access_token');
+    setIsLoggedIn(!!token);
     if (token) {
       const payload = decodeJwt(token);
       if (payload?.sub) setCurrentUserId(payload.sub);
