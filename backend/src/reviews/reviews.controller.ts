@@ -11,6 +11,7 @@ import {
 
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ReviewsService } from './reviews.service';
+import type { AuthRequest } from '../auth/auth-request';
 import { CreateReviewDto } from './dto/create-review.dto';
 
 @Controller('reviews')
@@ -26,7 +27,7 @@ export class ReviewsController {
   @UseGuards(JwtAuthGuard)
   create(
     @Param('eventId') eventId: string,
-    @Req() req: any,
+    @Req() req: AuthRequest,
     @Body() body: CreateReviewDto,
   ) {
     return this.reviewsService.create(
@@ -39,7 +40,7 @@ export class ReviewsController {
 
   @Delete(':id')
   @UseGuards(JwtAuthGuard)
-  delete(@Param('id') id: string, @Req() req: any) {
+  delete(@Param('id') id: string, @Req() req: AuthRequest) {
     return this.reviewsService.delete(Number(id), req.user.userId);
   }
 }

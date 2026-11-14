@@ -22,8 +22,9 @@ export class User {
   @Column({ nullable: true })
   name: string;
 
-  @Column({ nullable: true, unique: true })
-  phone: string;
+  // Explicit type: with `string | null` TypeORM cannot infer the column type.
+  @Column({ type: 'varchar', nullable: true, unique: true })
+  phone: string | null;
 
   @Column({ nullable: true })
   avatarUrl: string;

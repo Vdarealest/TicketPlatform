@@ -26,7 +26,7 @@ export class ReservationExpirationProcessor extends WorkerHost {
     super();
   }
 
-  async process(job: Job): Promise<void> {
+  async process(job: Job<{ reservationId: number }>): Promise<void> {
     console.log('🔥 Processing reservation:', job.data.reservationId);
 
     const reservation = await this.reservationRepository.findOne({

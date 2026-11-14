@@ -7,7 +7,6 @@ import { Seat } from '../tickets/entities/seat.entity';
 
 import { ReservationsService } from './reservations.service';
 import { ReservationsController } from './reservations.controller';
-import { ReservationExpirationService } from './reservation-expiration.service';
 import { WebsocketModule } from '../websocket/websocket.module';
 import { BullModule } from '@nestjs/bullmq';
 import { ReservationExpirationProcessor } from './processors/reservation-expiration.processor';

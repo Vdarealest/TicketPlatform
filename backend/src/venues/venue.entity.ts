@@ -3,8 +3,8 @@ import {
   PrimaryGeneratedColumn,
   Column,
   CreateDateColumn,
-  OneToMany,
 } from 'typeorm';
+import type { SeatLayout } from './seat-layout';
 
 @Entity()
 export class Venue {
@@ -21,7 +21,7 @@ export class Venue {
   capacity: number;
 
   @Column({ type: 'jsonb', nullable: true })
-  layout: any;
+  layout: SeatLayout | null;
 
   @CreateDateColumn()
   createdAt: Date;

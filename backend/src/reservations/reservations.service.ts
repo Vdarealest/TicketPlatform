@@ -284,7 +284,7 @@ export class ReservationsService {
   }
 
   async cancelMultipleReservations(ids: number[], requester: Requester) {
-    const results: any[] = [];
+    const results: Awaited<ReturnType<typeof this.cancelReservation>>[] = [];
     for (const id of ids) {
       results.push(await this.cancelReservation(id, requester));
     }

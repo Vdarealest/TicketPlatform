@@ -9,6 +9,7 @@ import {
 } from '@nestjs/common';
 
 import { ReservationsService } from './reservations.service';
+import type { AuthRequest, OptionalAuthRequest } from '../auth/auth-request';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
 import {
@@ -26,13 +27,13 @@ export class ReservationsController {
   // back into, so this one stays strictly authenticated.
   @Get('my')
   @UseGuards(JwtAuthGuard)
-  getMyReservations(@Request() req) {
+  getMyReservations(@Request() req: AuthRequest) {
     return this.reservationsService.getMyReservations(req.user.userId);
   }
 
   @Get(':id')
   @UseGuards(JwtAuthGuard)
-  getReservation(@Param('id') id: string, @Request() req) {
+  getReservation(@Param('id') id: string, @Request() req: AuthRequest) {
     return this.reservationsService.getReservation(Number(id), {
       userId: req.user.userId,
     });
@@ -49,7 +50,7 @@ export class ReservationsController {
   reserveBulk(
     @Param('ticketId') ticketId: string,
     @Body() body: ReserveSeatsDto,
-    @Request() req,
+    @Request() req: OptionalAuthRequest,
   ) {
     return this.reservationsService.reserveMultipleSeats(
       Number(ticketId),
@@ -63,7 +64,7 @@ export class ReservationsController {
   reserveGeneral(
     @Param('ticketId') ticketId: string,
     @Body() body: ReserveGeneralDto,
-    @Request() req,
+    @Request() req: OptionalAuthRequest,
   ) {
     return this.reservationsService.reserveGeneralAdmission(
       Number(ticketId),
@@ -74,7 +75,10 @@ export class ReservationsController {
 
   @Post('bulk/details')
   @UseGuards(OptionalJwtAuthGuard)
-  getMultiple(@Body() body: ReservationIdsDto, @Request() req) {
+  getMultiple(
+    @Body() body: ReservationIdsDto,
+    @Request() req: OptionalAuthRequest,
+  ) {
     return this.reservationsService.getMultipleReservations(body.ids, {
       userId: req.user?.userId,
       guestToken: body.guestToken,
@@ -83,7 +87,10 @@ export class ReservationsController {
 
   @Post('bulk/cancel')
   @UseGuards(OptionalJwtAuthGuard)
-  cancelMultiple(@Body() body: ReservationIdsDto, @Request() req) {
+  cancelMultiple(
+    @Body() body: ReservationIdsDto,
+    @Request() req: OptionalAuthRequest,
+  ) {
     return this.reservationsService.cancelMultipleReservations(body.ids, {
       userId: req.user?.userId,
       guestToken: body.guestToken,
@@ -92,7 +99,11 @@ export class ReservationsController {
 
   @Post(':id/cancel')
   @UseGuards(OptionalJwtAuthGuard)
-  cancel(@Param('id') id: string, @Body() body: GuestTokenDto, @Request() req) {
+  cancel(
+    @Param('id') id: string,
+    @Body() body: GuestTokenDto,
+    @Request() req: OptionalAuthRequest,
+  ) {
     return this.reservationsService.cancelReservation(Number(id), {
       userId: req.user?.userId,
       guestToken: body?.guestToken,

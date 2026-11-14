@@ -14,6 +14,8 @@ import {
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AdminGuard } from '../auth/guards/admin.guard';
 import { AdminService } from './admin.service';
+import type { AuthRequest } from '../auth/auth-request';
+import type { SeatLayout } from '../venues/seat-layout';
 import {
   CreateEventDto,
   CreateTicketDto,
@@ -95,7 +97,7 @@ export class AdminController {
   @Put('events/:id/seat-layout')
   // The designer's layout JSON (sections, shapes, seat positions) is stored
   // as-is in a jsonb column; AdminService validates what it reads from it.
-  saveSeatLayout(@Param('id') id: string, @Body() body: any) {
+  saveSeatLayout(@Param('id') id: string, @Body() body: SeatLayout) {
     return this.adminService.saveSeatLayout(Number(id), body);
   }
 
@@ -132,7 +134,7 @@ export class AdminController {
   }
 
   @Put('venues/:id/layout')
-  saveVenueLayout(@Param('id') id: string, @Body() body: any) {
+  saveVenueLayout(@Param('id') id: string, @Body() body: SeatLayout) {
     return this.adminService.saveVenueLayout(Number(id), body);
   }
 
@@ -149,7 +151,7 @@ export class AdminController {
   }
 
   @Post('users')
-  createUser(@Body() body: CreateUserDto, @Req() req: any) {
+  createUser(@Body() body: CreateUserDto, @Req() req: AuthRequest) {
     return this.adminService.createUser(body, req.user.userId);
   }
 
@@ -157,7 +159,7 @@ export class AdminController {
   updateUser(
     @Param('id') id: string,
     @Body() body: UpdateUserDto,
-    @Req() req: any,
+    @Req() req: AuthRequest,
   ) {
     return this.adminService.updateUser(
       Number(id),
@@ -171,7 +173,7 @@ export class AdminController {
   deleteUser(
     @Param('id') id: string,
     @Body() body: RequiredAdminPasswordDto,
-    @Req() req: any,
+    @Req() req: AuthRequest,
   ) {
     return this.adminService.deleteUser(
       Number(id),

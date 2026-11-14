@@ -1,6 +1,6 @@
 import { Controller, Get, Param, Query } from '@nestjs/common';
 
-import { EventsService } from './events.service';
+import { EventsService, type EventFilters } from './events.service';
 
 @Controller('events')
 export class EventsController {
@@ -25,7 +25,7 @@ export class EventsController {
       dateTo,
       minPrice: minPrice !== undefined ? Number(minPrice) : undefined,
       maxPrice: maxPrice !== undefined ? Number(maxPrice) : undefined,
-      sort: sort as any,
+      sort: sort as EventFilters['sort'],
     });
   }
 

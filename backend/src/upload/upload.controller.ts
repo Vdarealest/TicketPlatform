@@ -48,7 +48,7 @@ export class UploadController {
         const uploadStream = cloudinary.uploader.upload_stream(
           { folder: 'vietix' },
           (error, uploaded) => {
-            if (error) return reject(error);
+            if (error) return reject(new Error(error.message));
             resolve(uploaded as { secure_url: string; public_id: string });
           },
         );

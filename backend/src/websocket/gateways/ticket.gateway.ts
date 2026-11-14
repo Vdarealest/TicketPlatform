@@ -57,7 +57,7 @@ export class TicketGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage('join-event')
   handleJoinEvent(client: Socket, data: { eventId: string }) {
     const room = `event-${data.eventId}`;
-    client.join(room);
+    void client.join(room);
 
     this.logger.log(`📍 Client ${client.id} joined room: ${room}`);
 
@@ -77,7 +77,7 @@ export class TicketGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage('leave-event')
   handleLeaveEvent(client: Socket, data: { eventId: string }) {
     const room = `event-${data.eventId}`;
-    client.leave(room);
+    void client.leave(room);
 
     this.logger.log(`👋 Client ${client.id} left room: ${room}`);
 

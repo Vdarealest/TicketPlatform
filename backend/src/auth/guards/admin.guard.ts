@@ -7,6 +7,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
+import type { OptionalAuthRequest } from '../auth-request';
 
 @Injectable()
 export class AdminGuard implements CanActivate {
@@ -16,7 +17,7 @@ export class AdminGuard implements CanActivate {
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const request = context.switchToHttp().getRequest();
+    const request = context.switchToHttp().getRequest<OptionalAuthRequest>();
     const userId = request.user?.userId;
     if (!userId) throw new ForbiddenException('Không có quyền truy cập.');
 

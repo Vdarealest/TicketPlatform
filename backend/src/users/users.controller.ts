@@ -17,6 +17,7 @@ import { existsSync, mkdirSync } from 'fs';
 
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { UsersService } from './users.service';
+import type { AuthRequest } from '../auth/auth-request';
 import { ChangePasswordDto, UpdateProfileDto } from './dto/user-profile.dto';
 
 const AVATAR_DIR = join(process.cwd(), 'uploads', 'avatars');
@@ -31,17 +32,17 @@ export class UsersController {
   constructor(private usersService: UsersService) {}
 
   @Get('profile')
-  getProfile(@Req() req: any) {
+  getProfile(@Req() req: AuthRequest) {
     return this.usersService.getProfile(req.user.userId);
   }
 
   @Patch('profile')
-  updateProfile(@Req() req: any, @Body() body: UpdateProfileDto) {
+  updateProfile(@Req() req: AuthRequest, @Body() body: UpdateProfileDto) {
     return this.usersService.updateProfile(req.user.userId, body);
   }
 
   @Patch('change-password')
-  changePassword(@Req() req: any, @Body() body: ChangePasswordDto) {
+  changePassword(@Req() req: AuthRequest, @Body() body: ChangePasswordDto) {
     return this.usersService.changePassword(
       req.user.userId,
       body.currentPassword,

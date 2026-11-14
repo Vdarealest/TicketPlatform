@@ -10,6 +10,7 @@ import {
 
 import { Ticket } from '../../tickets/entities/ticket.entity';
 import { Venue } from '../../venues/venue.entity';
+import type { SeatLayout } from '../../venues/seat-layout';
 
 @Entity()
 export class Event {
@@ -44,7 +45,7 @@ export class Event {
   endTime: Date;
 
   @Column({ type: 'jsonb', nullable: true })
-  seatLayout: any;
+  seatLayout: SeatLayout | null;
 
   // Admin-picked "featured" events shown in the homepage hero carousel.
   @Column({ type: 'boolean', default: false })
@@ -65,8 +66,9 @@ export class Event {
   @Column({ type: 'timestamp', nullable: true })
   saleOpenAt: Date | null;
 
-  @Column({ nullable: true })
-  venueId: number;
+  // Explicit type: with `number | null` TypeORM cannot infer the column type.
+  @Column({ type: 'int', nullable: true })
+  venueId: number | null;
 
   @ManyToOne(() => Venue, {
     nullable: true,

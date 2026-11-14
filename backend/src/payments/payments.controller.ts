@@ -10,6 +10,7 @@ import {
 } from '@nestjs/common';
 
 import { PaymentsService } from './payments.service';
+import type { OptionalAuthRequest } from '../auth/auth-request';
 import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
 import {
   ConfirmVietQRDto,
@@ -31,13 +32,14 @@ export class PaymentsController {
   @UseGuards(OptionalJwtAuthGuard)
   createVnpayUrl(
     @Body() body: CreatePaymentDto,
-    @Request() req: any,
+    @Request() req: OptionalAuthRequest,
     @Ip() ip: string,
   ) {
-    const clientIp =
-      req.headers['x-forwarded-for']?.split(',')[0]?.trim() ||
-      ip ||
-      '127.0.0.1';
+    // Behind Render's proxy the client is the first x-forwarded-for entry.
+    // Node gives a repeated header as an array; take its first value.
+    const forwarded = req.headers['x-forwarded-for'];
+    const firstForwarded = Array.isArray(forwarded) ? forwarded[0] : forwarded;
+    const clientIp = firstForwarded?.split(',')[0]?.trim() || ip || '127.0.0.1';
     return this.paymentsService.createVnpayPaymentUrl(
       body.reservationIds,
       { userId: req.user?.userId, guestToken: body.guestToken },
@@ -59,7 +61,10 @@ export class PaymentsController {
 
   @Post('momo/create-url')
   @UseGuards(OptionalJwtAuthGuard)
-  createMomoUrl(@Body() body: CreateMomoPaymentDto, @Request() req: any) {
+  createMomoUrl(
+    @Body() body: CreateMomoPaymentDto,
+    @Request() req: OptionalAuthRequest,
+  ) {
     return this.paymentsService.createMomoPaymentUrl(
       body.reservationIds,
       { userId: req.user?.userId, guestToken: body.guestToken },
@@ -89,7 +94,10 @@ export class PaymentsController {
 
   @Post('vietqr/create')
   @UseGuards(OptionalJwtAuthGuard)
-  createVietQR(@Body() body: CreatePaymentDto, @Request() req: any) {
+  createVietQR(
+    @Body() body: CreatePaymentDto,
+    @Request() req: OptionalAuthRequest,
+  ) {
     return this.paymentsService.createVietQR(body.reservationIds, {
       userId: req.user?.userId,
       guestToken: body.guestToken,
@@ -98,7 +106,10 @@ export class PaymentsController {
 
   @Post('vietqr/confirm')
   @UseGuards(OptionalJwtAuthGuard)
-  confirmVietQR(@Body() body: ConfirmVietQRDto, @Request() req: any) {
+  confirmVietQR(
+    @Body() body: ConfirmVietQRDto,
+    @Request() req: OptionalAuthRequest,
+  ) {
     return this.paymentsService.confirmVietQR(body.orderId, {
       userId: req.user?.userId,
       guestToken: body.guestToken,

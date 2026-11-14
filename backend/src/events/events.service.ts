@@ -137,8 +137,8 @@ export class EventsService {
       .select('DISTINCT event.category', 'category')
       .where('event.category IS NOT NULL')
       .orderBy('event.category', 'ASC')
-      .getRawMany();
-    return rows.map((r) => r.category).filter(Boolean);
+      .getRawMany<{ category: string | null }>();
+    return rows.map((r) => r.category).filter((c): c is string => !!c);
   }
 
   findOne(id: number) {

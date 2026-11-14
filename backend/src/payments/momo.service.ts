@@ -97,7 +97,12 @@ export class MomoService {
       body: JSON.stringify(body),
     });
 
-    const data = await res.json();
+    // Only the fields we read; see MoMo v2 /create response.
+    const data = (await res.json()) as {
+      resultCode: number;
+      message?: string;
+      payUrl?: string;
+    };
     console.log('[MoMo] create response:', data.resultCode, data.message);
 
     if (data.resultCode !== 0 || !data.payUrl) {

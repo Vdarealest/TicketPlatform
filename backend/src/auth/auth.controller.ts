@@ -9,7 +9,7 @@ import {
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { Throttle } from '@nestjs/throttler';
-import type { Response } from 'express';
+import type { Request as ExpressRequest, Response } from 'express';
 import { ConfigService } from '@nestjs/config';
 
 import { AuthService } from './auth.service';
@@ -22,6 +22,12 @@ import {
   VerifyOtpDto,
 } from './dto/password-reset.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import type { AuthRequest } from './auth-request';
+
+// GoogleStrategy.validate resolves to AuthService.googleLogin's result.
+type GoogleCallbackRequest = Omit<ExpressRequest, 'user'> & {
+  user: { access_token: string };
+};
 
 @Controller('auth')
 export class AuthController {
@@ -74,7 +80,7 @@ export class AuthController {
 
   @Get('google/callback')
   @UseGuards(AuthGuard('google'))
-  async googleCallback(@Req() req: any, @Res() res: Response) {
+  googleCallback(@Req() req: GoogleCallbackRequest, @Res() res: Response) {
     const { access_token } = req.user;
     const frontendUrl =
       this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3001';
@@ -94,13 +100,13 @@ export class AuthController {
 
   @UseGuards(JwtAuthGuard)
   @Get('me')
-  getMe(@Req() req: any) {
+  getMe(@Req() req: AuthRequest) {
     return this.authService.getMe(req.user.userId);
   }
 
   @UseGuards(JwtAuthGuard)
   @Get('profile')
-  profile(@Req() req: any) {
+  profile(@Req() req: AuthRequest) {
     return req.user;
   }
 }

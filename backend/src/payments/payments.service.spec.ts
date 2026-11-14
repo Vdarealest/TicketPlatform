@@ -30,7 +30,11 @@ function setup() {
     createPayment: jest.fn(async () => ({ payUrl: 'https://momo/pay' })),
     verifySignature: jest.fn(),
   };
-  const mail = { sendTicketConfirmation: jest.fn() };
+  const mail = {
+    sendTicketConfirmation: jest.fn(
+      async (_data: { to: string; tickets: unknown[] }) => undefined,
+    ),
+  };
   const service = new PaymentsService(
     reservationRepo as any,
     seatRepo as any,
@@ -367,6 +371,52 @@ describe('PaymentsService', () => {
       expect(mail.sendTicketConfirmation).toHaveBeenCalledWith(
         expect.objectContaining({ to: 'guest@example.com' }),
       );
+    });
+
+    it('a failing confirmation email neither fails the payment nor goes unhandled', async () => {
+      const { service, vnpay, paymentRepo, reservationRepo, mail } = setup();
+      vnpay.verifyIpn.mockReturnValue(okIpn());
+      paymentRepo.findOne.mockResolvedValue(
+        pendingPayment({ reservationIds: [1] }),
+      );
+      reservationRepo.findOne.mockResolvedValue(holdReservation(1));
+      mail.sendTicketConfirmation.mockRejectedValueOnce(new Error('QR failed'));
+      const errorLog = jest
+        .spyOn(console, 'error')
+        .mockImplementation(() => {});
+      const unhandled = jest.fn();
+      process.on('unhandledRejection', unhandled);
+
+      try {
+        expect((await service.handleVnpayIpn({})).RspCode).toBe('00');
+        await new Promise((r) => setImmediate(r));
+        expect(unhandled).not.toHaveBeenCalled();
+        expect(errorLog).toHaveBeenCalledWith(
+          'Failed to send confirmation email:',
+          expect.any(Error),
+        );
+      } finally {
+        process.off('unhandledRejection', unhandled);
+        errorLog.mockRestore();
+      }
+    });
+
+    it('formats the emailed event time in Vietnam time, not the server zone', async () => {
+      const { service, vnpay, paymentRepo, reservationRepo, mail } = setup();
+      vnpay.verifyIpn.mockReturnValue(okIpn());
+      paymentRepo.findOne.mockResolvedValue(
+        pendingPayment({ reservationIds: [1] }),
+      );
+      const r = holdReservation(1);
+      r.ticket.event.startTime = new Date('2026-12-12T12:00:00Z'); // 19:00 in Hanoi
+      reservationRepo.findOne.mockResolvedValue(r);
+
+      await service.handleVnpayIpn({});
+
+      const sent = mail.sendTicketConfirmation.mock.calls[0][0] as {
+        tickets: { eventDate: string }[];
+      };
+      expect(sent.tickets[0].eventDate).toContain('19:00');
     });
   });
 

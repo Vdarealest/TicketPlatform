@@ -14,4 +14,4 @@ async function bootstrap() {
   console.log(`WebSocket CORS origin: ${frontendUrl}`);
 }
 
-bootstrap();
+void bootstrap();

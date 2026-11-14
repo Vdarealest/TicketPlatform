@@ -5,7 +5,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, In } from 'typeorm';
+import { Repository, In, FindOptionsWhere } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 
 import { User } from '../users/entities/user.entity';
@@ -15,6 +15,7 @@ import { Seat } from '../tickets/entities/seat.entity';
 import { Reservation } from '../reservations/entities/reservation.entity';
 import { Venue } from '../venues/venue.entity';
 import { Review } from '../reviews/entities/review.entity';
+import type { LayoutSection, SeatLayout } from '../venues/seat-layout';
 
 @Injectable()
 export class AdminService {
@@ -45,7 +46,7 @@ export class AdminService {
       .innerJoin('r.ticket', 't')
       .where('r.status = :status', { status: 'CONFIRMED' })
       .select('COALESCE(SUM(t.price), 0)', 'total')
-      .getRawOne();
+      .getRawOne<{ total: string }>();
 
     const recentOrders = await this.reservationsRepo.find({
       relations: ['user', 'ticket', 'ticket.event'],
@@ -63,7 +64,8 @@ export class AdminService {
       .addSelect('COUNT(r.id)', 'count')
       .groupBy("TO_CHAR(r.createdAt, 'YYYY-MM-DD')")
       .orderBy("TO_CHAR(r.createdAt, 'YYYY-MM-DD')", 'ASC')
-      .getRawMany();
+      // Postgres returns SUM/COUNT as strings.
+      .getRawMany<{ date: string; revenue: string; count: string }>();
 
     // Fill in missing days for last 7 days
     const last7: {
@@ -94,7 +96,7 @@ export class AdminService {
       .select('r.status', 'status')
       .addSelect('COUNT(r.id)', 'count')
       .groupBy('r.status')
-      .getRawMany();
+      .getRawMany<{ status: string; count: string }>();
 
     const ordersByStatus = statusCounts.map((s) => ({
       status: s.status,
@@ -110,7 +112,7 @@ export class AdminService {
       .addSelect('COALESCE(SUM(t.price), 0)', 'revenue')
       .addSelect('COUNT(r.id)', 'count')
       .groupBy('t.type')
-      .getRawMany();
+      .getRawMany<{ type: string; revenue: string; count: string }>();
 
     const ticketTypeStats = revenueByType.map((r) => ({
       type: r.type,
@@ -187,7 +189,7 @@ export class AdminService {
       location: data.location,
       category: data.category?.trim() || 'Khác',
       bannerUrl: data.bannerUrl,
-      venueId: data.venueId || (null as any),
+      venueId: data.venueId || null,
       bannerFocusX: data.bannerFocusX ?? 50,
       bannerFocusY: data.bannerFocusY ?? 50,
       startTime: this.parseDate(data.startTime, 'Thời gian bắt đầu'),
@@ -273,7 +275,7 @@ export class AdminService {
     if (data.endTime !== undefined) {
       event.endTime = this.parseDate(data.endTime, 'Thời gian kết thúc');
     }
-    if ('venueId' in data) event.venueId = data.venueId as any;
+    if ('venueId' in data) event.venueId = data.venueId ?? null;
     if (data.featured !== undefined) event.featured = data.featured;
     if (data.featuredOrder !== undefined)
       event.featuredOrder = data.featuredOrder;
@@ -365,7 +367,7 @@ export class AdminService {
         .innerJoin('s.ticket', 't')
         .where('t.eventId = :eventId', { eventId })
         .select('MAX(s.row)', 'max')
-        .getRawOne();
+        .getRawOne<{ max: number | null }>();
       await this.generateSeats(savedTicket, Number(maxRow?.max || 0));
     }
 
@@ -456,7 +458,7 @@ export class AdminService {
           .innerJoin('s.ticket', 't')
           .where('t.eventId = :eventId', { eventId: ticket.event.id })
           .select('MAX(s.row)', 'max')
-          .getRawOne();
+          .getRawOne<{ max: number | null }>();
         await this.generateSeats(
           {
             ...ticket,
@@ -522,7 +524,7 @@ export class AdminService {
         .addSelect('COUNT(r.id)', 'count')
         .where('r.status = :status', { status: 'CONFIRMED' })
         .groupBy('r.userId')
-        .getRawMany();
+        .getRawMany<{ userId: number; count: string }>();
       for (const c of counts) {
         reservationCounts[c.userId] = Number(c.count);
       }
@@ -653,7 +655,7 @@ export class AdminService {
       }
       user.email = data.email;
     }
-    if (data.phone !== undefined) user.phone = data.phone || (null as any);
+    if (data.phone !== undefined) user.phone = data.phone || null;
     if (data.role && ['USER', 'ADMIN'].includes(data.role))
       user.role = data.role;
     if (data.password) user.password = await bcrypt.hash(data.password, 10);
@@ -688,8 +690,7 @@ export class AdminService {
   // ─── Reservations / Orders ────────────────────────────────────────────────
 
   async getOrders(status?: string) {
-    const where: any = {};
-    if (status) where.status = status;
+    const where: FindOptionsWhere<Reservation> = status ? { status } : {};
 
     return this.reservationsRepo.find({
       where,
@@ -700,7 +701,7 @@ export class AdminService {
 
   // ─── Seat Layout Designer ────────────────────────────────────────────────
 
-  async saveSeatLayout(eventId: number, layout: any) {
+  async saveSeatLayout(eventId: number, layout: SeatLayout) {
     const event = await this.eventsRepo.findOne({ where: { id: eventId } });
     if (!event) throw new NotFoundException('Sự kiện không tồn tại.');
     event.seatLayout = layout;
@@ -754,9 +755,10 @@ export class AdminService {
     // Validate BEFORE deleting anything so a failed run never leaves the event seatless
     const hasSections = !!layout?.sections?.length;
     const ticketMap = new Map(event.tickets.map((t) => [t.id, t]));
-    const matchedSections = hasSections
-      ? layout.sections.filter((s: any) => ticketMap.has(s.ticketId))
-      : [];
+    const matchedSections = (layout?.sections ?? []).filter(
+      (s): s is LayoutSection & { ticketId: number } =>
+        s.ticketId !== undefined && ticketMap.has(s.ticketId),
+    );
     if (hasSections && !matchedSections.length) {
       throw new BadRequestException(
         'Chưa có khu nào trong sơ đồ được gán loại vé. Hãy chọn khu và gán "Loại vé" trước khi tạo ghế.',
@@ -955,12 +957,12 @@ export class AdminService {
   async deleteVenue(id: number) {
     const venue = await this.venuesRepo.findOne({ where: { id } });
     if (!venue) throw new NotFoundException('Địa điểm không tồn tại.');
-    await this.eventsRepo.update({ venueId: id }, { venueId: null as any });
+    await this.eventsRepo.update({ venueId: id }, { venueId: null });
     await this.venuesRepo.remove(venue);
     return { message: 'Đã xóa địa điểm.' };
   }
 
-  async saveVenueLayout(id: number, layout: any) {
+  async saveVenueLayout(id: number, layout: SeatLayout) {
     const venue = await this.venuesRepo.findOne({ where: { id } });
     if (!venue) throw new NotFoundException('Địa điểm không tồn tại.');
     venue.layout = layout;

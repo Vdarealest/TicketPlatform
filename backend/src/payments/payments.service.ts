@@ -12,7 +12,6 @@ import * as crypto from 'crypto';
 import { Reservation } from '../reservations/entities/reservation.entity';
 import { Seat } from '../tickets/entities/seat.entity';
 import { Payment } from './entities/payment.entity';
-import { User } from '../users/entities/user.entity';
 import { TicketGateway } from '../websocket/gateways/ticket.gateway';
 import { VnpayService } from './vnpay.service';
 import { MomoService } from './momo.service';
@@ -491,9 +490,12 @@ export class PaymentsService {
       // only delivery channel, so the fallback here isn't optional for them.
       const userEmail = confirmed[0].user?.email ?? confirmed[0].guestEmail;
       if (userEmail) {
-        const fmtDate = (d: string) => {
+        const fmtDate = (d: Date | string): string => {
           try {
             return new Date(d).toLocaleDateString('vi-VN', {
+              // The server runs in UTC (Render); without this a 19:00 show
+              // was emailed as 12:00.
+              timeZone: 'Asia/Ho_Chi_Minh',
               day: 'numeric',
               month: 'short',
               year: 'numeric',
@@ -501,25 +503,32 @@ export class PaymentsService {
               minute: '2-digit',
             });
           } catch {
-            return d;
+            return String(d);
           }
         };
 
-        this.mailService.sendTicketConfirmation({
-          to: userEmail,
-          orderId: payment.orderId,
-          totalAmount: Number(payment.amount),
-          provider: payment.provider,
-          tickets: confirmed.map((r) => ({
-            confirmationCode: r.confirmationCode,
-            eventTitle: r.ticket?.event?.title ?? 'Sự kiện',
-            eventDate: fmtDate(r.ticket?.event?.startTime as any),
-            eventLocation: r.ticket?.event?.location ?? '',
-            ticketType: r.ticket?.type ?? '',
-            seatLabel: r.seat?.label ?? null,
-            price: Number(r.ticket?.price ?? 0),
-          })),
-        });
+        // Not awaited: the payment response must not wait on SMTP. The catch
+        // matters — an unhandled rejection (e.g. QR generation failing)
+        // would terminate the Node process.
+        void this.mailService
+          .sendTicketConfirmation({
+            to: userEmail,
+            orderId: payment.orderId,
+            totalAmount: Number(payment.amount),
+            provider: payment.provider,
+            tickets: confirmed.map((r) => ({
+              confirmationCode: r.confirmationCode,
+              eventTitle: r.ticket?.event?.title ?? 'Sự kiện',
+              eventDate: fmtDate(r.ticket?.event?.startTime),
+              eventLocation: r.ticket?.event?.location ?? '',
+              ticketType: r.ticket?.type ?? '',
+              seatLabel: r.seat?.label ?? null,
+              price: Number(r.ticket?.price ?? 0),
+            })),
+          })
+          .catch((err) =>
+            console.error('Failed to send confirmation email:', err),
+          );
       }
     }
   }

@@ -162,6 +162,10 @@ export class AuthService {
     };
   }
 
+  // Async on purpose: callers await it, and the OTP store is meant to move
+  // to Redis (the in-memory Map does not survive restarts or multiple
+  // instances).
+  // eslint-disable-next-line @typescript-eslint/require-await
   async verifyOtp(email: string, otp: string) {
     const record = this.getValidOtp(email);
     if (record.otp !== otp) {
@@ -273,7 +277,7 @@ export class AuthService {
     } catch (err) {
       // Dev fallback — log OTP to console if SMTP not configured
       console.warn(`[Vietix] Email send failed. Dev OTP for ${email}: ${otp}`);
-      console.warn(err?.message);
+      console.warn(err instanceof Error ? err.message : err);
     }
   }
 
