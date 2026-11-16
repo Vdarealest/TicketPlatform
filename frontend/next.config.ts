@@ -38,7 +38,10 @@ const csp = [
   "object-src 'none'",
   "base-uri 'self'",
   "form-action 'self'",
-  "frame-ancestors 'self'",
+  // Nothing embeds this site; refusing all framing blocks clickjacking.
+  "frame-ancestors 'none'",
+  // Production only: localhost has no TLS.
+  ...(isDev ? [] : ["upgrade-insecure-requests"]),
 ].join('; ');
 
 const nextConfig: NextConfig = {
@@ -53,22 +56,16 @@ const nextConfig: NextConfig = {
             key: "Content-Security-Policy",
             value: csp,
           },
-          // Enable CORS headers for backend communication
+          // (CORS headers used to be sent here too. They belong on the API,
+          // which sets them in main.ts; nothing calls these pages cross-origin.)
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          // Full URLs (with event ids, checkout query strings) stay on our
+          // origin; other sites only see the origin.
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          // The app never uses these; deny them so injected code can't either.
           {
-            key: "Access-Control-Allow-Credentials",
-            value: "true",
-          },
-          {
-            key: "Access-Control-Allow-Origin",
-            value: apiUrl,
-          },
-          {
-            key: "Access-Control-Allow-Methods",
-            value: "GET,OPTIONS,PATCH,DELETE,POST,PUT",
-          },
-          {
-            key: "Access-Control-Allow-Headers",
-            value: "X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version",
+            key: "Permissions-Policy",
+            value: "camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()",
           },
         ],
       },
