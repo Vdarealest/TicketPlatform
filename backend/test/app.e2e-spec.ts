@@ -129,6 +129,20 @@ describe('Vietix API (e2e)', () => {
     it('rejects /auth/me without a token', async () => {
       await api().get('/auth/me').expect(401);
     });
+
+    it('Google sign-in code is single-use, stored in real Redis', async () => {
+      const { AuthService } =
+        require('../src/auth/auth.service') as typeof import('../src/auth/auth.service');
+      const code = await app
+        .get(AuthService)
+        .createOAuthCode('jwt-from-google');
+      const first = await api()
+        .post('/auth/oauth/exchange')
+        .send({ code })
+        .expect(201);
+      expect(first.body.access_token).toBe('jwt-from-google');
+      await api().post('/auth/oauth/exchange').send({ code }).expect(400);
+    });
   });
 
   describe('admin guard', () => {

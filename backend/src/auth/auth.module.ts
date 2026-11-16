@@ -9,6 +9,9 @@ import { User } from '../users/entities/user.entity';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 
+import Redis from 'ioredis';
+import { RedisTokenStore, TOKEN_STORE } from './token-store';
+import { redisConnection } from '../queue/redis-connection';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { GoogleStrategy } from './strategies/google.strategy';
 
@@ -39,6 +42,19 @@ import { GoogleStrategy } from './strategies/google.strategy';
 
   controllers: [AuthController],
 
-  providers: [AuthService, JwtStrategy, GoogleStrategy],
+  providers: [
+    AuthService,
+    JwtStrategy,
+    GoogleStrategy,
+    {
+      provide: TOKEN_STORE,
+      // Its own connection with a key prefix, so auth keys never collide
+      // with BullMQ's and are easy to find with SCAN vietix:auth:*.
+      useFactory: () =>
+        new RedisTokenStore(
+          new Redis({ ...redisConnection(), keyPrefix: 'vietix:auth:' }),
+        ),
+    },
+  ],
 })
 export class AuthModule {}

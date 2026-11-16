@@ -1,4 +1,5 @@
 import {
+  Inject,
   Injectable,
   BadRequestException,
   UnauthorizedException,
@@ -13,6 +14,7 @@ import * as nodemailer from 'nodemailer';
 
 import { User } from '../users/entities/user.entity';
 import { JwtService } from '@nestjs/jwt';
+import { TOKEN_STORE, type TokenStore } from './token-store';
 
 interface OtpRecord {
   otp: string;
@@ -22,23 +24,15 @@ interface OtpRecord {
 }
 
 const MAX_OTP_ATTEMPTS = 5;
+const OTP_TTL_MS = 5 * 60 * 1000;
 const OAUTH_CODE_TTL_MS = 60 * 1000; // one-time code, dies in 60s
+
+const otpKey = (email: string) => `otp:${email}`;
+const oauthKey = (code: string) => `oauth:${code}`;
 
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
-
-  // In-memory OTP store: email → record (TTL 5 min)
-  private readonly otpStore = new Map<string, OtpRecord>();
-
-  // In-memory single-use exchange codes for the Google OAuth redirect. The
-  // JWT itself never touches the URL/browser history/Referer/server logs —
-  // only this short-lived, one-time code does, and it's useless once used
-  // or expired.
-  private readonly oauthCodeStore = new Map<
-    string,
-    { token: string; expiresAt: number }
-  >();
 
   private readonly transporter: nodemailer.Transporter;
 
@@ -47,6 +41,8 @@ export class AuthService {
     private usersRepository: Repository<User>,
     private jwtService: JwtService,
     private configService: ConfigService,
+    // OTPs and OAuth exchange codes (Redis in the app, memory in tests).
+    @Inject(TOKEN_STORE) private tokens: TokenStore,
   ) {
     this.transporter = nodemailer.createTransport({
       host: configService.get<string>('MAIL_HOST') || 'smtp.gmail.com',
@@ -148,13 +144,19 @@ export class AuthService {
       );
     }
 
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    this.otpStore.set(user.email, {
+    // crypto.randomInt, not Math.random: the code is a credential.
+    const otp = crypto.randomInt(100000, 1000000).toString();
+    const record: OtpRecord = {
       otp,
-      expiresAt: Date.now() + 5 * 60 * 1000,
+      expiresAt: Date.now() + OTP_TTL_MS,
       verified: false,
       attempts: 0,
-    });
+    };
+    await this.tokens.set(
+      otpKey(user.email),
+      JSON.stringify(record),
+      OTP_TTL_MS,
+    );
 
     await this.sendOtpEmail(user.email, otp);
 
@@ -165,30 +167,28 @@ export class AuthService {
     };
   }
 
-  // Async on purpose: callers await it, and the OTP store is meant to move
-  // to Redis (the in-memory Map does not survive restarts or multiple
-  // instances).
-  // eslint-disable-next-line @typescript-eslint/require-await
   async verifyOtp(email: string, otp: string) {
-    const record = this.getValidOtp(email);
+    const record = await this.getValidOtp(email);
     if (record.otp !== otp) {
       record.attempts += 1;
       // Too many wrong guesses: burn this OTP so it can't be brute-forced.
       if (record.attempts >= MAX_OTP_ATTEMPTS) {
-        this.otpStore.delete(email);
+        await this.tokens.del(otpKey(email));
         throw new BadRequestException(
           'Nhập sai OTP quá nhiều lần. Vui lòng yêu cầu mã mới.',
         );
       }
+      await this.tokens.update(otpKey(email), JSON.stringify(record));
       throw new BadRequestException('Mã OTP không đúng.');
     }
 
     record.verified = true;
+    await this.tokens.update(otpKey(email), JSON.stringify(record));
     return { message: 'Xác minh thành công.' };
   }
 
   async resetPassword(email: string, otp: string, newPassword: string) {
-    const record = this.getValidOtp(email);
+    const record = await this.getValidOtp(email);
 
     if (!record.verified) {
       throw new BadRequestException(
@@ -208,16 +208,18 @@ export class AuthService {
     user.password = await bcrypt.hash(newPassword, 10);
     await this.usersRepository.save(user);
 
-    this.otpStore.delete(email);
+    await this.tokens.del(otpKey(email));
     return { message: 'Mật khẩu đã được đặt lại thành công.' };
   }
 
   // ─── Helpers ──────────────────────────────────────────────────────────────
 
-  private getValidOtp(email: string): OtpRecord {
-    const record = this.otpStore.get(email);
+  private async getValidOtp(email: string): Promise<OtpRecord> {
+    const raw = await this.tokens.get(otpKey(email));
+    const record = raw ? (JSON.parse(raw) as OtpRecord) : null;
+    // The store expires keys itself; expiresAt is a second guard.
     if (!record || Date.now() > record.expiresAt) {
-      this.otpStore.delete(email);
+      await this.tokens.del(otpKey(email));
       throw new BadRequestException(
         'Mã OTP không hợp lệ hoặc đã hết hạn. Vui lòng yêu cầu mã mới.',
       );
@@ -306,19 +308,26 @@ export class AuthService {
 
   // ─── OAuth one-time exchange code ────────────────────────────────────────
 
-  createOAuthCode(token: string): string {
+  // The JWT itself never touches the URL / browser history / Referer /
+  // server logs after Google sign-in — only this short-lived, single-use
+  // code does, and it is useless once exchanged or expired.
+  async createOAuthCode(token: string): Promise<string> {
     const code = crypto.randomBytes(24).toString('hex');
-    this.oauthCodeStore.set(code, {
-      token,
-      expiresAt: Date.now() + OAUTH_CODE_TTL_MS,
-    });
+    const record = { token, expiresAt: Date.now() + OAUTH_CODE_TTL_MS };
+    await this.tokens.set(
+      oauthKey(code),
+      JSON.stringify(record),
+      OAUTH_CODE_TTL_MS,
+    );
     return code;
   }
 
-  exchangeOAuthCode(code: string): { access_token: string } {
-    const record = this.oauthCodeStore.get(code);
-    // Single-use: delete immediately regardless of outcome.
-    this.oauthCodeStore.delete(code);
+  async exchangeOAuthCode(code: string): Promise<{ access_token: string }> {
+    // Single-use: read and delete atomically, whatever the outcome.
+    const raw = await this.tokens.take(oauthKey(code));
+    const record = raw
+      ? (JSON.parse(raw) as { token: string; expiresAt: number })
+      : null;
     if (!record || Date.now() > record.expiresAt) {
       throw new BadRequestException(
         'Mã đăng nhập không hợp lệ hoặc đã hết hạn.',

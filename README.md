@@ -155,7 +155,8 @@ Before running the project locally, make sure the following are installed:
 docker compose up -d   # Postgres 18 + Redis 7, matching backend/.env.example
 ```
 
-Redis is required because the backend uses BullMQ for background job processing.
+Redis is required: the backend uses it for BullMQ background jobs and to store
+short-lived auth codes (password-reset OTPs, Google sign-in exchange codes).
 The compose file binds ports 5432 and 6379; if you already run Postgres or Redis
 locally, change the host ports there and in `backend/.env`.
 

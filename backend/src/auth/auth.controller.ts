@@ -80,7 +80,10 @@ export class AuthController {
 
   @Get('google/callback')
   @UseGuards(AuthGuard('google'))
-  googleCallback(@Req() req: GoogleCallbackRequest, @Res() res: Response) {
+  async googleCallback(
+    @Req() req: GoogleCallbackRequest,
+    @Res() res: Response,
+  ) {
     const { access_token } = req.user;
     const frontendUrl =
       this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3001';
@@ -88,7 +91,7 @@ export class AuthController {
     // browser history, server access logs, and the Referer header of any
     // third-party resource the callback page loads. Hand over a short-lived,
     // single-use code instead; the frontend exchanges it server-side below.
-    const code = this.authService.createOAuthCode(access_token);
+    const code = await this.authService.createOAuthCode(access_token);
     res.redirect(`${frontendUrl}/auth/callback?code=${code}`);
   }
 

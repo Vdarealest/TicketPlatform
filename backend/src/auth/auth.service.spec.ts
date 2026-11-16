@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { AuthService } from './auth.service';
+import { MemoryTokenStore } from './token-store';
 
 type Row = Record<string, any>;
 
@@ -27,15 +28,33 @@ function setup(users: Row[] = []) {
   const config = {
     get: jest.fn((_key: string): string | undefined => undefined),
   };
-  const service = new AuthService(repo as any, jwt as any, config as any);
+  const tokens = new MemoryTokenStore();
+  const service = new AuthService(
+    repo as any,
+    jwt as any,
+    config as any,
+    tokens,
+  );
   const sendMail = jest.fn(async () => ({}));
   (service as any).transporter = { sendMail };
-  return { service, repo, jwt, users, sendMail, config };
+  return { service, repo, jwt, users, sendMail, config, tokens };
 }
 
 // bcrypt cost 10 is slow; a cheap hash keeps these tests fast and is still
 // a real bcrypt hash that the service has to compare against.
 const hash = (pw: string) => bcrypt.hashSync(pw, 4);
+
+type Stored = { otp?: string; token?: string; expiresAt: number };
+const readKey = async (tokens: MemoryTokenStore, key: string) =>
+  JSON.parse((await tokens.get(key)) ?? 'null') as Stored | null;
+// Pretend the record's own expiry has passed (the store TTL is separate).
+const expireKey = async (tokens: MemoryTokenStore, key: string) => {
+  const rec = await readKey(tokens, key);
+  await tokens.update(
+    key,
+    JSON.stringify({ ...rec, expiresAt: Date.now() - 1 }),
+  );
+};
 
 describe('AuthService', () => {
   describe('register', () => {
@@ -119,8 +138,7 @@ describe('AuthService', () => {
         { id: 1, email: 'a@example.com', password: hash('old-pass') },
       ]);
       await ctx.service.forgotPassword('a@example.com');
-      const otp = (ctx.service as any).otpStore.get('a@example.com')
-        .otp as string;
+      const otp = (await readKey(ctx.tokens, 'otp:a@example.com'))!.otp!;
       return { ...ctx, otp };
     }
 
@@ -146,7 +164,7 @@ describe('AuthService', () => {
       process.env.NODE_ENV = 'production';
       try {
         await ctx.service.forgotPassword('a@example.com');
-        const otp = (ctx.service as any).otpStore.get('a@example.com').otp;
+        const otp = (await readKey(ctx.tokens, 'otp:a@example.com'))!.otp!;
         const logged = warn.mock.calls.map((c) => String(c[0])).join('\n');
         expect(logged).toContain('SMTP down');
         expect(logged).not.toContain(otp);
@@ -177,7 +195,7 @@ describe('AuthService', () => {
         process.env.NODE_ENV = nodeEnv;
         try {
           await ctx.service.forgotPassword('a@example.com');
-          const otp = (ctx.service as any).otpStore.get('a@example.com').otp;
+          const otp = (await readKey(ctx.tokens, 'otp:a@example.com'))!.otp!;
           const logged = warn.mock.calls.map((c) => String(c[0])).join('\n');
           expect(logged.includes(otp)).toBe(expectLogged);
         } finally {
@@ -223,8 +241,8 @@ describe('AuthService', () => {
     });
 
     it('rejects an expired code', async () => {
-      const { service, otp } = await requestOtp();
-      (service as any).otpStore.get('a@example.com').expiresAt = Date.now() - 1;
+      const { service, otp, tokens } = await requestOtp();
+      await expireKey(tokens, 'otp:a@example.com');
       await expect(service.verifyOtp('a@example.com', otp)).rejects.toThrow(
         'hết hạn',
       );
@@ -253,31 +271,76 @@ describe('AuthService', () => {
   });
 
   describe('OAuth exchange code', () => {
-    it('returns the token once, then is useless', () => {
+    it('returns the token once, then is useless', async () => {
       const { service } = setup();
-      const code = service.createOAuthCode('jwt:9');
-      expect(service.exchangeOAuthCode(code)).toEqual({
+      const code = await service.createOAuthCode('jwt:9');
+      await expect(service.exchangeOAuthCode(code)).resolves.toEqual({
         access_token: 'jwt:9',
       });
-      expect(() => service.exchangeOAuthCode(code)).toThrow(
+      await expect(service.exchangeOAuthCode(code)).rejects.toBeInstanceOf(
         BadRequestException,
       );
     });
 
-    it('expires after its TTL', () => {
-      const { service } = setup();
-      const code = service.createOAuthCode('jwt:9');
-      (service as any).oauthCodeStore.get(code).expiresAt = Date.now() - 1;
-      expect(() => service.exchangeOAuthCode(code)).toThrow(
+    it('expires after its TTL', async () => {
+      const { service, tokens } = setup();
+      const code = await service.createOAuthCode('jwt:9');
+      await expireKey(tokens, `oauth:${code}`);
+      await expect(service.exchangeOAuthCode(code)).rejects.toBeInstanceOf(
         BadRequestException,
       );
     });
 
-    it('rejects a made-up code', () => {
+    it('rejects a made-up code', async () => {
       const { service } = setup();
-      expect(() => service.exchangeOAuthCode('deadbeef')).toThrow(
-        BadRequestException,
+      await expect(
+        service.exchangeOAuthCode('deadbeef'),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it('stores the code with a 60s TTL', async () => {
+      const { service, tokens } = setup();
+      const spy = jest.spyOn(tokens, 'set');
+      const code = await service.createOAuthCode('jwt:9');
+      expect(spy).toHaveBeenCalledWith(
+        `oauth:${code}`,
+        expect.any(String),
+        60_000,
       );
+    });
+  });
+
+  describe('OTP storage', () => {
+    it('stores the OTP with a 5-minute TTL', async () => {
+      const ctx = setup([
+        { id: 1, email: 'a@example.com', password: hash('old-pass') },
+      ]);
+      const spy = jest.spyOn(ctx.tokens, 'set');
+      await ctx.service.forgotPassword('a@example.com');
+      expect(spy).toHaveBeenCalledWith(
+        'otp:a@example.com',
+        expect.any(String),
+        300_000,
+      );
+    });
+
+    it('persists wrong-guess counts between requests', async () => {
+      const ctx = setup([
+        { id: 1, email: 'a@example.com', password: hash('old-pass') },
+      ]);
+      await ctx.service.forgotPassword('a@example.com');
+      const otp = (await readKey(ctx.tokens, 'otp:a@example.com'))!.otp!;
+      const wrong = otp === '000000' ? '111111' : '000000';
+      await expect(
+        ctx.service.verifyOtp('a@example.com', wrong),
+      ).rejects.toThrow();
+      await expect(
+        ctx.service.verifyOtp('a@example.com', wrong),
+      ).rejects.toThrow();
+      const rec = (await readKey(ctx.tokens, 'otp:a@example.com')) as Stored & {
+        attempts: number;
+      };
+      expect(rec.attempts).toBe(2);
     });
   });
 });
