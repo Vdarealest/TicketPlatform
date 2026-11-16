@@ -357,6 +357,11 @@ const translations = {
     theme_light: 'Chế độ sáng',
     theme_dark: 'Chế độ tối',
     lang_choose: 'Chọn ngôn ngữ',
+    // VietQR (bank webhook)
+    co_waiting_transfer: 'Đang chờ ngân hàng xác nhận chuyển khoản...',
+    co_keep_note: 'Chuyển đúng số tiền và giữ nguyên nội dung chuyển khoản. Trang sẽ tự cập nhật khi tiền về.',
+    co_note_vietqr_live: 'VietQR — chuyển khoản qua mọi ứng dụng ngân hàng, xác nhận tự động.',
+    co_paid_too_late: 'Đã nhận tiền nhưng thời gian giữ chỗ đã hết. Vui lòng liên hệ hỗ trợ để được hoàn tiền.',
   },
   en: {
     // Navbar
@@ -716,6 +721,11 @@ const translations = {
     theme_light: 'Light mode',
     theme_dark: 'Dark mode',
     lang_choose: 'Choose language',
+    // VietQR (bank webhook)
+    co_waiting_transfer: 'Waiting for the bank to confirm your transfer...',
+    co_keep_note: 'Transfer the exact amount and keep the transfer note unchanged. This page updates by itself when the money arrives.',
+    co_note_vietqr_live: 'VietQR — pay from any banking app, confirmed automatically.',
+    co_paid_too_late: 'We received your payment, but your hold had already expired. Please contact support for a refund.',
   },
 } as const;
 

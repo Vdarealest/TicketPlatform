@@ -4,7 +4,9 @@ import {
   BadRequestException,
   ForbiddenException,
   Logger,
+  UnauthorizedException,
 } from '@nestjs/common';
+import { signaturesMatch } from './signature.util';
 
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
@@ -21,6 +23,10 @@ import {
   Requester,
   ownsReservation,
 } from '../reservations/reservation-ownership.util';
+
+/** A webhook field as text; anything that is not a string or number is empty. */
+const str = (v: unknown): string =>
+  typeof v === 'string' || typeof v === 'number' ? String(v) : '';
 
 @Injectable()
 export class PaymentsService {
@@ -156,16 +162,25 @@ export class PaymentsService {
     return { paymentUrl: payUrl, orderId };
   }
 
-  // ── VietQR (test-friendly) ────────────────────────────────────────────────
-  // Generates a real Napas-247 QR via the free img.vietqr.io service (no API
-  // key). There is no automatic bank IPN here, so confirmVietQR is a MANUAL
-  // confirm: the buyer's own click marks the order paid. That hands out free
-  // tickets, so the whole flow is off unless VIETQR_MANUAL_CONFIRM=true (local
-  // dev only). Creation is blocked too — otherwise a buyer could transfer real
-  // money into an order nothing will ever confirm. Production needs a bank
-  // webhook (SePay / Casso) before this can be turned on there.
-  isVietQREnabled(): boolean {
+  // ── VietQR ────────────────────────────────────────────────────────────────
+  // The QR is a real Napas-247 transfer (img.vietqr.io). Two ways to learn the
+  // money arrived:
+  //  - SePay webhook (SEPAY_API_KEY set): SePay watches the bank account and
+  //    POSTs each incoming transfer to /payments/vietqr/webhook. Production.
+  //  - Manual confirm (VIETQR_MANUAL_CONFIRM=true): the buyer's own click
+  //    marks the order paid. That hands out free tickets — local dev only.
+  // With neither, VietQR is off entirely (creation too, or a buyer could pay
+  // into an order nothing will ever confirm).
+  isVietQRManual(): boolean {
     return process.env.VIETQR_MANUAL_CONFIRM === 'true';
+  }
+
+  isVietQRWebhookEnabled(): boolean {
+    return !!process.env.SEPAY_API_KEY;
+  }
+
+  isVietQREnabled(): boolean {
+    return this.isVietQRManual() || this.isVietQRWebhookEnabled();
   }
 
   private assertVietQREnabled() {
@@ -203,8 +218,112 @@ export class PaymentsService {
     };
   }
 
-  async confirmVietQR(orderId: string, requester: Requester) {
+  /** Lets the checkout page poll until the webhook has confirmed the order. */
+  async getVietQRStatus(orderId: string, requester: Requester) {
     this.assertVietQREnabled();
+    const payment = await this.paymentRepository.findOne({
+      where: { orderId },
+      relations: ['user'],
+    });
+    if (!payment || payment.provider !== 'VIETQR') {
+      throw new NotFoundException('Không tìm thấy đơn thanh toán.');
+    }
+    await this.assertOwnsPayment(payment, requester);
+    return {
+      orderId,
+      status: payment.status,
+      reservationIds:
+        payment.status === 'SUCCESS' ? payment.reservationIds : undefined,
+    };
+  }
+
+  /**
+   * SePay webhook: one call per bank transaction on the watched account.
+   * Always answers {success: true} once the request is authentic, even when
+   * the transfer matches no order: SePay only retries on transport errors,
+   * and an unmatched transfer needs a human, not a retry. Deliveries can be
+   * repeated (retries, manual resends), so everything here is idempotent.
+   */
+  async handleSepayWebhook(
+    authorization: string | undefined,
+    body: Record<string, unknown>,
+  ) {
+    const key = process.env.SEPAY_API_KEY;
+    if (!key || !signaturesMatch(`Apikey ${key}`, authorization)) {
+      throw new UnauthorizedException('Invalid webhook credentials');
+    }
+
+    const txId = str(body.id);
+    const amount = Number(body.transferAmount);
+    if (body.transferType !== 'in' || !Number.isFinite(amount) || amount <= 0) {
+      return { success: true }; // outgoing money or not a transfer: ignore
+    }
+
+    // Banks keep the transfer note but may reformat it; order ids are
+    // "VTX" + digits + 4 uppercase alphanumerics.
+    const text =
+      `${str(body.code)} ${str(body.content)} ${str(body.description)}`.toUpperCase();
+    const orderId = text.match(/VTX\d{10,}[A-Z0-9]{4}/)?.[0];
+    if (!orderId) {
+      this.logger.warn(
+        `SePay tx ${txId}: ${amount}đ with no order id in the note — check manually`,
+      );
+      return { success: true };
+    }
+
+    const payment = await this.paymentRepository.findOne({
+      where: { orderId },
+      relations: ['user'],
+    });
+    if (!payment || payment.provider !== 'VIETQR') {
+      this.logger.warn(
+        `SePay tx ${txId}: order ${orderId} not found — check manually`,
+      );
+      return { success: true };
+    }
+    if (payment.status === 'SUCCESS' || payment.vnpTransactionNo === txId) {
+      return { success: true }; // duplicate delivery
+    }
+    if (amount < Number(payment.amount)) {
+      this.logger.warn(
+        `SePay tx ${txId}: ${amount}đ is less than the ${payment.amount}đ due for ${orderId}`,
+      );
+      payment.responseCode = `UNDERPAID:${amount}`;
+      await this.paymentRepository.save(payment);
+      return { success: true };
+    }
+
+    // Accept payment for an order the buyer superseded (e.g. switched to
+    // VNPay) only if its seats are still on hold; confirmReservations skips
+    // anything no longer HOLD.
+    payment.vnpTransactionNo = txId;
+    payment.bankTranNo = str(body.referenceCode);
+    payment.bankCode = str(body.gateway);
+    payment.payDate = str(body.transactionDate);
+    payment.status = 'SUCCESS';
+    await this.paymentRepository.save(payment);
+    const confirmed = await this.confirmReservations(
+      payment.reservationIds,
+      payment.user?.id,
+      payment,
+    );
+
+    if (confirmed < payment.reservationIds.length) {
+      // Money arrived after the hold expired (or the seats were cancelled).
+      payment.status = 'REFUND_REQUIRED';
+      payment.responseCode = `CONFIRMED:${confirmed}/${payment.reservationIds.length}`;
+      await this.paymentRepository.save(payment);
+      this.logger.error(
+        `SePay tx ${txId}: ${orderId} paid but only ${confirmed}/${payment.reservationIds.length} seats were still held — refund needed`,
+      );
+    }
+    return { success: true };
+  }
+
+  async confirmVietQR(orderId: string, requester: Requester) {
+    if (!this.isVietQRManual()) {
+      throw new ForbiddenException('Phương thức VietQR hiện không khả dụng.');
+    }
     const payment = await this.paymentRepository.findOne({
       where: { orderId },
       relations: ['user'],
@@ -534,5 +653,6 @@ export class PaymentsService {
           );
       }
     }
+    return confirmed.length;
   }
 }

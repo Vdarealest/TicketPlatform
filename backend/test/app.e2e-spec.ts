@@ -214,8 +214,10 @@ describe('Vietix API (e2e)', () => {
 
     it('reports VietQR as disabled by default', async () => {
       const res = await api().get('/payments/methods').expect(200);
+      const manual = process.env.VIETQR_MANUAL_CONFIRM === 'true';
       expect(res.body).toEqual({
-        vietqr: process.env.VIETQR_MANUAL_CONFIRM === 'true',
+        vietqr: manual || !!process.env.SEPAY_API_KEY,
+        vietqrManual: manual,
       });
     });
   });
@@ -471,6 +473,106 @@ describe('Vietix API (e2e)', () => {
         .expect(400);
       expect(JSON.stringify(res.body.message)).toContain(
         'Chọn từ 1 đến 10 ghế.',
+      );
+    });
+  });
+
+  describe('VietQR paid through the SePay webhook', () => {
+    const KEY = 'e2e-sepay-key';
+    let oldKey: string | undefined;
+    let oldManual: string | undefined;
+    beforeAll(() => {
+      oldKey = process.env.SEPAY_API_KEY;
+      oldManual = process.env.VIETQR_MANUAL_CONFIRM;
+      process.env.SEPAY_API_KEY = KEY;
+      delete process.env.VIETQR_MANUAL_CONFIRM;
+    });
+    afterAll(() => {
+      if (oldKey === undefined) delete process.env.SEPAY_API_KEY;
+      else process.env.SEPAY_API_KEY = oldKey;
+      if (oldManual !== undefined)
+        process.env.VIETQR_MANUAL_CONFIRM = oldManual;
+    });
+
+    it('a matching bank transfer confirms the order and books the seat', async () => {
+      const methods = await api().get('/payments/methods').expect(200);
+      expect(methods.body).toEqual({ vietqr: true, vietqrManual: false });
+
+      const hold = await api()
+        .post(`/reservations/${ticketId}/bulk`)
+        .send({ seatIds: [seatIds[2]], guestEmail: 'vietqr@example.com' })
+        .expect(201);
+      const { guestToken, reservationIds } = hold.body;
+
+      const qr = await api()
+        .post('/payments/vietqr/create')
+        .send({ reservationIds, guestToken })
+        .expect(201);
+      const { orderId, amount } = qr.body;
+
+      // Manual confirmation is off in webhook mode.
+      await api()
+        .post('/payments/vietqr/confirm')
+        .send({ orderId, guestToken })
+        .expect(403);
+      // Wrong key is refused.
+      await api()
+        .post('/payments/vietqr/webhook')
+        .set('Authorization', 'Apikey wrong')
+        .send({
+          id: 1,
+          transferType: 'in',
+          transferAmount: amount,
+          content: orderId,
+        })
+        .expect(401);
+
+      const webhook = await api()
+        .post('/payments/vietqr/webhook')
+        .set('Authorization', `Apikey ${KEY}`)
+        .send({
+          id: 555001,
+          gateway: 'MBBank',
+          transferType: 'in',
+          transferAmount: amount,
+          content: `CHUYEN KHOAN ${orderId.toLowerCase()} FT123`,
+          referenceCode: 'FT123',
+        })
+        .expect(201);
+      expect(webhook.body).toEqual({ success: true });
+
+      const status = await api()
+        .post('/payments/vietqr/status')
+        .send({ orderId, guestToken })
+        .expect(201);
+      expect(status.body.status).toBe('SUCCESS');
+      const [seat] = await db.query(`SELECT status FROM seat WHERE id = $1`, [
+        seatIds[2],
+      ]);
+      expect(seat.status).toBe('BOOKED');
+
+      // A resend of the same transaction changes nothing.
+      await api()
+        .post('/payments/vietqr/webhook')
+        .set('Authorization', `Apikey ${KEY}`)
+        .send({
+          id: 555001,
+          transferType: 'in',
+          transferAmount: amount,
+          content: orderId,
+        })
+        .expect(201);
+
+      // Undo the sale so the seat-hold tests below start from 3 free seats.
+      await db.query(`DELETE FROM reservation WHERE "seatId" = $1`, [
+        seatIds[2],
+      ]);
+      await db.query(`UPDATE seat SET status = 'AVAILABLE' WHERE id = $1`, [
+        seatIds[2],
+      ]);
+      await db.query(
+        `UPDATE ticket SET quantity = quantity + 1 WHERE id = $1`,
+        [ticketId],
       );
     });
   });

@@ -7,6 +7,7 @@ import {
   Request,
   UseGuards,
   Ip,
+  Headers,
 } from '@nestjs/common';
 
 import { PaymentsService } from './payments.service';
@@ -87,7 +88,34 @@ export class PaymentsController {
   // Lets checkout hide methods the server would refuse anyway.
   @Get('methods')
   getMethods() {
-    return { vietqr: this.paymentsService.isVietQREnabled() };
+    return {
+      vietqr: this.paymentsService.isVietQREnabled(),
+      // true = test mode with an "I paid" button; false = wait for the bank.
+      vietqrManual: this.paymentsService.isVietQRManual(),
+    };
+  }
+
+  // SePay calls this for every transfer into the watched bank account. Body
+  // left untyped on purpose: SePay decides its fields; the API key in the
+  // Authorization header is what authenticates it.
+  @Post('vietqr/webhook')
+  sepayWebhook(
+    @Headers('authorization') authorization: string | undefined,
+    @Body() body: Record<string, unknown>,
+  ) {
+    return this.paymentsService.handleSepayWebhook(authorization, body);
+  }
+
+  @Post('vietqr/status')
+  @UseGuards(OptionalJwtAuthGuard)
+  vietqrStatus(
+    @Body() body: ConfirmVietQRDto,
+    @Request() req: OptionalAuthRequest,
+  ) {
+    return this.paymentsService.getVietQRStatus(body.orderId, {
+      userId: req.user?.userId,
+      guestToken: body.guestToken,
+    });
   }
 
   // ── VietQR (test-friendly, no redirect) ──

@@ -3,6 +3,7 @@ import {
   ForbiddenException,
   Logger,
   NotFoundException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { PaymentsService } from './payments.service';
 
@@ -99,9 +100,163 @@ const okIpn = (over: Row = {}) => ({
 
 describe('PaymentsService', () => {
   const OLD_FLAG = process.env.VIETQR_MANUAL_CONFIRM;
+  const OLD_SEPAY = process.env.SEPAY_API_KEY;
   afterEach(() => {
     if (OLD_FLAG === undefined) delete process.env.VIETQR_MANUAL_CONFIRM;
     else process.env.VIETQR_MANUAL_CONFIRM = OLD_FLAG;
+    if (OLD_SEPAY === undefined) delete process.env.SEPAY_API_KEY;
+    else process.env.SEPAY_API_KEY = OLD_SEPAY;
+  });
+
+  describe('SePay webhook (VietQR)', () => {
+    const KEY = 'sepay-test-key';
+    const auth = `Apikey ${KEY}`;
+    const ORDER = 'VTX1794647857678AB12';
+    const transfer = (over: Row = {}): Row => ({
+      id: 92704,
+      gateway: 'Vietcombank',
+      transactionDate: '2026-11-16 11:08:33',
+      accountNumber: '1017588888',
+      code: null,
+      content: `CT DEN 0123 ${ORDER.toLowerCase()} chuyen tien`,
+      transferType: 'in',
+      description: 'NGUYEN VAN A chuyen tien',
+      transferAmount: 200000,
+      referenceCode: 'FT24012345678',
+      ...over,
+    });
+    const vietqrPayment = (over: Row = {}) =>
+      pendingPayment({ orderId: ORDER, provider: 'VIETQR', ...over });
+
+    beforeEach(() => {
+      process.env.SEPAY_API_KEY = KEY;
+      delete process.env.VIETQR_MANUAL_CONFIRM;
+    });
+
+    it('rejects a missing or wrong API key, and everything when no key is configured', async () => {
+      const { service } = setup();
+      await expect(
+        service.handleSepayWebhook(undefined, transfer()),
+      ).rejects.toBeInstanceOf(UnauthorizedException);
+      await expect(
+        service.handleSepayWebhook('Apikey nope', transfer()),
+      ).rejects.toBeInstanceOf(UnauthorizedException);
+      delete process.env.SEPAY_API_KEY;
+      await expect(
+        service.handleSepayWebhook(auth, transfer()),
+      ).rejects.toBeInstanceOf(UnauthorizedException);
+    });
+
+    it('confirms the order named in the transfer note, whatever the bank did to its case', async () => {
+      const { service, paymentRepo, reservationRepo } = setup();
+      const payment = vietqrPayment({ reservationIds: [1, 2] });
+      paymentRepo.findOne.mockResolvedValue(payment);
+      const r1 = holdReservation(1);
+      const r2 = holdReservation(2);
+      reservationRepo.findOne.mockImplementation(
+        async ({ where }) => ({ 1: r1, 2: r2 })[where.id],
+      );
+
+      expect(await service.handleSepayWebhook(auth, transfer())).toEqual({
+        success: true,
+      });
+
+      expect(paymentRepo.findOne).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { orderId: ORDER } }),
+      );
+      expect(payment.status).toBe('SUCCESS');
+      expect(payment.vnpTransactionNo).toBe('92704');
+      expect(payment.bankTranNo).toBe('FT24012345678');
+      expect(r1.status).toBe('CONFIRMED');
+      expect(r2.status).toBe('CONFIRMED');
+    });
+
+    it('ignores outgoing money and notes without an order id', async () => {
+      const { service, paymentRepo } = setup();
+      expect(
+        await service.handleSepayWebhook(
+          auth,
+          transfer({ transferType: 'out' }),
+        ),
+      ).toEqual({ success: true });
+      expect(
+        await service.handleSepayWebhook(
+          auth,
+          transfer({ content: 'tien an trua' }),
+        ),
+      ).toEqual({ success: true });
+      expect(paymentRepo.findOne).not.toHaveBeenCalled();
+      expect(paymentRepo.save).not.toHaveBeenCalled();
+    });
+
+    it('is idempotent for repeated deliveries', async () => {
+      const { service, paymentRepo, reservationRepo } = setup();
+      paymentRepo.findOne.mockResolvedValue(
+        vietqrPayment({ status: 'SUCCESS' }),
+      );
+      expect(await service.handleSepayWebhook(auth, transfer())).toEqual({
+        success: true,
+      });
+      expect(paymentRepo.save).not.toHaveBeenCalled();
+      expect(reservationRepo.findOne).not.toHaveBeenCalled();
+    });
+
+    it('does not confirm an underpaid order', async () => {
+      const { service, paymentRepo, reservationRepo } = setup();
+      const payment = vietqrPayment();
+      paymentRepo.findOne.mockResolvedValue(payment);
+      await service.handleSepayWebhook(
+        auth,
+        transfer({ transferAmount: 150000 }),
+      );
+      expect(payment.status).toBe('PENDING');
+      expect(payment.responseCode).toBe('UNDERPAID:150000');
+      expect(reservationRepo.findOne).not.toHaveBeenCalled();
+    });
+
+    it('flags a refund when the money arrives after the hold expired', async () => {
+      const { service, paymentRepo, reservationRepo } = setup();
+      const payment = vietqrPayment({ reservationIds: [1] });
+      paymentRepo.findOne.mockResolvedValue(payment);
+      reservationRepo.findOne.mockResolvedValue(
+        holdReservation(1, { status: 'EXPIRED' }),
+      );
+      const log = jest
+        .spyOn(Logger.prototype, 'error')
+        .mockImplementation(() => {});
+      try {
+        await service.handleSepayWebhook(auth, transfer());
+        expect(payment.status).toBe('REFUND_REQUIRED');
+        expect(payment.responseCode).toBe('CONFIRMED:0/1');
+        expect(log).toHaveBeenCalled();
+      } finally {
+        log.mockRestore();
+      }
+    });
+
+    it('webhook mode offers VietQR but not the manual "I paid" button', async () => {
+      const { service, paymentRepo } = setup();
+      expect(service.isVietQREnabled()).toBe(true);
+      expect(service.isVietQRManual()).toBe(false);
+      paymentRepo.findOne.mockResolvedValue(vietqrPayment());
+      await expect(
+        service.confirmVietQR(ORDER, { userId: 1 }),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      expect(paymentRepo.save).not.toHaveBeenCalled();
+    });
+
+    it('lets only the buyer poll the order status', async () => {
+      const { service, paymentRepo } = setup();
+      paymentRepo.findOne.mockResolvedValue(
+        vietqrPayment({ status: 'SUCCESS', user: { id: 1 } }),
+      );
+      await expect(
+        service.getVietQRStatus(ORDER, { userId: 1 }),
+      ).resolves.toMatchObject({ status: 'SUCCESS' });
+      await expect(
+        service.getVietQRStatus(ORDER, { userId: 2 }),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+    });
   });
 
   describe('creating a payment', () => {

@@ -81,7 +81,7 @@ The frontend and backend are maintained as two independent applications within t
 
 * VNPay integration
 * MoMo integration
-* VietQR test payment flow
+* VietQR bank transfers, confirmed automatically through a SePay webhook
 * Server-side transaction verification for VNPay
 * Payment result handling
 

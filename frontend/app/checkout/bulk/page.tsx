@@ -61,14 +61,41 @@ function BulkCheckoutContent() {
   const [confirming, setConfirming] = useState(false);
   // Hidden until the server says it's on — it refuses VietQR otherwise.
   const [vietqrEnabled, setVietqrEnabled] = useState(false);
+  // Test mode: the buyer confirms with a button. Otherwise the bank webhook
+  // confirms and this page polls for the result.
+  const [vietqrManual, setVietqrManual] = useState(false);
 
   const ids = idsParam.split(',').map(Number).filter(Boolean);
 
   useEffect(() => {
     api.get('/payments/methods')
-      .then((res) => setVietqrEnabled(!!res.data?.vietqr))
+      .then((res) => {
+        setVietqrEnabled(!!res.data?.vietqr);
+        setVietqrManual(!!res.data?.vietqrManual);
+      })
       .catch(() => setVietqrEnabled(false));
   }, []);
+
+  // Webhook mode: ask every few seconds whether the transfer has arrived.
+  useEffect(() => {
+    if (!qr || vietqrManual || payState === 'success') return;
+    let stopped = false;
+    const check = async () => {
+      try {
+        const res = await api.post('/payments/vietqr/status', { orderId: qr.orderId, guestToken });
+        if (stopped) return;
+        if (res.data?.status === 'SUCCESS') setPayState('success');
+        else if (res.data?.status === 'REFUND_REQUIRED') setPayError(t.co_paid_too_late);
+      } catch {
+        /* transient; try again on the next tick */
+      }
+    };
+    const timer = setInterval(check, 4000);
+    return () => {
+      stopped = true;
+      clearInterval(timer);
+    };
+  }, [qr, vietqrManual, payState, guestToken, t.co_paid_too_late]);
 
   useEffect(() => {
     if (!ids.length) { setLoadError('co_no_reservations'); setLoading(false); return; }
@@ -304,17 +331,24 @@ function BulkCheckoutContent() {
 
                   {payError && <div className="tsp-alert tsp-alert--error" style={{ marginTop: 12 }}>{payError}</div>}
 
-                  <button
-                    type="button"
-                    onClick={handleConfirmVietQR}
-                    disabled={confirming}
-                    className="tsp-reserve-btn"
-                    style={{ background: '#0a8a5f', marginTop: 14 }}
-                  >
-                    {confirming
-                      ? <><span className="tsp-btn-spinner" /> {t.co_confirming}</>
-                      : t.co_i_paid}
-                  </button>
+                  {vietqrManual ? (
+                    <button
+                      type="button"
+                      onClick={handleConfirmVietQR}
+                      disabled={confirming}
+                      className="tsp-reserve-btn"
+                      style={{ background: '#0a8a5f', marginTop: 14 }}
+                    >
+                      {confirming
+                        ? <><span className="tsp-btn-spinner" /> {t.co_confirming}</>
+                        : t.co_i_paid}
+                    </button>
+                  ) : (
+                    <p className="tsp-alert" style={{ marginTop: 14, display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'center' }}>
+                      <span className="tsp-btn-spinner" style={{ borderColor: 'currentColor', borderRightColor: 'transparent' }} />
+                      {t.co_waiting_transfer}
+                    </p>
+                  )}
                   <button
                     type="button"
                     onClick={() => { setQr(null); setPayError(null); }}
@@ -324,7 +358,7 @@ function BulkCheckoutContent() {
                     {t.co_other_method}
                   </button>
                   <p className="tsp-summary__note" style={{ marginTop: 10 }}>
-                    {t.co_test_mode_note}
+                    {vietqrManual ? t.co_test_mode_note : t.co_keep_note}
                   </p>
                 </div>
               ) : (
@@ -437,7 +471,7 @@ function BulkCheckoutContent() {
                       ? t.co_note_momo_atm
                       : t.co_note_momo_wallet)
                   : payMethod === 'vietqr'
-                    ? t.co_note_vietqr
+                    ? (vietqrManual ? t.co_note_vietqr : t.co_note_vietqr_live)
                     : t.co_note_vnpay}
               </p>
               </>
