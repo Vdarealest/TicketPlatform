@@ -7,6 +7,7 @@ import Link from 'next/link';
 import api, { apiErrorMessage } from '@/lib/api';
 import { formatCurrencyVND } from '@/lib/format';
 import { cdnImage } from '@/lib/image';
+import { useTranslation, fmt } from '@/lib/i18n';
 
 interface ReservationItem {
   id: number;
@@ -42,6 +43,7 @@ const formatMMSS = (s: number) => `${String(Math.floor(s / 60)).padStart(2, '0')
 const SHOW_MOMO = false;
 
 function BulkCheckoutContent() {
+  const { t, lang } = useTranslation();
   const searchParams = useSearchParams();
   const idsParam = searchParams.get('ids') || '';
   const deadlineParam = searchParams.get('deadline');
@@ -69,12 +71,12 @@ function BulkCheckoutContent() {
   }, []);
 
   useEffect(() => {
-    if (!ids.length) { setLoadError('Không có đơn đặt vé nào.'); setLoading(false); return; }
+    if (!ids.length) { setLoadError(t.co_no_reservations); setLoading(false); return; }
     let active = true;
     setLoading(true);
     api.post('/reservations/bulk/details', { ids, guestToken })
       .then((res) => { if (active) setReservations(res.data); })
-      .catch(() => { if (active) setLoadError('Không thể tải thông tin đặt vé.'); })
+      .catch(() => { if (active) setLoadError(t.co_load_failed); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [idsParam]);
@@ -117,11 +119,11 @@ function BulkCheckoutContent() {
       if (paymentUrl) {
         window.location.href = paymentUrl;
       } else {
-        throw new Error('Không nhận được URL thanh toán.');
+        throw new Error(t.co_no_pay_url);
       }
     } catch (err) {
       setPayState('error');
-      setPayError(apiErrorMessage(err, 'Không thể tạo liên kết thanh toán.'));
+      setPayError(apiErrorMessage(err, t.co_pay_link_failed));
     }
   };
 
@@ -135,22 +137,22 @@ function BulkCheckoutContent() {
       if (res.data?.success) {
         setPayState('success');
       } else {
-        throw new Error(res.data?.message || 'Xác nhận thất bại.');
+        throw new Error(res.data?.message || t.co_confirm_failed);
       }
     } catch (err) {
-      setPayError(apiErrorMessage(err, 'Không thể xác nhận thanh toán.'));
+      setPayError(apiErrorMessage(err, t.co_confirm_pay_failed));
     } finally {
       setConfirming(false);
     }
   };
 
-  if (loading) return <div className="tsp-loading"><div className="edp-spinner" /><span>Đang tải...</span></div>;
+  if (loading) return <div className="tsp-loading"><div className="edp-spinner" /><span>{t.loading}</span></div>;
 
   if (loadError || !reservations.length) {
     return (
       <div className="tsp-error">
-        <p>{loadError || 'Không tìm thấy đơn đặt vé.'}</p>
-        <Link href="/" className="tsp-error__link">Về trang chủ</Link>
+        <p>{loadError || t.co_not_found}</p>
+        <Link href="/" className="tsp-error__link">{t.co_back_home}</Link>
       </div>
     );
   }
@@ -165,7 +167,8 @@ function BulkCheckoutContent() {
   const seatLabels = reservations.map((r) => r.seat?.label).filter(Boolean).join(', ');
 
   const formattedDate = event.startTime
-    ? new Date(event.startTime).toLocaleDateString('vi-VN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+    ? new Date(event.startTime).toLocaleDateString(lang === 'en' ? 'en-US' : 'vi-VN', {
+        timeZone: 'Asia/Ho_Chi_Minh', weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
     : null;
 
   // Shown as an 88px thumbnail; 200px stays sharp on 2x screens.
@@ -174,7 +177,7 @@ function BulkCheckoutContent() {
   const payMethods: { key: PayMethod; label: string; desc?: string; logoBg: string; logoText: string }[] = [
     { key: 'vnpay', label: 'VNPay', desc: 'ATM, Visa', logoBg: '#0a5cb8', logoText: 'VN' },
     ...(SHOW_MOMO
-      ? [{ key: 'momo' as PayMethod, label: 'MoMo', desc: 'Ví MoMo', logoBg: '#a50064', logoText: 'M' }]
+      ? [{ key: 'momo' as PayMethod, label: 'MoMo', desc: t.co_momo_wallet, logoBg: '#a50064', logoText: 'M' }]
       : []),
     ...(vietqrEnabled
       ? [{ key: 'vietqr' as PayMethod, label: 'VietQR', logoBg: '#0a8a5f', logoText: 'QR' }]
@@ -189,7 +192,7 @@ function BulkCheckoutContent() {
         <div className="tsp-header">
           <Link href={`/events/${event.id}/tickets`} className="tsp-back">
             <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M9.5 3L5 8l4.5 5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/></svg>
-            Quay lại chọn ghế
+            {t.co_back_to_seats}
           </Link>
           <div className="tsp-header__main">
             <img
@@ -214,38 +217,38 @@ function BulkCheckoutContent() {
               <div style={{ width: 56, height: 56, borderRadius: '50%', background: '#ecfdf5', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
                 <svg width="28" height="28" fill="none" stroke="#10b981" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7" /></svg>
               </div>
-              <h2 style={{ fontSize: 20, fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 6px' }}>Thanh toán thành công!</h2>
+              <h2 style={{ fontSize: 20, fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 6px' }}>{t.co_success_title}</h2>
               <p style={{ fontSize: 14, color: 'var(--text-tertiary)', marginBottom: 20 }}>
-                {reservations.length} vé {ticketType}{seatLabels ? ` — ${seatLabels}` : ''}
+                {fmt(t.co_n_of_type, { n: reservations.length, type: ticketType })}{seatLabels ? ` — ${seatLabels}` : ''}
               </p>
               {guestToken && (
                 <p style={{ fontSize: 13, color: 'var(--text-tertiary)', marginBottom: 16 }}>
-                  📧 Vé và mã xác nhận đã được gửi đến email bạn đăng ký.
+                  {t.co_email_sent}
                 </p>
               )}
               <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
                 {!guestToken && (
                   <Link href="/my-tickets" style={{ padding: '10px 20px', borderRadius: 10, background: '#111', color: '#fff', fontSize: 14, fontWeight: 600, textDecoration: 'none' }}>
-                    Xem vé của tôi
+                    {t.co_view_my_tickets}
                   </Link>
                 )}
                 <Link href={`/events/${event.id}`} style={{ padding: '10px 20px', borderRadius: 10, border: '1px solid var(--border-input)', background: 'var(--surface-primary)', color: 'var(--text-secondary)', fontSize: 14, fontWeight: 600, textDecoration: 'none' }}>
-                  Về sự kiện
+                  {t.co_back_to_event}
                 </Link>
               </div>
             </div>
           ) : expired ? (
             <div className="tsp-alert tsp-alert--error" style={{ textAlign: 'center', padding: '24px 16px' }}>
-              <p style={{ fontWeight: 700, marginBottom: 6 }}>Hết thời gian giữ chỗ</p>
-              <p>Vui lòng quay lại {firstRes.ticket.seating === 'GENERAL' ? 'chọn số lượng' : 'chọn ghế'} và thử lại.</p>
+              <p style={{ fontWeight: 700, marginBottom: 6 }}>{t.co_hold_expired}</p>
+              <p>{firstRes.ticket.seating === 'GENERAL' ? t.co_hold_expired_ga : t.co_hold_expired_seated}</p>
               <Link href={`/events/${event.id}/tickets`} className="tsp-alert__link">
-                {firstRes.ticket.seating === 'GENERAL' ? 'Chọn lại' : 'Chọn ghế lại'}
+                {firstRes.ticket.seating === 'GENERAL' ? t.co_reselect_ga : t.co_reselect_seats}
               </Link>
             </div>
           ) : (
             <>
               <div className="tsp-summary__header" style={{ marginBottom: 4 }}>
-                <p className="tsp-summary__label">Xác nhận thanh toán</p>
+                <p className="tsp-summary__label">{t.co_confirm_payment}</p>
               </div>
 
               {/* Seat list */}
@@ -257,7 +260,7 @@ function BulkCheckoutContent() {
                   }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#10b981', flexShrink: 0 }} />
-                      <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>{r.seat?.label ? `Ghế ${r.seat.label}` : `Vé #${i + 1}`}</span>
+                      <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>{r.seat?.label ? fmt(t.co_seat, { label: r.seat.label }) : fmt(t.co_ticket_n, { n: i + 1 })}</span>
                       <span style={{ fontSize: 12, color: 'var(--text-quaternary)' }}>{ticketType}</span>
                     </div>
                     <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>{formatCurrencyVND(unitPrice)}</span>
@@ -269,19 +272,19 @@ function BulkCheckoutContent() {
 
               <div className="tsp-summary__rows">
                 <div className="tsp-summary__row">
-                  <span>Số lượng</span>
-                  <strong>{reservations.length} vé</strong>
+                  <span>{t.co_quantity}</span>
+                  <strong>{fmt(t.co_n_tickets, { n: reservations.length })}</strong>
                 </div>
                 <div className="tsp-summary__divider" />
                 <div className="tsp-summary__row">
-                  <span>Tổng thanh toán</span>
+                  <span>{t.co_total}</span>
                   <strong className="tsp-summary__price">{formatCurrencyVND(totalPrice)}</strong>
                 </div>
               </div>
 
               {remaining !== null && allHold && (
                 <p className="tsp-summary__timer">
-                  {firstRes.ticket.seating === 'GENERAL' ? 'Vé đang được giữ' : 'Ghế đang được giữ'} — còn <strong>{formatMMSS(remaining)}</strong>
+                  {firstRes.ticket.seating === 'GENERAL' ? t.co_held_ga : t.co_held_seated} — {t.co_time_left} <strong>{formatMMSS(remaining)}</strong>
                 </p>
               )}
 
@@ -289,14 +292,14 @@ function BulkCheckoutContent() {
               {qr ? (
                 <div style={{ marginTop: 18, textAlign: 'center' }}>
                   <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-secondary)', margin: '0 0 12px' }}>
-                    Quét mã VietQR để thanh toán
+                    {t.co_scan_vietqr}
                   </p>
                   <div style={{ display: 'inline-block', padding: 12, background: '#fff', borderRadius: 16, border: '1px solid var(--border-input)' }}>
                     <img src={qr.qrUrl} alt="VietQR" style={{ width: 240, height: 240, display: 'block' }} />
                   </div>
                   <div style={{ margin: '14px 0 4px', fontSize: 13, color: 'var(--text-secondary)' }}>
-                    <div>Số tiền: <strong style={{ color: 'var(--text-primary)' }}>{formatCurrencyVND(qr.amount)}</strong></div>
-                    <div>Nội dung: <strong style={{ color: 'var(--text-primary)', fontFamily: 'monospace' }}>{qr.orderId}</strong></div>
+                    <div>{t.co_amount} <strong style={{ color: 'var(--text-primary)' }}>{formatCurrencyVND(qr.amount)}</strong></div>
+                    <div>{t.co_transfer_note} <strong style={{ color: 'var(--text-primary)', fontFamily: 'monospace' }}>{qr.orderId}</strong></div>
                   </div>
 
                   {payError && <div className="tsp-alert tsp-alert--error" style={{ marginTop: 12 }}>{payError}</div>}
@@ -309,8 +312,8 @@ function BulkCheckoutContent() {
                     style={{ background: '#0a8a5f', marginTop: 14 }}
                   >
                     {confirming
-                      ? <><span className="tsp-btn-spinner" /> Đang xác nhận...</>
-                      : 'Tôi đã thanh toán'}
+                      ? <><span className="tsp-btn-spinner" /> {t.co_confirming}</>
+                      : t.co_i_paid}
                   </button>
                   <button
                     type="button"
@@ -318,17 +321,17 @@ function BulkCheckoutContent() {
                     disabled={confirming}
                     style={{ marginTop: 10, background: 'none', border: 'none', color: 'var(--text-tertiary)', fontSize: 13, cursor: 'pointer', textDecoration: 'underline' }}
                   >
-                    Chọn phương thức khác
+                    {t.co_other_method}
                   </button>
                   <p className="tsp-summary__note" style={{ marginTop: 10 }}>
-                    Chế độ test — bấm &quot;Tôi đã thanh toán&quot; để xác nhận ngay (không cần chuyển khoản thật).
+                    {t.co_test_mode_note}
                   </p>
                 </div>
               ) : (
               <>
               {/* Chọn phương thức thanh toán */}
               <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-secondary)', margin: '18px 0 10px' }}>
-                Phương thức thanh toán
+                {t.co_payment_method}
               </p>
               <div style={{ display: 'grid', gridTemplateColumns: `repeat(${payMethods.length}, 1fr)`, gap: 10 }}>
                 {payMethods.map((m) => {
@@ -375,12 +378,12 @@ function BulkCheckoutContent() {
                   background: '#fdf2f8', border: '1px solid #fbcfe8',
                 }}>
                   <p style={{ fontSize: 12, fontWeight: 700, color: '#9d174d', margin: '0 0 8px' }}>
-                    Cách thanh toán MoMo
+                    {t.co_momo_how}
                   </p>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                     {([
-                      { key: 'captureWallet' as const, label: 'Ví MoMo', desc: 'Quét QR bằng app' },
-                      { key: 'payWithATM' as const, label: 'Thẻ ATM', desc: 'Qua cổng MoMo' },
+                      { key: 'captureWallet' as const, label: t.co_momo_wallet, desc: t.co_momo_scan_app },
+                      { key: 'payWithATM' as const, label: t.co_atm_card, desc: t.co_via_momo },
                     ]).map((mm) => {
                       const active = momoMethod === mm.key;
                       return (
@@ -420,10 +423,10 @@ function BulkCheckoutContent() {
                     style={{ background: bg, marginTop: 16 }}
                   >
                     {payState === 'loading'
-                      ? <><span className="tsp-btn-spinner" /> Đang xử lý...</>
+                      ? <><span className="tsp-btn-spinner" /> {t.co_processing}</>
                       : payMethod === 'vietqr'
-                        ? `Tạo mã VietQR — ${formatCurrencyVND(totalPrice)}`
-                        : `Thanh toán qua ${label} — ${formatCurrencyVND(totalPrice)}`}
+                        ? fmt(t.co_create_vietqr, { amount: formatCurrencyVND(totalPrice) })
+                        : fmt(t.co_pay_via, { method: label, amount: formatCurrencyVND(totalPrice) })}
                   </button>
                 );
               })()}
@@ -431,11 +434,11 @@ function BulkCheckoutContent() {
               <p className="tsp-summary__note">
                 {payMethod === 'momo'
                   ? (momoMethod === 'payWithATM'
-                      ? 'Thanh toán qua thẻ ATM nội địa — cổng MoMo'
-                      : 'Quét QR bằng app MoMo để thanh toán bằng ví')
+                      ? t.co_note_momo_atm
+                      : t.co_note_momo_wallet)
                   : payMethod === 'vietqr'
-                    ? 'VietQR — chế độ test, xác nhận thủ công ngay trên trang, không cần chuyển khoản thật.'
-                    : 'Thanh toán bảo mật qua VNPay — Hỗ trợ ATM, Visa, MasterCard, QR Pay'}
+                    ? t.co_note_vietqr
+                    : t.co_note_vnpay}
               </p>
               </>
               )}
