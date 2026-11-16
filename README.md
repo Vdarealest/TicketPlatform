@@ -298,15 +298,25 @@ DB_NAME=vietix_test npm run test:e2e
 
 (PowerShell: `$env:DB_NAME="vietix_test"; npm run test:e2e`)
 
-### Continuous Integration
+### Checks before pushing
 
-`.github/workflows/ci.yml` runs on every push to `main` and every pull request:
+There is no CI yet, so run these before pushing to `main` (Render and Vercel
+deploy straight from it):
 
-* **backend** — build, unit tests, migrations on an empty Postgres (plus
-  revert and re-apply), a check that entities and migrations match, and E2E.
-* **frontend** — type check and production build.
+```bash
+# backend
+npm run lint:check
+npm run build
+npm test
+DB_NAME=vietix_test npm run migration:check   # entities match migrations
+DB_NAME=vietix_test npm run test:e2e
 
-If CI says entities and migrations differ, you changed an entity without
+# frontend
+npx eslint
+npx tsc --noEmit
+```
+
+If `migration:check` reports differences, you changed an entity without
 generating a migration (`npm run migration:generate -- src/migrations/Name`).
 
 The frontend currently does not have an automated test suite.
