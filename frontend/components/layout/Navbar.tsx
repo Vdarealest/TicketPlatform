@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import api from '../../lib/api';
 import { useTranslation } from '../../lib/i18n';
 import ThemeToggle from './ThemeToggle';
@@ -49,6 +49,11 @@ export default function Navbar() {
   const [userName, setUserName] = useState<string | null>(null);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  // Mobile (<=640px) menu: links, contact, language and theme move here.
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const menuBtnRef = useRef<HTMLButtonElement>(null);
+  const pathname = usePathname();
 
   const refreshAuth = useCallback(() => {
     const token = localStorage.getItem('access_token');
@@ -113,6 +118,32 @@ export default function Navbar() {
       document.removeEventListener('keydown', onEscape);
     };
   }, [dropdownOpen]);
+
+  // Close the mobile menu on navigation, Escape and outside clicks.
+  useEffect(() => {
+    setMenuOpen(false);
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onClickOutside = (e: MouseEvent) => {
+      const target = e.target as Node;
+      if (menuRef.current?.contains(target) || menuBtnRef.current?.contains(target)) return;
+      setMenuOpen(false);
+    };
+    const onEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setMenuOpen(false);
+        menuBtnRef.current?.focus();
+      }
+    };
+    document.addEventListener('mousedown', onClickOutside);
+    document.addEventListener('keydown', onEscape);
+    return () => {
+      document.removeEventListener('mousedown', onClickOutside);
+      document.removeEventListener('keydown', onEscape);
+    };
+  }, [menuOpen]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -270,9 +301,49 @@ export default function Navbar() {
               {t.nav_login}
             </Link>
           )}
+          <button
+            ref={menuBtnRef}
+            type="button"
+            className={`nav-menu-btn ${menuOpen ? 'nav-menu-btn--open' : ''}`}
+            onClick={() => setMenuOpen((o) => !o)}
+            aria-label={t.nav_menu}
+            aria-expanded={menuOpen}
+            aria-controls="nav-mobile-menu"
+          >
+            <span className="nav-menu-btn__bar" />
+            <span className="nav-menu-btn__bar" />
+            <span className="nav-menu-btn__bar" />
+          </button>
         </div>
 
       </div>
+
+      {menuOpen && (
+        <div id="nav-mobile-menu" className="nav-mobile-menu" ref={menuRef}>
+          {NAV_KEYS.map((item) => (
+            <Link
+              key={item.key}
+              href={item.href}
+              className="nav-mobile-menu__item"
+              onClick={() => setMenuOpen(false)}
+            >
+              {t[item.key]}
+            </Link>
+          ))}
+          <Link href="/contact" className="nav-mobile-menu__item" onClick={() => setMenuOpen(false)}>
+            {t.nav_contact}
+          </Link>
+          <div className="nav-mobile-menu__divider" />
+          <div className="nav-mobile-menu__row">
+            <span>{t.nav_language}</span>
+            <LanguageSwitcher />
+          </div>
+          <div className="nav-mobile-menu__row">
+            <span>{t.nav_appearance}</span>
+            <ThemeToggle />
+          </div>
+        </div>
+      )}
     </nav>
   );
 }

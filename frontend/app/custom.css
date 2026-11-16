@@ -200,6 +200,146 @@
   .onezone-nav__login { padding: 8px 16px; font-size: 13px; }
 }
 
+/* Mobile menu (<=640px). On a phone the bar keeps only the logo, the
+   account button and this toggle (search gets its own row); the links,
+   Liên hệ, language and theme move into the panel below. Wider screens
+   never see any of this. */
+.nav-menu-btn {
+  display: none;
+}
+
+@media (max-width: 640px) {
+  .onezone-nav__links,
+  .onezone-nav__right > .nav-header-link,
+  .onezone-nav__right > .lang-wrap,
+  .onezone-nav__right > .lang-toggle,
+  .onezone-nav__right > .theme-toggle {
+    display: none;
+  }
+
+  .nav-menu-btn {
+    display: inline-flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 4px;
+    width: 40px;
+    height: 40px;
+    margin-left: 4px;
+    padding: 0;
+    border: none;
+    border-radius: 10px;
+    background: transparent;
+    color: #1d1d1f;
+    cursor: pointer;
+  }
+  .nav-menu-btn:hover,
+  .nav-menu-btn--open {
+    background: rgba(0, 0, 0, 0.06);
+  }
+  .nav-menu-btn:focus-visible {
+    outline: 2px solid #e02020;
+    outline-offset: 2px;
+  }
+  .nav-menu-btn__bar {
+    display: block;
+    width: 18px;
+    height: 2px;
+    border-radius: 2px;
+    background: currentColor;
+    transition: transform 0.2s ease, opacity 0.2s ease;
+  }
+  /* Bars fold into an X while the menu is open. */
+  .nav-menu-btn--open .nav-menu-btn__bar:nth-child(1) {
+    transform: translateY(6px) rotate(45deg);
+  }
+  .nav-menu-btn--open .nav-menu-btn__bar:nth-child(2) {
+    opacity: 0;
+  }
+  .nav-menu-btn--open .nav-menu-btn__bar:nth-child(3) {
+    transform: translateY(-6px) rotate(-45deg);
+  }
+
+  .nav-mobile-menu {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    display: flex;
+    flex-direction: column;
+    padding: 8px 16px 14px;
+    background: #F5F5F7;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.08);
+    animation: nav-menu-in 0.16s ease both;
+  }
+  .nav-mobile-menu__item {
+    display: flex;
+    align-items: center;
+    min-height: 46px;
+    padding: 0 8px;
+    border-radius: 10px;
+    font-family: var(--font-sans);
+    font-size: 15px;
+    font-weight: 500;
+    color: #1d1d1f !important;
+    text-decoration: none !important;
+  }
+  .nav-mobile-menu__item:hover {
+    background: rgba(0, 0, 0, 0.05);
+  }
+  .nav-mobile-menu__divider {
+    height: 1px;
+    margin: 6px 8px;
+    background: rgba(0, 0, 0, 0.08);
+  }
+  .nav-mobile-menu__row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 46px;
+    padding: 0 8px;
+    font-family: var(--font-sans);
+    font-size: 15px;
+    font-weight: 500;
+    color: #1d1d1f;
+  }
+
+  [data-theme="dark"] .nav-menu-btn {
+    color: var(--text-primary);
+  }
+  [data-theme="dark"] .nav-menu-btn:hover,
+  [data-theme="dark"] .nav-menu-btn--open {
+    background: var(--surface-secondary);
+  }
+  [data-theme="dark"] .nav-mobile-menu {
+    background: var(--surface-primary);
+    border-bottom-color: var(--border-primary);
+    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.35);
+  }
+  [data-theme="dark"] .nav-mobile-menu__item,
+  [data-theme="dark"] .nav-mobile-menu__row {
+    color: var(--text-primary) !important;
+  }
+  [data-theme="dark"] .nav-mobile-menu__item:hover {
+    background: var(--surface-secondary);
+  }
+  [data-theme="dark"] .nav-mobile-menu__divider {
+    background: var(--border-secondary);
+  }
+}
+
+@keyframes nav-menu-in {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-mobile-menu { animation: none; }
+  .nav-menu-btn__bar { transition: none; }
+}
+
+
 /* ─────────────────────────────────────────────
    NAV AVATAR & DROPDOWN
    ───────────────────────────────────────────── */

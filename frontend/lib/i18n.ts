@@ -11,6 +11,9 @@ const translations = {
     nav_admin: 'Quản trị Admin',
     nav_logout: 'Đăng xuất',
     nav_login_with: 'Đăng nhập với',
+    nav_menu: 'Menu',
+    nav_language: 'Ngôn ngữ',
+    nav_appearance: 'Giao diện',
 
     // Home
     home_on_sale: 'Đang mở bán',
@@ -212,6 +215,9 @@ const translations = {
     nav_admin: 'Admin Dashboard',
     nav_logout: 'Log out',
     nav_login_with: 'Logged in as',
+    nav_menu: 'Menu',
+    nav_language: 'Language',
+    nav_appearance: 'Appearance',
 
     // Home
     home_on_sale: 'On Sale Now',

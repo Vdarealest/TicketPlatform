@@ -18,6 +18,11 @@ export default function ThemeToggle() {
     setTheme(t);
     document.documentElement.setAttribute('data-theme', t);
     setMounted(true);
+
+    // The navbar renders a second toggle in the mobile menu; keep both in step.
+    const onChanged = () => setTheme(document.documentElement.getAttribute('data-theme') || 'light');
+    window.addEventListener('theme-changed', onChanged);
+    return () => window.removeEventListener('theme-changed', onChanged);
   }, []);
 
   const toggle = () => {
@@ -25,6 +30,7 @@ export default function ThemeToggle() {
     setTheme(next);
     document.documentElement.setAttribute('data-theme', next);
     localStorage.setItem('theme', next);
+    window.dispatchEvent(new Event('theme-changed'));
   };
 
   if (!mounted) return <div className="theme-toggle" style={{ width: 36, height: 36 }} />;

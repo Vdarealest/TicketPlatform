@@ -21,6 +21,11 @@ export default function LanguageSwitcher() {
   useEffect(() => {
     setLang(getLang());
     setMounted(true);
+
+    // A second switcher lives in the mobile menu; follow changes made there.
+    const onChanged = () => setLang(getLang());
+    window.addEventListener('lang-changed', onChanged);
+    return () => window.removeEventListener('lang-changed', onChanged);
   }, []);
 
   useEffect(() => {
