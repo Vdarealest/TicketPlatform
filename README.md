@@ -320,7 +320,17 @@ npx tsc --noEmit
 If `migration:check` reports differences, you changed an entity without
 generating a migration (`npm run migration:generate -- src/migrations/Name`).
 
-The frontend currently does not have an automated test suite.
+### Frontend browser tests
+
+Playwright tests in `frontend/e2e` (page smoke checks on desktop and mobile,
+the mobile menu, English-mode translations, SEO markup). They only read pages.
+Start the backend and frontend first, then:
+
+```bash
+cd frontend
+npx playwright install chromium   # once
+npm run test:e2e
+```
 
 ## Operational Notes
 
