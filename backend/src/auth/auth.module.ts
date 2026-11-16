@@ -27,12 +27,12 @@ import { GoogleStrategy } from './strategies/google.strategy';
         if (!secret) {
           throw new Error('JWT_SECRET is not set. Refusing to start.');
         }
-        // Trimmed from 7d: there's no refresh-token flow yet, so this token
-        // is the only thing standing between an XSS-stolen localStorage
-        // value and full account access. 3d shortens that window without
-        // forcing re-logins on every short visit. Proper fix (tracked
-        // separately) is httpOnly cookies + short-lived token + refresh.
-        return { secret, signOptions: { expiresIn: '3d' } };
+        // Short-lived: the frontend renews it with the refresh token
+        // (AuthService.refreshSession), so a token lifted from localStorage
+        // is only useful for minutes. A refresh-token cookie would be safer
+        // still, but the frontend and API are on different sites today,
+        // where browsers increasingly block such cookies.
+        return { secret, signOptions: { expiresIn: '15m' } };
       },
       inject: [ConfigService],
     }),

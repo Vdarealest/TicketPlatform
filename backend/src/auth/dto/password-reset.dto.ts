@@ -29,6 +29,12 @@ export class ResetPasswordDto extends VerifyOtpDto {
   newPassword: string;
 }
 
+export class RefreshTokenDto {
+  @IsString()
+  @MaxLength(128)
+  refresh_token: string;
+}
+
 export class OAuthExchangeDto {
   @IsString()
   @MaxLength(128)

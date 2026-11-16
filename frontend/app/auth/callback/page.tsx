@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense } from 'react';
 import api from '@/lib/api';
+import { saveSession } from '@/lib/session';
 
 function GoogleCallbackInner() {
   const router = useRouter();
@@ -19,9 +20,8 @@ function GoogleCallbackInner() {
     // never appears in this page's URL, so it never lands in history/logs.
     api.post('/auth/oauth/exchange', { code })
       .then((res) => {
-        const token = res.data?.access_token;
-        if (!token) throw new Error('no token');
-        localStorage.setItem('access_token', token);
+        if (!res.data?.access_token) throw new Error('no token');
+        saveSession(res.data);
         window.dispatchEvent(new Event('auth-changed'));
         router.replace('/');
       })

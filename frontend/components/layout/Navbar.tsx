@@ -8,6 +8,7 @@ import { useTranslation } from '../../lib/i18n';
 import ThemeToggle from './ThemeToggle';
 import LanguageSwitcher from './LanguageSwitcher';
 import { backendUrl } from '@/lib/config';
+import { logout } from '@/lib/session';
 
 const NAV_KEYS = [
   { key: 'nav_events' as const, href: '/events' },
@@ -152,8 +153,7 @@ export default function Navbar() {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('access_token');
-    window.dispatchEvent(new Event('auth-changed'));
+    logout();
     setDropdownOpen(false);
     router.push('/');
   };

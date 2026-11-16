@@ -130,12 +130,48 @@ describe('Vietix API (e2e)', () => {
       await api().get('/auth/me').expect(401);
     });
 
+    it('refresh rotates the token pair and logout ends the session (real Redis)', async () => {
+      const login = await api()
+        .post('/auth/login')
+        .send({ email, password })
+        .expect(201);
+      const first = login.body.refresh_token as string;
+      expect(first).toBeTruthy();
+
+      const r1 = await api()
+        .post('/auth/refresh')
+        .send({ refresh_token: first })
+        .expect(201);
+      expect(r1.body.access_token).toBeTruthy();
+      await api()
+        .get('/auth/me')
+        .set('Authorization', `Bearer ${r1.body.access_token}`)
+        .expect(200);
+      // Old token is spent.
+      await api()
+        .post('/auth/refresh')
+        .send({ refresh_token: first })
+        .expect(401);
+
+      await api()
+        .post('/auth/logout')
+        .send({ refresh_token: r1.body.refresh_token })
+        .expect(201);
+      await api()
+        .post('/auth/refresh')
+        .send({ refresh_token: r1.body.refresh_token })
+        .expect(401);
+      // Payload validation: the field is required.
+      await api().post('/auth/refresh').send({}).expect(400);
+    });
+
     it('Google sign-in code is single-use, stored in real Redis', async () => {
       const { AuthService } =
         require('../src/auth/auth.service') as typeof import('../src/auth/auth.service');
-      const code = await app
-        .get(AuthService)
-        .createOAuthCode('jwt-from-google');
+      const code = await app.get(AuthService).createOAuthCode({
+        access_token: 'jwt-from-google',
+        refresh_token: 'r',
+      });
       const first = await api()
         .post('/auth/oauth/exchange')
         .send({ code })

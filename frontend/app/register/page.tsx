@@ -6,6 +6,7 @@ import Link from 'next/link';
 import api, { apiErrorMessage } from '@/lib/api';
 import { useTranslation } from '@/lib/i18n';
 import { API_URL } from '@/lib/config';
+import { saveSession } from '@/lib/session';
 
 
 function EyeOpen() {
@@ -57,7 +58,7 @@ export default function RegisterPage() {
       setError('');
       await api.post('/auth/register', { email, password, ...(phone ? { phone } : {}) });
       const res = await api.post('/auth/login', { email, password });
-      localStorage.setItem('access_token', res.data.access_token);
+      saveSession(res.data);
       window.dispatchEvent(new Event('auth-changed'));
       router.push('/');
     } catch (err) {

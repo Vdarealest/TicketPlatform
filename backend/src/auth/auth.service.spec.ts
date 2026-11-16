@@ -81,6 +81,7 @@ describe('AuthService', () => {
       ]);
       expect(await service.login('a@example.com', 'secret123')).toEqual({
         access_token: 'jwt:3',
+        refresh_token: expect.stringMatching(/^[\w-]{43}$/),
       });
       expect(jwt.sign).toHaveBeenCalledWith({ sub: 3, email: 'a@example.com' });
     });
@@ -273,9 +274,13 @@ describe('AuthService', () => {
   describe('OAuth exchange code', () => {
     it('returns the token once, then is useless', async () => {
       const { service } = setup();
-      const code = await service.createOAuthCode('jwt:9');
+      const code = await service.createOAuthCode({
+        access_token: 'jwt:9',
+        refresh_token: 'r9',
+      });
       await expect(service.exchangeOAuthCode(code)).resolves.toEqual({
         access_token: 'jwt:9',
+        refresh_token: 'r9',
       });
       await expect(service.exchangeOAuthCode(code)).rejects.toBeInstanceOf(
         BadRequestException,
@@ -284,7 +289,10 @@ describe('AuthService', () => {
 
     it('expires after its TTL', async () => {
       const { service, tokens } = setup();
-      const code = await service.createOAuthCode('jwt:9');
+      const code = await service.createOAuthCode({
+        access_token: 'jwt:9',
+        refresh_token: 'r9',
+      });
       await expireKey(tokens, `oauth:${code}`);
       await expect(service.exchangeOAuthCode(code)).rejects.toBeInstanceOf(
         BadRequestException,
@@ -301,12 +309,118 @@ describe('AuthService', () => {
     it('stores the code with a 60s TTL', async () => {
       const { service, tokens } = setup();
       const spy = jest.spyOn(tokens, 'set');
-      const code = await service.createOAuthCode('jwt:9');
+      const code = await service.createOAuthCode({
+        access_token: 'jwt:9',
+        refresh_token: 'r9',
+      });
       expect(spy).toHaveBeenCalledWith(
         `oauth:${code}`,
         expect.any(String),
         60_000,
       );
+    });
+  });
+
+  describe('refresh tokens', () => {
+    const user = () => ({
+      id: 3,
+      email: 'a@example.com',
+      password: hash('secret123'),
+    });
+
+    async function loggedIn() {
+      const ctx = setup([user()]);
+      const session = await ctx.service.login('a@example.com', 'secret123');
+      return { ...ctx, session };
+    }
+
+    it('stores only a hash of the refresh token, for 30 days', async () => {
+      const ctx = setup([user()]);
+      const spy = jest.spyOn(ctx.tokens, 'set');
+      const { refresh_token } = await ctx.service.login(
+        'a@example.com',
+        'secret123',
+      );
+      const [key, value, ttl] = spy.mock.calls[0];
+      expect(key).toMatch(/^refresh:[0-9a-f]{64}$/);
+      expect(key).not.toContain(refresh_token);
+      expect(value).not.toContain(refresh_token);
+      expect(ttl).toBe(30 * 24 * 60 * 60 * 1000);
+    });
+
+    it('rotates: a refresh gives a new pair and the old token stops working', async () => {
+      const { service, session } = await loggedIn();
+      const next = await service.refreshSession(session.refresh_token);
+      expect(next.access_token).toBe('jwt:3');
+      expect(next.refresh_token).not.toBe(session.refresh_token);
+      await expect(
+        service.refreshSession(next.refresh_token),
+      ).resolves.toBeDefined();
+    });
+
+    it('a rotated token reused after the grace window revokes the whole session', async () => {
+      const { service, session } = await loggedIn();
+      const now = Date.now();
+      const clock = jest.spyOn(Date, 'now').mockReturnValue(now);
+      try {
+        const next = await service.refreshSession(session.refresh_token);
+        clock.mockReturnValue(now + 60_000); // attacker replays a minute later
+        await expect(
+          service.refreshSession(session.refresh_token),
+        ).rejects.toBeInstanceOf(UnauthorizedException);
+        // The legitimate user's newer token is dead too.
+        await expect(
+          service.refreshSession(next.refresh_token),
+        ).rejects.toBeInstanceOf(UnauthorizedException);
+      } finally {
+        clock.mockRestore();
+      }
+    });
+
+    it('two tabs refreshing at once do not revoke the session', async () => {
+      const { service, session } = await loggedIn();
+      const next = await service.refreshSession(session.refresh_token);
+      // The second tab used the same old token within the grace window.
+      await expect(
+        service.refreshSession(session.refresh_token),
+      ).rejects.toBeInstanceOf(UnauthorizedException);
+      await expect(
+        service.refreshSession(next.refresh_token),
+      ).resolves.toBeDefined();
+    });
+
+    it('logout ends the session', async () => {
+      const { service, session } = await loggedIn();
+      await expect(service.logout(session.refresh_token)).resolves.toEqual({
+        message: 'Đã đăng xuất.',
+      });
+      await expect(
+        service.refreshSession(session.refresh_token),
+      ).rejects.toBeInstanceOf(UnauthorizedException);
+      // Idempotent.
+      await expect(
+        service.logout(session.refresh_token),
+      ).resolves.toBeDefined();
+    });
+
+    it('rejects made-up and expired refresh tokens', async () => {
+      const { service, session, tokens } = await loggedIn();
+      await expect(
+        service.refreshSession('not-a-real-token'),
+      ).rejects.toBeInstanceOf(UnauthorizedException);
+      const key = tokens['data'].keys().next().value as string;
+      await expireKey(tokens, key);
+      await expect(
+        service.refreshSession(session.refresh_token),
+      ).rejects.toBeInstanceOf(UnauthorizedException);
+    });
+
+    it('rejects a refresh for a deleted user', async () => {
+      const { service, session, users } = await loggedIn();
+      users.length = 0;
+      await expect(
+        service.refreshSession(session.refresh_token),
+      ).rejects.toBeInstanceOf(UnauthorizedException);
     });
   });
 

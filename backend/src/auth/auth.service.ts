@@ -30,6 +30,31 @@ const OAUTH_CODE_TTL_MS = 60 * 1000; // one-time code, dies in 60s
 const otpKey = (email: string) => `otp:${email}`;
 const oauthKey = (code: string) => `oauth:${code}`;
 
+// Sessions: a short-lived JWT access token plus an opaque refresh token.
+// Only the refresh token's SHA-256 is stored, so a Redis dump can't be
+// replayed. Each refresh rotates it; presenting an already-rotated token
+// (outside a short grace window for two tabs refreshing at once) means it
+// was copied, so the whole session family is revoked.
+const REFRESH_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+const REUSE_GRACE_MS = 30 * 1000;
+
+const sha256 = (v: string) =>
+  crypto.createHash('sha256').update(v).digest('hex');
+const refreshKey = (hash: string) => `refresh:${hash}`;
+const usedKey = (hash: string) => `refresh-used:${hash}`;
+const revokedKey = (family: string) => `family-revoked:${family}`;
+
+export interface Session {
+  access_token: string;
+  refresh_token: string;
+}
+
+interface RefreshRecord {
+  userId: number;
+  family: string;
+  expiresAt: number;
+}
+
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
@@ -81,7 +106,7 @@ export class AuthService {
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) throw new UnauthorizedException('Invalid credentials');
 
-    return { access_token: this.signToken(user) };
+    return this.issueSession(user);
   }
 
   async googleLogin(googleId: string, email: string) {
@@ -100,7 +125,86 @@ export class AuthService {
       await this.usersRepository.save(user);
     }
 
-    return { access_token: this.signToken(user) };
+    return this.issueSession(user);
+  }
+
+  // ─── Sessions (access + refresh token) ───────────────────────────────────
+
+  private async issueSession(
+    user: User,
+    family: string = crypto.randomUUID(),
+  ): Promise<Session> {
+    const refresh = crypto.randomBytes(32).toString('base64url');
+    const record: RefreshRecord = {
+      userId: user.id,
+      family,
+      expiresAt: Date.now() + REFRESH_TTL_MS,
+    };
+    await this.tokens.set(
+      refreshKey(sha256(refresh)),
+      JSON.stringify(record),
+      REFRESH_TTL_MS,
+    );
+    return { access_token: this.signToken(user), refresh_token: refresh };
+  }
+
+  async refreshSession(refreshToken: string): Promise<Session> {
+    const hash = sha256(refreshToken);
+    const raw = await this.tokens.take(refreshKey(hash));
+
+    if (!raw) {
+      // Unknown token. If it was rotated before, someone is replaying it.
+      const used = await this.tokens.get(usedKey(hash));
+      if (used) {
+        const { family, at } = JSON.parse(used) as {
+          family: string;
+          at: number;
+        };
+        if (Date.now() - at > REUSE_GRACE_MS) {
+          await this.tokens.set(revokedKey(family), '1', REFRESH_TTL_MS);
+          this.logger.warn(
+            `Refresh token reuse detected; session family ${family.slice(0, 8)} revoked`,
+          );
+        }
+      }
+      throw new UnauthorizedException(
+        'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.',
+      );
+    }
+
+    const record = JSON.parse(raw) as RefreshRecord;
+    const revoked = await this.tokens.get(revokedKey(record.family));
+    if (revoked || Date.now() > record.expiresAt) {
+      throw new UnauthorizedException(
+        'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.',
+      );
+    }
+
+    const user = await this.usersRepository.findOne({
+      where: { id: record.userId },
+    });
+    if (!user) {
+      throw new UnauthorizedException(
+        'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.',
+      );
+    }
+
+    await this.tokens.set(
+      usedKey(hash),
+      JSON.stringify({ family: record.family, at: Date.now() }),
+      REFRESH_TTL_MS,
+    );
+    return this.issueSession(user, record.family);
+  }
+
+  /** Ends the session the refresh token belongs to. Idempotent. */
+  async logout(refreshToken: string) {
+    const raw = await this.tokens.take(refreshKey(sha256(refreshToken)));
+    if (raw) {
+      const { family } = JSON.parse(raw) as RefreshRecord;
+      await this.tokens.set(revokedKey(family), '1', REFRESH_TTL_MS);
+    }
+    return { message: 'Đã đăng xuất.' };
   }
 
   async getMe(userId: number) {
@@ -311,9 +415,9 @@ export class AuthService {
   // The JWT itself never touches the URL / browser history / Referer /
   // server logs after Google sign-in — only this short-lived, single-use
   // code does, and it is useless once exchanged or expired.
-  async createOAuthCode(token: string): Promise<string> {
+  async createOAuthCode(session: Session): Promise<string> {
     const code = crypto.randomBytes(24).toString('hex');
-    const record = { token, expiresAt: Date.now() + OAUTH_CODE_TTL_MS };
+    const record = { session, expiresAt: Date.now() + OAUTH_CODE_TTL_MS };
     await this.tokens.set(
       oauthKey(code),
       JSON.stringify(record),
@@ -322,17 +426,17 @@ export class AuthService {
     return code;
   }
 
-  async exchangeOAuthCode(code: string): Promise<{ access_token: string }> {
+  async exchangeOAuthCode(code: string): Promise<Session> {
     // Single-use: read and delete atomically, whatever the outcome.
     const raw = await this.tokens.take(oauthKey(code));
     const record = raw
-      ? (JSON.parse(raw) as { token: string; expiresAt: number })
+      ? (JSON.parse(raw) as { session: Session; expiresAt: number })
       : null;
     if (!record || Date.now() > record.expiresAt) {
       throw new BadRequestException(
         'Mã đăng nhập không hợp lệ hoặc đã hết hạn.',
       );
     }
-    return { access_token: record.token };
+    return record.session;
   }
 }

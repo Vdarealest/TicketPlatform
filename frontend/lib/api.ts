@@ -1,5 +1,12 @@
-import axios, { AxiosError, AxiosInstance } from 'axios';
+import axios, { AxiosError, AxiosInstance, InternalAxiosRequestConfig } from 'axios';
 import { API_URL } from './config';
+import {
+  clearSession,
+  getAccessToken,
+  getRefreshToken,
+  saveSession,
+  type SessionTokens,
+} from './session';
 
 const BACKEND_URL = API_URL;
 
@@ -16,14 +23,10 @@ export const api: AxiosInstance = axios.create({
 // Request interceptor - add auth token if available
 api.interceptors.request.use(
   (config) => {
-    const token = typeof window !== 'undefined' 
-      ? localStorage.getItem('access_token')
-      : null;
-    
+    const token = getAccessToken();
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
-    
     return config;
   },
   (error) => {
@@ -32,19 +35,56 @@ api.interceptors.request.use(
   }
 );
 
-// Response interceptor - handle errors globally
+// Calls whose 401 means "wrong credentials / bad code", not "token expired".
+const AUTH_ENDPOINTS = ['/auth/login', '/auth/register', '/auth/refresh', '/auth/logout', '/auth/oauth/exchange'];
+
+// One refresh at a time: when several requests fail together they all wait
+// for the same new token instead of each spending the refresh token.
+let refreshing: Promise<string | null> | null = null;
+
+async function refreshAccessToken(): Promise<string | null> {
+  const used = getRefreshToken();
+  if (!used) return null;
+  try {
+    // Plain axios, not `api`: this call must not trigger the interceptor.
+    const res = await axios.post<SessionTokens>(
+      `${BACKEND_URL}/auth/refresh`,
+      { refresh_token: used },
+      { timeout: 45000 },
+    );
+    saveSession(res.data);
+    return res.data.access_token;
+  } catch {
+    // Another tab may have rotated the token a moment earlier; if so the
+    // new pair is already in localStorage and we can use it.
+    const current = getRefreshToken();
+    return current && current !== used ? getAccessToken() : null;
+  }
+}
+
+// Response interceptor: renew the access token once on 401, then give up.
 api.interceptors.response.use(
   (response) => response,
-  (error: AxiosError) => {
-    if (error.response?.status === 401) {
-      if (typeof window !== 'undefined') {
-        const hasToken = !!localStorage.getItem('access_token');
-        if (hasToken) {
-          // Session expired — clear and redirect
-          localStorage.removeItem('access_token');
-          window.location.href = '/login';
+  async (error: AxiosError) => {
+    const original = error.config as (InternalAxiosRequestConfig & { _retried?: boolean }) | undefined;
+    const isAuthCall = AUTH_ENDPOINTS.some((p) => original?.url?.startsWith(p));
+
+    if (error.response?.status === 401 && original && !isAuthCall && typeof window !== 'undefined') {
+      if (!original._retried && getRefreshToken()) {
+        original._retried = true;
+        refreshing ??= refreshAccessToken().finally(() => {
+          refreshing = null;
+        });
+        const token = await refreshing;
+        if (token) {
+          original.headers.Authorization = `Bearer ${token}`;
+          return api(original);
         }
-        // No token means this is a login/auth attempt — let the catch block handle it
+      }
+      // No way to renew: the session is over.
+      if (getAccessToken()) {
+        clearSession();
+        window.location.href = '/login';
       }
     }
 

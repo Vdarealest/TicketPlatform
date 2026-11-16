@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import api, { apiErrorMessage } from '@/lib/api';
+import { logout as endSession } from '@/lib/session';
 import { useTranslation } from '@/lib/i18n';
 import { backendUrl } from '@/lib/config';
 
@@ -431,8 +432,7 @@ export default function ProfilePage() {
   }, [router]);
 
   const logout = () => {
-    localStorage.removeItem('access_token');
-    window.dispatchEvent(new Event('auth-changed'));
+    endSession();
     router.push('/');
   };
 

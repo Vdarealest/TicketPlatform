@@ -12,12 +12,13 @@ import { Throttle } from '@nestjs/throttler';
 import type { Request as ExpressRequest, Response } from 'express';
 import { ConfigService } from '@nestjs/config';
 
-import { AuthService } from './auth.service';
+import { AuthService, type Session } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import {
   ForgotPasswordDto,
   OAuthExchangeDto,
+  RefreshTokenDto,
   ResetPasswordDto,
   VerifyOtpDto,
 } from './dto/password-reset.dto';
@@ -26,7 +27,7 @@ import type { AuthRequest } from './auth-request';
 
 // GoogleStrategy.validate resolves to AuthService.googleLogin's result.
 type GoogleCallbackRequest = Omit<ExpressRequest, 'user'> & {
-  user: { access_token: string };
+  user: Session;
 };
 
 @Controller('auth')
@@ -84,14 +85,13 @@ export class AuthController {
     @Req() req: GoogleCallbackRequest,
     @Res() res: Response,
   ) {
-    const { access_token } = req.user;
     const frontendUrl =
       this.configService.get<string>('FRONTEND_URL') || 'http://localhost:3001';
     // Never put the long-lived JWT in a redirect URL — it would land in
     // browser history, server access logs, and the Referer header of any
     // third-party resource the callback page loads. Hand over a short-lived,
     // single-use code instead; the frontend exchanges it server-side below.
-    const code = await this.authService.createOAuthCode(access_token);
+    const code = await this.authService.createOAuthCode(req.user);
     res.redirect(`${frontendUrl}/auth/callback?code=${code}`);
   }
 
@@ -99,6 +99,19 @@ export class AuthController {
   @Post('oauth/exchange')
   exchangeOAuthCode(@Body() body: OAuthExchangeDto) {
     return this.authService.exchangeOAuthCode(body.code);
+  }
+
+  // Trades a refresh token for a new access + refresh token pair. Called by
+  // the frontend when an API call comes back 401 (access tokens last 15 min).
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
+  @Post('refresh')
+  refresh(@Body() body: RefreshTokenDto) {
+    return this.authService.refreshSession(body.refresh_token);
+  }
+
+  @Post('logout')
+  logout(@Body() body: RefreshTokenDto) {
+    return this.authService.logout(body.refresh_token);
   }
 
   @UseGuards(JwtAuthGuard)
