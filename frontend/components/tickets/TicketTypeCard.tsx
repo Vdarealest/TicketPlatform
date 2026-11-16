@@ -3,6 +3,7 @@
 import { Ticket } from '@/lib/types';
 import { formatCurrencyVND } from '@/lib/format';
 import { getZoneColor } from './SeatMap';
+import { useTranslation, fmt } from '@/lib/i18n';
 
 interface TicketTypeCardProps {
   ticket: Ticket;
@@ -15,6 +16,7 @@ interface TicketTypeCardProps {
 }
 
 export default function TicketTypeCard({ ticket, selected, index, color: zoneColor, onSelect }: TicketTypeCardProps) {
+  const { t } = useTranslation();
   const soldOut = ticket.quantity <= 0;
   const lowStock = !soldOut && ticket.quantity <= 10;
   const color = zoneColor ?? getZoneColor(ticket.type, index).color;
@@ -39,7 +41,7 @@ export default function TicketTypeCard({ ticket, selected, index, color: zoneCol
       <span className="ttc__text">
         <span className="ttc__name">{ticket.type}</span>
         <span className={`ttc__qty ${lowStock ? 'ttc__qty--low' : ''} ${soldOut ? 'ttc__qty--out' : ''}`}>
-          {soldOut ? 'Hết vé' : lowStock ? `Sắp hết · còn ${ticket.quantity} vé` : `Còn ${ticket.quantity} vé`}
+          {soldOut ? t.ttc_sold_out : fmt(lowStock ? t.ttc_low_stock : t.ttc_left, { n: ticket.quantity })}
         </span>
       </span>
 

@@ -8,6 +8,7 @@ import { socket } from '@/lib/socket';
 import { EventDetail, Seat, SeatLayout, Ticket } from '@/lib/types';
 import { formatCurrencyVND } from '@/lib/format';
 import { cdnImage } from '@/lib/image';
+import { useTranslation, fmt } from '@/lib/i18n';
 import { isOnSale, upcomingLabel, effectiveSaleStatus } from '@/lib/eventStatus';
 import TicketTypeCard from '@/components/tickets/TicketTypeCard';
 import SeatMap, { getZoneColor } from '@/components/tickets/SeatMap';
@@ -22,6 +23,7 @@ const SESSION_DURATION = 5 * 60;
 const formatMMSS = (s: number) => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
 
 export default function TicketSelectionPage() {
+  const { t, lang } = useTranslation();
   const params = useParams<{ id: string }>();
   const router = useRouter();
 
@@ -58,7 +60,7 @@ export default function TicketSelectionPage() {
     setLoading(true);
     api.get<EventDetail>(`/events/${params.id}`)
       .then((res) => { if (!active) return; setEvent(res.data); if (res.data.tickets?.length) setSelectedTicket(res.data.tickets[0]); })
-      .catch(() => { if (active) setLoadError('Không thể tải thông tin sự kiện.'); })
+      .catch(() => { if (active) setLoadError(t.ts_load_failed); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [params.id]);
@@ -149,13 +151,13 @@ export default function TicketSelectionPage() {
 
     if (seat.status !== 'AVAILABLE') return;
     if (selectedSeats.length >= MAX_SEATS) {
-      setHoldError(`Tối đa ${MAX_SEATS} ghế cho mỗi lần đặt.`);
+      setHoldError(fmt(t.ts_max_seats, { max: MAX_SEATS }));
       return;
     }
 
     // Must be same ticket type
     if (selectedTicket && selectedTicket.id !== ticket.id && selectedSeats.length > 0) {
-      setHoldError('Chỉ có thể chọn ghế cùng một loại vé.');
+      setHoldError(t.ts_same_type_only);
       return;
     }
 
@@ -187,7 +189,7 @@ export default function TicketSelectionPage() {
     if (!isLoggedIn) {
       const email = guestEmail.trim();
       if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-        setGuestEmailError('Vui lòng nhập email hợp lệ để nhận vé.');
+        setGuestEmailError(t.ts_email_required);
         return;
       }
       setGuestEmailError(null);
@@ -216,20 +218,20 @@ export default function TicketSelectionPage() {
       const guestParam = guestToken ? `&guestToken=${encodeURIComponent(guestToken)}` : '';
       router.push(`/checkout/bulk?ids=${ids.join(',')}&deadline=${sessionDeadline}${guestParam}`);
     } catch (err) {
-      setHoldError(apiErrorMessage(err, 'Không thể giữ ghế, vui lòng thử lại.'));
+      setHoldError(apiErrorMessage(err, t.ts_hold_failed));
     } finally {
       setHoldLoading(false);
     }
   };
 
-  if (loading) return <div className="tsp-loading"><div className="edp-spinner" /><span>Đang tải...</span></div>;
-  if (loadError || !event) return <div className="tsp-error"><p>{loadError || 'Không tìm thấy sự kiện.'}</p><Link href={`/events/${params.id}`} className="tsp-error__link">Quay lại trang sự kiện</Link></div>;
+  if (loading) return <div className="tsp-loading"><div className="edp-spinner" /><span>{t.loading}</span></div>;
+  if (loadError || !event) return <div className="tsp-error"><p>{loadError || t.ts_event_not_found}</p><Link href={`/events/${params.id}`} className="tsp-error__link">{t.ts_back_to_event_page}</Link></div>;
   // Block direct-URL access to seat selection before sales open or after the
   // event has ended (backend also enforces this).
   if (!isOnSale(event)) return (
     <div className="tsp-error">
-      <p>{effectiveSaleStatus(event) === 'ENDED' ? '🏁 Sự kiện này đã kết thúc.' : `⏳ ${upcomingLabel(event.saleOpenAt, 'vi')}`}</p>
-      <Link href={`/events/${params.id}`} className="tsp-error__link">Quay lại trang sự kiện</Link>
+      <p>{effectiveSaleStatus(event) === 'ENDED' ? t.ts_event_ended : `⏳ ${upcomingLabel(event.saleOpenAt, lang)}`}</p>
+      <Link href={`/events/${params.id}`} className="tsp-error__link">{t.ts_back_to_event_page}</Link>
     </div>
   );
 
@@ -283,7 +285,7 @@ export default function TicketSelectionPage() {
   const gaSoldOut = isGA && (selectedTicket?.quantity ?? 0) <= 0;
   // Stands in for "seats picked" everywhere a GA ticket has no seats at all.
   const chosenCount = gaSoldOut ? 0 : isGA ? gaQuantity : selectedSeats.length;
-  const formattedDate = event.startTime ? new Date(event.startTime).toLocaleDateString('vi-VN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) : null;
+  const formattedDate = event.startTime ? new Date(event.startTime).toLocaleDateString(lang === 'en' ? 'en-US' : 'vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) : null;
   const step = !selectedTicket ? 1 : chosenCount === 0 ? 2 : 3;
   const layoutZoneColor = selectedTicket && layout ? layout.sections.find((s) => s.ticketId === selectedTicket.id)?.color : undefined;
   const zoneColor = layoutZoneColor ?? (selectedTicket ? getZoneColor(selectedTicket.type, tickets.findIndex((t) => t.id === selectedTicket.id)).color : '#e02020');
@@ -299,7 +301,7 @@ export default function TicketSelectionPage() {
         <div className="tsp-header">
           <Link href={`/events/${event.id}`} className="tsp-back">
             <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M9.5 3L5 8l4.5 5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/></svg>
-            Quay lại sự kiện
+            {t.ts_back_to_event}
           </Link>
           <div className="tsp-header__main">
             <img
@@ -319,11 +321,11 @@ export default function TicketSelectionPage() {
 
         {/* Stepper */}
         <div className="tsp-stepper">
-          <div className={`tsp-step ${step >= 1 ? 'tsp-step--active' : ''}`}><span className="tsp-step__num">1</span><span className="tsp-step__label">Chọn loại vé</span></div>
+          <div className={`tsp-step ${step >= 1 ? 'tsp-step--active' : ''}`}><span className="tsp-step__num">1</span><span className="tsp-step__label">{t.ts_step_type}</span></div>
           <div className={`tsp-step__line ${step >= 2 ? 'tsp-step__line--active' : ''}`} />
-          <div className={`tsp-step ${step >= 2 ? 'tsp-step--active' : ''}`}><span className="tsp-step__num">2</span><span className="tsp-step__label">{isGA ? 'Số lượng' : 'Chọn ghế'} (tối đa {MAX_SEATS})</span></div>
+          <div className={`tsp-step ${step >= 2 ? 'tsp-step--active' : ''}`}><span className="tsp-step__num">2</span><span className="tsp-step__label">{isGA ? t.ts_step_quantity : t.ts_step_seats} {fmt(t.ts_step_max, { max: MAX_SEATS })}</span></div>
           <div className={`tsp-step__line ${step >= 3 ? 'tsp-step__line--active' : ''}`} />
-          <div className={`tsp-step ${step >= 3 ? 'tsp-step--active' : ''}`}><span className="tsp-step__num">3</span><span className="tsp-step__label">Xác nhận &amp; đặt vé</span></div>
+          <div className={`tsp-step ${step >= 3 ? 'tsp-step--active' : ''}`}><span className="tsp-step__num">3</span><span className="tsp-step__label">{t.ts_step_confirm}</span></div>
         </div>
 
         <div className="tsp-layout">
@@ -331,10 +333,10 @@ export default function TicketSelectionPage() {
           <div className="tsp-left">
             <section className="tsp-card">
               <div className="tsp-card__header">
-                <h2 className="tsp-card__title"><span className="tsp-card__step">1</span>Chọn loại vé</h2>
-                {tickets.length > 0 && <span className="tsp-card__badge">{tickets.length} loại vé</span>}
+                <h2 className="tsp-card__title"><span className="tsp-card__step">1</span>{t.ts_step_type}</h2>
+                {tickets.length > 0 && <span className="tsp-card__badge">{fmt(t.ts_n_types, { n: tickets.length })}</span>}
               </div>
-              {tickets.length === 0 ? <p className="tsp-empty-text">Hiện chưa có vé nào được mở bán.</p> : (
+              {tickets.length === 0 ? <p className="tsp-empty-text">{t.ts_none_on_sale}</p> : (
                 <div className="tsp-ticket-list">
                   {tickets.map((ticket, i) => (
                     <TicketTypeCard
@@ -352,18 +354,18 @@ export default function TicketSelectionPage() {
 
             <section className="tsp-card">
               <div className="tsp-card__header">
-                <h2 className="tsp-card__title"><span className="tsp-card__step">2</span>{isGA ? 'Số lượng vé' : 'Chọn ghế'}</h2>
+                <h2 className="tsp-card__title"><span className="tsp-card__step">2</span>{isGA ? t.ts_ga_quantity : t.ts_step_seats}</h2>
                 <span className="tsp-card__badge">
-                  {isGA ? `${gaQuantity}/${selectedTicket ? maxGaQuantity(selectedTicket) : MAX_SEATS}` : `${selectedSeats.length}/${MAX_SEATS}`} đã chọn
+                  {isGA ? `${gaQuantity}/${selectedTicket ? maxGaQuantity(selectedTicket) : MAX_SEATS}` : `${selectedSeats.length}/${MAX_SEATS}`} {t.ts_selected_suffix}
                 </span>
               </div>
               {isGA && selectedTicket ? (
                 <div className="tsp-ga-picker">
                   <p className="tsp-empty-text" style={{ marginBottom: 16 }}>
-                    Vé đứng — không có sơ đồ ghế. Vào trước, đứng trước.
+                    {t.ts_ga_note}
                   </p>
                   {gaSoldOut ? (
-                    <p className="tsp-empty-text" style={{ fontWeight: 600 }}>Loại vé này đã hết.</p>
+                    <p className="tsp-empty-text" style={{ fontWeight: 600 }}>{t.ts_sold_out}</p>
                   ) : (
                     <>
                       <div className="tsp-ga-stepper">
@@ -372,7 +374,7 @@ export default function TicketSelectionPage() {
                           className="tsp-ga-stepper__btn"
                           onClick={() => adjustGaQuantity(selectedTicket, -1)}
                           disabled={gaQuantity <= 1}
-                          aria-label="Giảm số lượng"
+                          aria-label={t.ts_decrease}
                         >−</button>
                         <span className="tsp-ga-stepper__value">{gaQuantity}</span>
                         <button
@@ -380,11 +382,11 @@ export default function TicketSelectionPage() {
                           className="tsp-ga-stepper__btn"
                           onClick={() => adjustGaQuantity(selectedTicket, 1)}
                           disabled={gaQuantity >= maxGaQuantity(selectedTicket)}
-                          aria-label="Tăng số lượng"
+                          aria-label={t.ts_increase}
                         >+</button>
                       </div>
                       <p className="tsp-empty-text" style={{ marginTop: 12 }}>
-                        Tối đa {maxGaQuantity(selectedTicket)} vé mỗi lượt đặt — còn {selectedTicket.quantity} vé.
+                        {fmt(t.ts_ga_limit, { max: maxGaQuantity(selectedTicket), left: selectedTicket.quantity })}
                       </p>
                     </>
                   )}
@@ -410,13 +412,13 @@ export default function TicketSelectionPage() {
             <div className="tsp-summary">
               <div className="tsp-summary__header">
                 <span className="tsp-card__step">3</span>
-                <p className="tsp-summary__label">Tóm tắt &amp; đặt vé</p>
+                <p className="tsp-summary__label">{t.ts_summary}</p>
               </div>
 
               {selectedTicket ? (
                 <div className="tsp-summary__rows">
                   <div className="tsp-summary__row">
-                    <span>Loại vé</span>
+                    <span>{t.ts_ticket_type}</span>
                     <strong className="tsp-summary__chip">
                       <span className="tsp-summary__chip-dot" style={{ background: zoneColor }} />
                       {selectedTicket.type}
@@ -425,44 +427,44 @@ export default function TicketSelectionPage() {
                   <div className="tsp-summary__divider" />
                   {!isGA && (
                     <div className="tsp-summary__row">
-                      <span>Ghế đã chọn ({selectedSeats.length})</span>
+                      <span>{fmt(t.ts_seats_chosen, { n: selectedSeats.length })}</span>
                       <strong className={selectedSeats.length > 0 ? '' : 'tsp-summary__placeholder'}>
-                        {selectedSeats.length > 0 ? selectedSeats.map((s) => s.label).join(', ') : 'Chưa chọn'}
+                        {selectedSeats.length > 0 ? selectedSeats.map((s) => s.label).join(', ') : t.ts_none_chosen}
                       </strong>
                     </div>
                   )}
                   <div className="tsp-summary__row">
-                    <span>Đơn giá</span>
+                    <span>{t.ts_unit_price}</span>
                     <strong>{formatCurrencyVND(selectedTicket.price)}</strong>
                   </div>
                   <div className="tsp-summary__row">
-                    <span>Số lượng</span>
-                    <strong>{chosenCount} vé</strong>
+                    <span>{t.ts_step_quantity}</span>
+                    <strong>{fmt(t.co_n_tickets, { n: chosenCount })}</strong>
                   </div>
                   <div className="tsp-summary__row">
-                    <span>Còn lại</span>
-                    <strong>{selectedTicket.quantity} vé</strong>
+                    <span>{t.ts_remaining}</span>
+                    <strong>{fmt(t.co_n_tickets, { n: selectedTicket.quantity })}</strong>
                   </div>
 
                   {/* One rule, right before the number that matters */}
                   <div className="tsp-summary__divider" />
                   <div className="tsp-summary__row tsp-summary__row--total">
-                    <span>Tổng tiền</span>
+                    <span>{t.ts_total}</span>
                     <strong className="tsp-summary__price">{formatCurrencyVND(totalPrice)}</strong>
                   </div>
                 </div>
               ) : (
-                <p className="tsp-empty-text" style={{ padding: '16px 0' }}>Vui lòng chọn một loại vé.</p>
+                <p className="tsp-empty-text" style={{ padding: '16px 0' }}>{t.ts_pick_type}</p>
               )}
 
               {selectedTicket && !isGA && selectedSeats.length === 0 && (
-                <p className="tsp-summary__hint">Chọn ghế còn trống trên sơ đồ để tiếp tục (tối đa {MAX_SEATS} ghế).</p>
+                <p className="tsp-summary__hint">{fmt(t.ts_pick_seats_hint, { max: MAX_SEATS })}</p>
               )}
 
               {!isLoggedIn && chosenCount > 0 && (
                 <div className="tsp-guest-box">
-                  <p className="tsp-guest-box__title">Mua vé không cần đăng nhập</p>
-                  <p className="tsp-guest-box__note">Vé và mã xác nhận sẽ được gửi đến email này.</p>
+                  <p className="tsp-guest-box__title">{t.ts_guest_title}</p>
+                  <p className="tsp-guest-box__note">{t.ts_guest_note}</p>
                   <input
                     type="email"
                     className="tsp-guest-box__input"
@@ -472,7 +474,7 @@ export default function TicketSelectionPage() {
                   />
                   {guestEmailError && <p className="tsp-guest-box__error">{guestEmailError}</p>}
                   <Link href="/login" className="tsp-guest-box__login-link">
-                    Hoặc đăng nhập để lưu lịch sử mua vé
+                    {t.ts_or_login}
                   </Link>
                 </div>
               )}
@@ -486,10 +488,10 @@ export default function TicketSelectionPage() {
                 className="tsp-reserve-btn"
                 style={chosenCount > 0 ? { background: zoneColor } : undefined}
               >
-                {holdLoading ? <><span className="tsp-btn-spinner" /> Đang xử lý...</> : `Tiến hành thanh toán (${chosenCount} vé)`}
+                {holdLoading ? <><span className="tsp-btn-spinner" /> {t.co_processing}</> : fmt(t.ts_proceed, { n: chosenCount })}
               </button>
 
-              <p className="tsp-summary__note">Thanh toán bảo mật - Hoàn tiền trong 24h</p>
+              <p className="tsp-summary__note">{t.ts_secure_note}</p>
             </div>
           </aside>
         </div>
@@ -498,7 +500,7 @@ export default function TicketSelectionPage() {
       <div className={`tsp-session-bar ${sessionLow ? 'tsp-session-bar--low' : ''}`}>
         <span className="tsp-session-bar__icon" style={{ display: 'inline-flex', animation: 'edp-spin 2s linear infinite' }}>⏳</span>
         <strong className="tsp-session-bar__time">{sessionFormatted}</strong>
-        <span className="tsp-session-bar__label">Thời gian<br />giữ chỗ</span>
+        <span className="tsp-session-bar__label">{t.ts_hold_time_1}<br />{t.ts_hold_time_2}</span>
       </div>
     </main>
   );
