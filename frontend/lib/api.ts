@@ -1,11 +1,13 @@
 import axios, { AxiosError, AxiosInstance } from 'axios';
+import { API_URL } from './config';
 
-// Get backend URL from environment or use default
-const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+const BACKEND_URL = API_URL;
 
 export const api: AxiosInstance = axios.create({
   baseURL: BACKEND_URL,
-  timeout: 10000,
+  // Render free tier sleeps when idle and takes 20-40s to wake. A 10s
+  // timeout made the first visit after a quiet period fail to load data.
+  timeout: 45000,
   headers: {
     'Content-Type': 'application/json',
   },

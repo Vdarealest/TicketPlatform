@@ -1,7 +1,8 @@
 import { io } from 'socket.io-client';
+import { WS_URL } from './config';
 
 export const socket = io(
-  process.env.NEXT_PUBLIC_WS_URL || 'http://localhost:3000',
+  WS_URL,
   {
     reconnection: true,
     reconnectionDelay: 1000,

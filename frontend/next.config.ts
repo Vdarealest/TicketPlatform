@@ -1,7 +1,8 @@
 import type { NextConfig } from "next";
+import { API_URL, WS_URL } from "./lib/config";
 
-const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
-const wsUrl = process.env.NEXT_PUBLIC_WS_URL || apiUrl;
+const apiUrl = API_URL;
+const wsUrl = WS_URL;
 // wss:// counterpart of the API/WS origin, needed separately in connect-src
 // since Socket.IO negotiates over both http(s) and ws(s) schemes.
 const wsSocketUrl = wsUrl.replace(/^http/, "ws");

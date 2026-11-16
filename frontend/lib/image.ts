@@ -1,3 +1,4 @@
+import { API_URL } from './config';
 // Resolve an image path stored in the DB to a URL the browser can load.
 //
 // Three shapes exist in the data:
@@ -9,7 +10,7 @@
 //
 // Storing relative "/uploads/…" (not an absolute localhost URL) is what lets the
 // site work once deployed to a real domain.
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+const API_BASE = API_URL;
 
 export function resolveImageUrl(
   path?: string | null,

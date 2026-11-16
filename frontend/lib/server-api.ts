@@ -1,11 +1,12 @@
 import { cache } from 'react';
 import type { EventDetail } from './types';
+import { API_URL } from './config';
 
 // Server-side reads for metadata, the event page's first render and the
 // sitemap. The backend runs on Render's free tier, which can take ~20s to
 // wake up; a page must never hang on that, so every call gives up quickly and
 // returns null, and the page falls back to fetching in the browser.
-const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+const API = API_URL;
 const TIMEOUT_MS = 4000;
 
 async function getJson<T>(path: string, revalidate: number): Promise<T | null> {

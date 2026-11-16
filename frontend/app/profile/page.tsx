@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import api, { apiErrorMessage } from '@/lib/api';
 import { useTranslation } from '@/lib/i18n';
+import { backendUrl } from '@/lib/config';
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
@@ -145,9 +146,8 @@ function EditProfileModal({
     }
   };
 
-  const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
   const previewSrc = avatarUrl
-    ? (avatarUrl.startsWith('http') ? avatarUrl : `${apiBase}${avatarUrl}`)
+    ? backendUrl(avatarUrl)
     : null;
 
   return (
@@ -461,9 +461,8 @@ export default function ProfilePage() {
   const displayName = user.name || email.split('@')[0];
   const isGoogle = !!user.googleId;
   const totalRes = reservations.length;
-  const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
   const avatarSrc = user.avatarUrl
-    ? (user.avatarUrl.startsWith('http') ? user.avatarUrl : `${apiBase}${user.avatarUrl}`)
+    ? backendUrl(user.avatarUrl)
     : null;
 
   return (

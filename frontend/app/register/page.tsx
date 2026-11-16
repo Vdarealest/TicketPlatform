@@ -5,8 +5,8 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import api, { apiErrorMessage } from '@/lib/api';
 import { useTranslation } from '@/lib/i18n';
+import { API_URL } from '@/lib/config';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 
 function EyeOpen() {
   return (

@@ -7,6 +7,7 @@ import api from '../../lib/api';
 import { useTranslation } from '../../lib/i18n';
 import ThemeToggle from './ThemeToggle';
 import LanguageSwitcher from './LanguageSwitcher';
+import { backendUrl } from '@/lib/config';
 
 const NAV_KEYS = [
   { key: 'nav_events' as const, href: '/events' },
@@ -184,7 +185,7 @@ export default function Navbar() {
               >
                 {userAvatar ? (
                   <img
-                    src={userAvatar.startsWith('http') ? userAvatar : `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}${userAvatar}`}
+                    src={backendUrl(userAvatar)}
                     alt=""
                     className="nav-avatar-img"
                   />
@@ -204,7 +205,7 @@ export default function Navbar() {
                   <div className="nav-dropdown__header">
                     {userAvatar ? (
                       <img
-                        src={userAvatar.startsWith('http') ? userAvatar : `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}${userAvatar}`}
+                        src={backendUrl(userAvatar)}
                         alt=""
                         className="nav-dropdown__avatar nav-dropdown__avatar--img"
                       />

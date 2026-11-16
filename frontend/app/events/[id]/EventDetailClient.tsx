@@ -9,6 +9,7 @@ import { useTranslation, translateCategory } from '@/lib/i18n';
 import { cdnImage, cdnSrcSet, BLUR_BACKDROP_WIDTH } from '@/lib/image';
 import { upcomingLabel, effectiveSaleStatus } from '@/lib/eventStatus';
 import { EventDetail } from '@/lib/types';
+import { backendUrl } from '@/lib/config';
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
@@ -166,8 +167,6 @@ function ReviewSection({ eventId, eventEndTime }: { eventId: number; eventEndTim
     } catch { /* ignore */ }
   };
 
-  const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
-
   return (
     <section className="edp-reviews">
       <div className="edp-reviews__header">
@@ -259,7 +258,7 @@ function ReviewSection({ eventId, eventEndTime }: { eventId: number; eventEndTim
         <div className="edp-review-list">
           {reviews.map((r) => {
             const avatarSrc = r.user.avatarUrl
-              ? (r.user.avatarUrl.startsWith('http') ? r.user.avatarUrl : `${apiBase}${r.user.avatarUrl}`)
+              ? backendUrl(r.user.avatarUrl)
               : null;
             const displayName = r.user.name || r.user.email.split('@')[0];
 
