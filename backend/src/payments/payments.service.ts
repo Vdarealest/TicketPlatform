@@ -3,6 +3,7 @@ import {
   NotFoundException,
   BadRequestException,
   ForbiddenException,
+  Logger,
 } from '@nestjs/common';
 
 import { InjectRepository } from '@nestjs/typeorm';
@@ -23,6 +24,8 @@ import {
 
 @Injectable()
 export class PaymentsService {
+  private readonly logger = new Logger(PaymentsService.name);
+
   constructor(
     @InjectRepository(Reservation)
     private reservationRepository: Repository<Reservation>,
@@ -527,7 +530,7 @@ export class PaymentsService {
             })),
           })
           .catch((err) =>
-            console.error('Failed to send confirmation email:', err),
+            this.logger.error('Failed to send confirmation email', err),
           );
       }
     }

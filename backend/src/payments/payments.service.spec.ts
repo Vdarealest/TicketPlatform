@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ForbiddenException,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { PaymentsService } from './payments.service';
@@ -382,7 +383,7 @@ describe('PaymentsService', () => {
       reservationRepo.findOne.mockResolvedValue(holdReservation(1));
       mail.sendTicketConfirmation.mockRejectedValueOnce(new Error('QR failed'));
       const errorLog = jest
-        .spyOn(console, 'error')
+        .spyOn(Logger.prototype, 'error')
         .mockImplementation(() => {});
       const unhandled = jest.fn();
       process.on('unhandledRejection', unhandled);
@@ -392,7 +393,7 @@ describe('PaymentsService', () => {
         await new Promise((r) => setImmediate(r));
         expect(unhandled).not.toHaveBeenCalled();
         expect(errorLog).toHaveBeenCalledWith(
-          'Failed to send confirmation email:',
+          'Failed to send confirmation email',
           expect.any(Error),
         );
       } finally {

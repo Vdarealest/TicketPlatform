@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as nodemailer from 'nodemailer';
 import * as QRCode from 'qrcode';
@@ -23,6 +23,8 @@ interface ConfirmationEmailData {
 
 @Injectable()
 export class MailService {
+  private readonly logger = new Logger(MailService.name);
+
   private readonly transporter: nodemailer.Transporter;
   private readonly from: string;
 
@@ -170,7 +172,7 @@ export class MailService {
         attachments,
       });
     } catch (err) {
-      console.error('Failed to send confirmation email:', err);
+      this.logger.error('Failed to send confirmation email', err);
     }
   }
 

@@ -2,6 +2,7 @@ import {
   Injectable,
   BadRequestException,
   UnauthorizedException,
+  Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ConfigService } from '@nestjs/config';
@@ -25,6 +26,8 @@ const OAUTH_CODE_TTL_MS = 60 * 1000; // one-time code, dies in 60s
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   // In-memory OTP store: email → record (TTL 5 min)
   private readonly otpStore = new Map<string, OtpRecord>();
 
@@ -275,9 +278,18 @@ export class AuthService {
         html,
       });
     } catch (err) {
-      // Dev fallback — log OTP to console if SMTP not configured
-      console.warn(`[Vietix] Email send failed. Dev OTP for ${email}: ${otp}`);
-      console.warn(err instanceof Error ? err.message : err);
+      const reason = err instanceof Error ? err.message : String(err);
+      this.logger.warn(
+        `OTP email to ${this.maskEmail(email)} failed: ${reason}`,
+      );
+      // Dev convenience only: a local setup without SMTP can still finish a
+      // reset. Never when mail is configured or in production — a live reset
+      // code in the logs is usable by anyone who can read them. (Render does
+      // not set NODE_ENV for you, hence the SMTP check as well.)
+      const smtpConfigured = !!this.configService.get<string>('MAIL_USER');
+      if (!smtpConfigured && process.env.NODE_ENV !== 'production') {
+        this.logger.warn(`Dev OTP for ${email}: ${otp}`);
+      }
     }
   }
 

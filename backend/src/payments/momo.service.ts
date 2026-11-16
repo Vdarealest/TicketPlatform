@@ -1,4 +1,8 @@
-import { Injectable, InternalServerErrorException } from '@nestjs/common';
+import {
+  Injectable,
+  InternalServerErrorException,
+  Logger,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as crypto from 'crypto';
 import { signaturesMatch } from './signature.util';
@@ -16,6 +20,8 @@ export interface MomoCreateResult {
 
 @Injectable()
 export class MomoService {
+  private readonly logger = new Logger(MomoService.name);
+
   private readonly partnerCode: string;
   private readonly accessKey: string;
   private readonly secretKey: string;
@@ -103,7 +109,9 @@ export class MomoService {
       message?: string;
       payUrl?: string;
     };
-    console.log('[MoMo] create response:', data.resultCode, data.message);
+    this.logger.log(
+      `create response: ${data.resultCode} ${data.message ?? ''}`,
+    );
 
     if (data.resultCode !== 0 || !data.payUrl) {
       throw new InternalServerErrorException(

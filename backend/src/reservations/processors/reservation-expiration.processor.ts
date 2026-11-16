@@ -1,5 +1,6 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Job } from 'bullmq';
+import { Logger } from '@nestjs/common';
 
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -11,6 +12,8 @@ import { TicketGateway } from '../../websocket/gateways/ticket.gateway';
 
 @Processor('reservation-expiration')
 export class ReservationExpirationProcessor extends WorkerHost {
+  private readonly logger = new Logger(ReservationExpirationProcessor.name);
+
   constructor(
     @InjectRepository(Reservation)
     private reservationRepository: Repository<Reservation>,
@@ -27,7 +30,7 @@ export class ReservationExpirationProcessor extends WorkerHost {
   }
 
   async process(job: Job<{ reservationId: number }>): Promise<void> {
-    console.log('🔥 Processing reservation:', job.data.reservationId);
+    this.logger.debug(`Processing reservation ${job.data.reservationId}`);
 
     const reservation = await this.reservationRepository.findOne({
       where: {
@@ -76,6 +79,6 @@ export class ReservationExpirationProcessor extends WorkerHost {
       }
     }
 
-    console.log(`Reservation ${reservation.id} expired`);
+    this.logger.log(`Reservation ${reservation.id} expired`);
   }
 }

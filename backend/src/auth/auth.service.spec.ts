@@ -1,4 +1,8 @@
-import { BadRequestException, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Logger,
+  UnauthorizedException,
+} from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { AuthService } from './auth.service';
 
@@ -20,11 +24,13 @@ function setup(users: Row[] = []) {
     }),
   };
   const jwt = { sign: jest.fn((payload: Row) => `jwt:${payload.sub}`) };
-  const config = { get: jest.fn(() => undefined) };
+  const config = {
+    get: jest.fn((_key: string): string | undefined => undefined),
+  };
   const service = new AuthService(repo as any, jwt as any, config as any);
   const sendMail = jest.fn(async () => ({}));
   (service as any).transporter = { sendMail };
-  return { service, repo, jwt, users, sendMail };
+  return { service, repo, jwt, users, sendMail, config };
 }
 
 // bcrypt cost 10 is slow; a cheap hash keeps these tests fast and is still
@@ -127,6 +133,59 @@ describe('AuthService', () => {
       const res = await service.forgotPassword('a@example.com');
       expect(res.maskedEmail).toBe('a******@example.com');
     });
+
+    it('never logs the OTP in production when the email fails', async () => {
+      const ctx = setup([
+        { id: 1, email: 'a@example.com', password: hash('old-pass') },
+      ]);
+      ctx.sendMail.mockRejectedValueOnce(new Error('SMTP down'));
+      const warn = jest
+        .spyOn(Logger.prototype, 'warn')
+        .mockImplementation(() => {});
+      const oldEnv = process.env.NODE_ENV;
+      process.env.NODE_ENV = 'production';
+      try {
+        await ctx.service.forgotPassword('a@example.com');
+        const otp = (ctx.service as any).otpStore.get('a@example.com').otp;
+        const logged = warn.mock.calls.map((c) => String(c[0])).join('\n');
+        expect(logged).toContain('SMTP down');
+        expect(logged).not.toContain(otp);
+        expect(logged).not.toContain('a@example.com');
+      } finally {
+        process.env.NODE_ENV = oldEnv;
+        warn.mockRestore();
+      }
+    });
+
+    it.each([
+      ['SMTP is configured', 'smtp-user', 'development', false],
+      ['running locally without SMTP', undefined, 'development', true],
+    ])(
+      'OTP in logs when the email fails and %s: %p',
+      async (_label, mailUser, nodeEnv, expectLogged) => {
+        const ctx = setup([
+          { id: 1, email: 'a@example.com', password: hash('old-pass') },
+        ]);
+        ctx.config.get.mockImplementation((k: string) =>
+          k === 'MAIL_USER' ? mailUser : undefined,
+        );
+        ctx.sendMail.mockRejectedValueOnce(new Error('SMTP down'));
+        const warn = jest
+          .spyOn(Logger.prototype, 'warn')
+          .mockImplementation(() => {});
+        const oldEnv = process.env.NODE_ENV;
+        process.env.NODE_ENV = nodeEnv;
+        try {
+          await ctx.service.forgotPassword('a@example.com');
+          const otp = (ctx.service as any).otpStore.get('a@example.com').otp;
+          const logged = warn.mock.calls.map((c) => String(c[0])).join('\n');
+          expect(logged.includes(otp)).toBe(expectLogged);
+        } finally {
+          process.env.NODE_ENV = oldEnv;
+          warn.mockRestore();
+        }
+      },
+    );
 
     it('shows only the first three characters of a longer address', async () => {
       const { service } = setup([

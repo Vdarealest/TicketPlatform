@@ -1,3 +1,4 @@
+import { Logger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { configureApp } from './app.setup';
@@ -10,8 +11,9 @@ async function bootstrap() {
 
   await app.listen(port);
 
-  console.log(`Server running on http://localhost:${port}`);
-  console.log(`WebSocket CORS origin: ${frontendUrl}`);
+  const logger = new Logger('Bootstrap');
+  logger.log(`Listening on port ${port}`);
+  logger.log(`CORS / WebSocket origin: ${frontendUrl}`);
 }
 
 void bootstrap();
