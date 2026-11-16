@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useTranslation } from '@/lib/i18n';
 
 function getInitialTheme(): string {
   if (typeof window === 'undefined') return 'light';
@@ -10,6 +11,7 @@ function getInitialTheme(): string {
 }
 
 export default function ThemeToggle() {
+  const { t } = useTranslation();
   const [theme, setTheme] = useState<string>('light');
   const [mounted, setMounted] = useState(false);
 
@@ -39,8 +41,8 @@ export default function ThemeToggle() {
     <button
       className="theme-toggle"
       onClick={toggle}
-      aria-label={theme === 'dark' ? 'Chuyển sang sáng' : 'Chuyển sang tối'}
-      title={theme === 'dark' ? 'Chế độ sáng' : 'Chế độ tối'}
+      aria-label={theme === 'dark' ? t.theme_to_light : t.theme_to_dark}
+      title={theme === 'dark' ? t.theme_light : t.theme_dark}
     >
       {theme === 'dark' ? (
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none">

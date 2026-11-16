@@ -252,7 +252,7 @@ export default function MyTicketsPage() {
         </div>
 
         {/* filter tabs */}
-        <div className="mt-tabs" role="tablist" aria-label="Lọc vé">
+        <div className="mt-tabs" role="tablist" aria-label={t.mt_filter}>
           {FILTER_KEYS.map(f => {
             const count = applyFilter(reservations, f.key).length;
             return (

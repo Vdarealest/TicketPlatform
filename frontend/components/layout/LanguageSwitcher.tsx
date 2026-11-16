@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { useTranslation } from '@/lib/i18n';
 
 const LANGS = [
   { code: 'vi', label: 'Tiếng Việt', flag: '🇻🇳' },
@@ -13,6 +14,7 @@ export function getLang(): string {
 }
 
 export default function LanguageSwitcher() {
+  const { t } = useTranslation();
   const [lang, setLang] = useState('vi');
   const [open, setOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -50,7 +52,7 @@ export default function LanguageSwitcher() {
 
   return (
     <div className="lang-wrap" ref={ref}>
-      <button className="lang-toggle" onClick={() => setOpen(!open)} aria-label="Chọn ngôn ngữ">
+      <button className="lang-toggle" onClick={() => setOpen(!open)} aria-label={t.lang_choose}>
         <span className="lang-flag">{current.flag}</span>
         <span className="lang-code">{current.code.toUpperCase()}</span>
         <svg width="10" height="10" viewBox="0 0 10 10" fill="none" className={`lang-chevron ${open ? 'lang-chevron--open' : ''}`}>

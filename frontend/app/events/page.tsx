@@ -264,7 +264,7 @@ function EventsContent() {
               <label style={labelStyle}>{t.events_price_to}</label>
               <input
                 type="number"
-                placeholder="Không giới hạn"
+                placeholder={t.ev_no_limit}
                 min={0}
                 value={filters.maxPrice}
                 onChange={(e) => set('maxPrice', e.target.value)}

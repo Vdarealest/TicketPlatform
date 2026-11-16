@@ -156,7 +156,7 @@ function EditProfileModal({
       <div className="pp-modal" onClick={(e) => e.stopPropagation()}>
         <div className="pp-modal-header">
           <h2 className="pp-modal-title">{t.pp_edit_title}</h2>
-          <button className="pp-modal-close" onClick={onClose} aria-label="Đóng">
+          <button className="pp-modal-close" onClick={onClose} aria-label={t.close}>
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
               <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
             </svg>
@@ -295,7 +295,7 @@ function ChangePasswordModal({
       <div className="pp-modal" onClick={(e) => e.stopPropagation()}>
         <div className="pp-modal-header">
           <h2 className="pp-modal-title">{t.pp_pw_title}</h2>
-          <button className="pp-modal-close" onClick={onClose} aria-label="Đóng">
+          <button className="pp-modal-close" onClick={onClose} aria-label={t.close}>
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
               <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
             </svg>
@@ -317,7 +317,7 @@ function ChangePasswordModal({
                 type="button"
                 className="pp-pw-toggle"
                 onClick={() => setShowCurrent(!showCurrent)}
-                aria-label={showCurrent ? 'Ẩn' : 'Hiện'}
+                aria-label={showCurrent ? t.fp_hide : t.fp_show}
               >
                 <EyeIcon open={showCurrent} />
               </button>
@@ -338,7 +338,7 @@ function ChangePasswordModal({
                 type="button"
                 className="pp-pw-toggle"
                 onClick={() => setShowNew(!showNew)}
-                aria-label={showNew ? 'Ẩn' : 'Hiện'}
+                aria-label={showNew ? t.fp_hide : t.fp_show}
               >
                 <EyeIcon open={showNew} />
               </button>

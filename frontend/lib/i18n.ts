@@ -346,6 +346,17 @@ const translations = {
     pr_failed: 'Thanh toán thất bại',
     pr_error_code: 'Mã lỗi:',
     pr_processed_by: 'Thanh toán được xử lý bởi {gateway}',
+    // Small labels (placeholders, aria-labels)
+    ev_no_limit: 'Không giới hạn',
+    mt_filter: 'Lọc vé',
+    auth_google_verifying: 'Đang xác thực với Google...',
+    nav_search_btn: 'Tìm kiếm',
+    nav_account: 'Tài khoản',
+    theme_to_light: 'Chuyển sang sáng',
+    theme_to_dark: 'Chuyển sang tối',
+    theme_light: 'Chế độ sáng',
+    theme_dark: 'Chế độ tối',
+    lang_choose: 'Chọn ngôn ngữ',
   },
   en: {
     // Navbar
@@ -694,6 +705,17 @@ const translations = {
     pr_failed: 'Payment failed',
     pr_error_code: 'Error code:',
     pr_processed_by: 'Payment processed by {gateway}',
+    // Small labels (placeholders, aria-labels)
+    ev_no_limit: 'No limit',
+    mt_filter: 'Filter tickets',
+    auth_google_verifying: 'Signing you in with Google...',
+    nav_search_btn: 'Search',
+    nav_account: 'Account',
+    theme_to_light: 'Switch to light mode',
+    theme_to_dark: 'Switch to dark mode',
+    theme_light: 'Light mode',
+    theme_dark: 'Dark mode',
+    lang_choose: 'Choose language',
   },
 } as const;
 

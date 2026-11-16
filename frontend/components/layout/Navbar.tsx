@@ -177,7 +177,7 @@ export default function Navbar() {
         {/* CENTER */}
         <div className="onezone-nav__search-wrap">
           <form onSubmit={handleSearch} className={`onezone-nav__search ${searchFocused ? 'onezone-nav__search--focused' : ''}`}>
-            <button type="submit" className="onezone-nav__search-icon" aria-label="Tìm kiếm" style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'inline-flex' }}>
+            <button type="submit" className="onezone-nav__search-icon" aria-label={t.nav_search_btn} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'inline-flex' }}>
               <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
                 <circle cx="6.5" cy="6.5" r="5" stroke="currentColor" strokeWidth="1.6" />
                 <path d="M10.5 10.5L14 14" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
@@ -211,7 +211,7 @@ export default function Navbar() {
                 className="nav-avatar-btn"
                 onClick={() => setDropdownOpen((o) => !o)}
                 style={{ '--avatar-color': getAvatarColor(userEmail) } as React.CSSProperties}
-                aria-label="Tài khoản"
+                aria-label={t.nav_account}
                 aria-expanded={dropdownOpen}
               >
                 {userAvatar ? (

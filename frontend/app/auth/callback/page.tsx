@@ -4,9 +4,11 @@ import { useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense } from 'react';
 import api from '@/lib/api';
+import { useTranslation } from '@/lib/i18n';
 import { saveSession } from '@/lib/session';
 
 function GoogleCallbackInner() {
+  const { t } = useTranslation();
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -36,7 +38,7 @@ function GoogleCallbackInner() {
       <div className="lp-card" style={{ alignItems: 'center', gap: 16 }}>
         <span className="lp-logo">Vietix</span>
         <div className="edp-spinner" style={{ width: 32, height: 32, margin: '8px 0' }} />
-        <p style={{ color: '#9ea5ad', fontSize: 14 }}>Đang xác thực với Google...</p>
+        <p style={{ color: '#9ea5ad', fontSize: 14 }}>{t.auth_google_verifying}</p>
       </div>
     </main>
   );
