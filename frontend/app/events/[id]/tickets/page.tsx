@@ -8,7 +8,7 @@ import { socket } from '@/lib/socket';
 import { EventDetail, Seat, SeatLayout, Ticket } from '@/lib/types';
 import { formatCurrencyVND } from '@/lib/format';
 import { cdnImage } from '@/lib/image';
-import { useTranslation, fmt } from '@/lib/i18n';
+import { useTranslation, fmt, tr } from '@/lib/i18n';
 import { isOnSale, upcomingLabel, effectiveSaleStatus } from '@/lib/eventStatus';
 import TicketTypeCard from '@/components/tickets/TicketTypeCard';
 import SeatMap, { getZoneColor } from '@/components/tickets/SeatMap';
@@ -60,7 +60,7 @@ export default function TicketSelectionPage() {
     setLoading(true);
     api.get<EventDetail>(`/events/${params.id}`)
       .then((res) => { if (!active) return; setEvent(res.data); if (res.data.tickets?.length) setSelectedTicket(res.data.tickets[0]); })
-      .catch(() => { if (active) setLoadError(t.ts_load_failed); })
+      .catch(() => { if (active) setLoadError('ts_load_failed'); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [params.id]);
@@ -225,7 +225,7 @@ export default function TicketSelectionPage() {
   };
 
   if (loading) return <div className="tsp-loading"><div className="edp-spinner" /><span>{t.loading}</span></div>;
-  if (loadError || !event) return <div className="tsp-error"><p>{loadError || t.ts_event_not_found}</p><Link href={`/events/${params.id}`} className="tsp-error__link">{t.ts_back_to_event_page}</Link></div>;
+  if (loadError || !event) return <div className="tsp-error"><p>{loadError ? tr(t, loadError) : t.ts_event_not_found}</p><Link href={`/events/${params.id}`} className="tsp-error__link">{t.ts_back_to_event_page}</Link></div>;
   // Block direct-URL access to seat selection before sales open or after the
   // event has ended (backend also enforces this).
   if (!isOnSale(event)) return (

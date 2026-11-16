@@ -6,6 +6,7 @@ import Link from 'next/link';
 
 import api from '@/lib/api';
 import { formatCurrencyVND } from '@/lib/format';
+import { useTranslation, fmt, tr } from '@/lib/i18n';
 
 interface ReturnResult {
   success: boolean;
@@ -17,6 +18,7 @@ interface ReturnResult {
 }
 
 function VnpayReturnContent() {
+  const { t } = useTranslation();
   const searchParams = useSearchParams();
   const [result, setResult] = useState<ReturnResult | null>(null);
   const [loading, setLoading] = useState(true);
@@ -28,7 +30,7 @@ function VnpayReturnContent() {
     });
 
     if (!params['vnp_TxnRef']) {
-      setResult({ success: false, message: 'Không có thông tin thanh toán.' });
+      setResult({ success: false, message: 'pr_no_info' });
       setLoading(false);
       return;
     }
@@ -37,7 +39,7 @@ function VnpayReturnContent() {
       .get('/payments/vnpay/return', { params })
       .then((res) => setResult(res.data))
       .catch(() =>
-        setResult({ success: false, message: 'Không thể xác minh thanh toán.' }),
+        setResult({ success: false, message: 'pr_verify_failed' }),
       )
       .finally(() => setLoading(false));
   }, [searchParams]);
@@ -50,7 +52,7 @@ function VnpayReturnContent() {
             width: 40, height: 40, border: '3px solid var(--border-input)', borderTopColor: 'var(--text-primary)',
             borderRadius: '50%', animation: 'spin 0.7s linear infinite', margin: '0 auto 16px',
           }} />
-          <p style={{ fontSize: 15, color: 'var(--text-tertiary)' }}>Đang xác minh thanh toán...</p>
+          <p style={{ fontSize: 15, color: 'var(--text-tertiary)' }}>{t.pr_verifying}</p>
         </div>
         <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       </main>
@@ -79,11 +81,11 @@ function VnpayReturnContent() {
             </div>
 
             <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 8px' }}>
-              Thanh toán thành công!
+              {t.pr_success}
             </h1>
 
             <p style={{ fontSize: 14, color: 'var(--text-tertiary)', margin: '0 0 20px', lineHeight: 1.5 }}>
-              Cảm ơn bạn đã mua vé. Vé của bạn đã được xác nhận.
+              {t.pr_thanks}
             </p>
 
             {result.amount && (
@@ -92,22 +94,22 @@ function VnpayReturnContent() {
                 margin: '0 0 20px', border: '1px solid var(--border-secondary)',
               }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                  <span style={{ fontSize: 13, color: 'var(--text-tertiary)' }}>Mã đơn hàng</span>
+                  <span style={{ fontSize: 13, color: 'var(--text-tertiary)' }}>{t.pr_order_id}</span>
                   <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'monospace' }}>
                     {result.orderId}
                   </span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                  <span style={{ fontSize: 13, color: 'var(--text-tertiary)' }}>Số lượng vé</span>
+                  <span style={{ fontSize: 13, color: 'var(--text-tertiary)' }}>{t.pr_ticket_count}</span>
                   <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>
-                    {result.reservationIds?.length || 0} vé
+                    {fmt(t.co_n_tickets, { n: result.reservationIds?.length || 0 })}
                   </span>
                 </div>
                 <div style={{
                   borderTop: '1px solid var(--border-input)', paddingTop: 8, marginTop: 4,
                   display: 'flex', justifyContent: 'space-between',
                 }}>
-                  <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-secondary)' }}>Tổng tiền</span>
+                  <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-secondary)' }}>{t.pr_total}</span>
                   <span style={{ fontSize: 16, fontWeight: 800, color: 'var(--text-primary)' }}>
                     {formatCurrencyVND(result.amount)}
                   </span>
@@ -124,7 +126,7 @@ function VnpayReturnContent() {
                   transition: 'opacity 0.15s',
                 }}
               >
-                Xem vé của tôi
+                {t.co_view_my_tickets}
               </Link>
               <Link
                 href="/"
@@ -134,7 +136,7 @@ function VnpayReturnContent() {
                   textDecoration: 'none', transition: 'opacity 0.15s',
                 }}
               >
-                Trang chủ
+                {t.pr_home}
               </Link>
             </div>
           </>
@@ -152,16 +154,16 @@ function VnpayReturnContent() {
             </div>
 
             <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 8px' }}>
-              Thanh toán thất bại
+              {t.pr_failed}
             </h1>
 
             <p style={{ fontSize: 14, color: 'var(--text-tertiary)', margin: '0 0 24px', lineHeight: 1.5 }}>
-              {result.message}
+              {tr(t, result.message)}
             </p>
 
             {result.responseCode && result.responseCode !== '00' && (
               <p style={{ fontSize: 12, color: 'var(--text-quaternary)', margin: '0 0 20px' }}>
-                Mã lỗi: {result.responseCode}
+                {t.pr_error_code} {result.responseCode}
               </p>
             )}
 
@@ -173,7 +175,7 @@ function VnpayReturnContent() {
                   fontSize: 14, fontWeight: 600, textDecoration: 'none',
                 }}
               >
-                Về trang chủ
+                {t.co_back_home}
               </Link>
             </div>
           </>
@@ -181,7 +183,7 @@ function VnpayReturnContent() {
 
         {/* VNPay attribution */}
         <p style={{ fontSize: 11, color: '#b0b6c1', marginTop: 28 }}>
-          Thanh toán được xử lý bởi VNPay
+          {fmt(t.pr_processed_by, { gateway: 'VNPay' })}
         </p>
       </div>
     </main>

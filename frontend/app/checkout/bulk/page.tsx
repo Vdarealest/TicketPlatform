@@ -7,7 +7,7 @@ import Link from 'next/link';
 import api, { apiErrorMessage } from '@/lib/api';
 import { formatCurrencyVND } from '@/lib/format';
 import { cdnImage } from '@/lib/image';
-import { useTranslation, fmt } from '@/lib/i18n';
+import { useTranslation, fmt, tr } from '@/lib/i18n';
 
 interface ReservationItem {
   id: number;
@@ -71,12 +71,12 @@ function BulkCheckoutContent() {
   }, []);
 
   useEffect(() => {
-    if (!ids.length) { setLoadError(t.co_no_reservations); setLoading(false); return; }
+    if (!ids.length) { setLoadError('co_no_reservations'); setLoading(false); return; }
     let active = true;
     setLoading(true);
     api.post('/reservations/bulk/details', { ids, guestToken })
       .then((res) => { if (active) setReservations(res.data); })
-      .catch(() => { if (active) setLoadError(t.co_load_failed); })
+      .catch(() => { if (active) setLoadError('co_load_failed'); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [idsParam]);
@@ -151,7 +151,7 @@ function BulkCheckoutContent() {
   if (loadError || !reservations.length) {
     return (
       <div className="tsp-error">
-        <p>{loadError || t.co_not_found}</p>
+        <p>{loadError ? tr(t, loadError) : t.co_not_found}</p>
         <Link href="/" className="tsp-error__link">{t.co_back_home}</Link>
       </div>
     );
